@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { HelpCircle, RotateCcw, MessageSquare } from 'lucide-react';
+import { HelpCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
 import ChatInput from './ChatInput';
@@ -126,16 +125,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
       // Update conversation context
       setConversationContext(conversationalLawSearch.getConversationContext());
 
-      // Add suggestions if available
-      if (response.suggestions && response.suggestions.length > 0) {
-        const suggestionsMsg: ChatMessageType = {
-          id: `suggestions-${Date.now()}`,
-          type: 'system',
-          content: 'You might also want to ask:',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, suggestionsMsg]);
-      }
 
     } catch (error) {
       console.error('Failed to process message:', error);
@@ -163,9 +152,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
     }
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    handleSendMessage(suggestion);
-  };
 
   const handleToggleExpand = (articleNumber: number) => {
     const newExpanded = new Set(expandedArticles);
@@ -208,35 +194,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
     setMessages(prev => [...prev, helpMessage]);
   };
 
-  // Get suggestions from the last assistant message
-  const getLastSuggestions = (): string[] => {
-    const lastAssistantMsg = [...messages].reverse().find(msg => 
-      msg.type === 'assistant' && msg.searchResults && msg.searchResults.length > 0
-    );
-    
-    if (lastAssistantMsg && lastAssistantMsg.searchResults) {
-      const suggestions: string[] = [];
-      const results = lastAssistantMsg.searchResults;
-      
-      if (results.length > 0) {
-        const topResult = results[0];
-        suggestions.push(`Tell me more about ${topResult.title.toLowerCase()}`);
-        
-        if (topResult.tags.length > 0) {
-          suggestions.push(`What are the ${topResult.tags[0]} provisions?`);
-        }
-      }
-      
-      suggestions.push("What are the key points of this law?");
-      suggestions.push("How does this relate to other rights?");
-      
-      return suggestions;
-    }
-    
-    return [];
-  };
-
-  const lastSuggestions = getLastSuggestions();
 
   // Check if there are any user messages (excluding welcome message)
   const hasUserMessages = messages.some(msg => msg.type === 'user');
@@ -244,7 +201,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
   return (
     <div className={`flex flex-col h-screen bg-white ${className}`}>
       {/* Top Bar with Actions - Hidden on mobile */}
-      <div className="hidden md:flex items-center justify-end p-4 border-b border-gray-200 bg-white">
+      <div className="hidden md:flex items-center justify-end p-4 border-b border-gray-200 bg-white sticky top-0 z-20">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -280,12 +237,14 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
                 I am your mobile law assistant on South Sudan laws and penal codes.
               </p>
             </div>
-            <ChatInput
-              onSendMessage={handleSendMessage}
-              isLoading={isLoading}
-              placeholder="Ask me anything about South Sudan laws..."
-              disabled={isLoading}
-            />
+            <div className="sticky bottom-4 z-20">
+              <ChatInput
+                onSendMessage={handleSendMessage}
+                isLoading={isLoading}
+                placeholder="Ask me anything about South Sudan laws..."
+                disabled={isLoading}
+              />
+            </div>
           </div>
         </div>
       ) : (
@@ -293,7 +252,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
         <>
           {/* Messages Area */}
           <ScrollArea className="flex-1 bg-white">
-            <div className="max-w-3xl mx-auto px-4 py-6">
+            <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}
@@ -303,40 +262,13 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat 
                 />
               ))}
               
-              {/* Suggestions */}
-              {lastSuggestions.length > 0 && (
-                <div className="flex justify-start mb-4">
-                  <div className="max-w-[85%] space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-[#10a37f] rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-medium text-white">💡</span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg px-3 py-2">
-                        <p className="text-sm text-gray-600 mb-2">You might also want to ask:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {lastSuggestions.slice(0, 3).map((suggestion, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="cursor-pointer hover:bg-primary/10 transition-colors text-xs"
-                              onClick={() => handleSuggestionClick(suggestion)}
-                            >
-                              {suggestion}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
               
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
 
           {/* Input Area - Bottom */}
-          <div className="border-t border-gray-200 bg-white p-4">
+          <div className="border-t border-gray-200 bg-white p-4 sticky bottom-0 z-20">
             <div className="max-w-3xl mx-auto">
               <ChatInput
                 onSendMessage={handleSendMessage}
