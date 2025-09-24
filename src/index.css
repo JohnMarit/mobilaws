@@ -1,0 +1,236 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* South Sudan Constitution Search App Design System
+   Inspired by South Sudan's colors with modern, accessible design
+   All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Core brand colors inspired by South Sudan */
+    --brand: 212 100% 27%;         /* Deep blue from flag */
+    --brand-light: 212 60% 45%;    /* Lighter blue */
+    --accent: 142 72% 29%;         /* Green from flag */
+    --accent-light: 142 45% 40%;   /* Lighter green */
+    --warning: 357 75% 47%;        /* Red from flag */
+    
+    /* Neutral palette */
+    --background: 0 0% 100%;
+    --foreground: 225 15% 15%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 225 15% 15%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 15% 15%;
+    
+    /* Primary uses brand color */
+    --primary: 212 100% 27%;
+    --primary-foreground: 0 0% 98%;
+    
+    /* Secondary with subtle tint */
+    --secondary: 212 20% 96%;
+    --secondary-foreground: 212 100% 27%;
+    
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8.9% 46.1%;
+    
+    /* Accent uses green */
+    --accent: 142 72% 29%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 357 75% 47%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 212 100% 27%;
+    
+    --radius: 0.75rem;
+    
+    /* Search-specific colors */
+    --highlight: 45 100% 80%;      /* Yellow highlight for search terms */
+    --hero-gradient: linear-gradient(135deg, hsl(212 100% 27%), hsl(212 60% 45%));
+    --card-shadow: 220 25% 25% / 0.08;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --brand: 212 60% 65%;
+    --brand-light: 212 40% 75%;
+    --accent: 142 45% 55%;
+    --accent-light: 142 35% 65%;
+    --warning: 357 65% 65%;
+    
+    --background: 225 25% 8%;
+    --foreground: 220 15% 95%;
+    
+    --card: 225 20% 12%;
+    --card-foreground: 220 15% 95%;
+    
+    --popover: 225 20% 12%;
+    --popover-foreground: 220 15% 95%;
+    
+    --primary: 212 60% 65%;
+    --primary-foreground: 225 25% 8%;
+    
+    --secondary: 225 15% 18%;
+    --secondary-foreground: 220 15% 95%;
+    
+    --muted: 225 15% 18%;
+    --muted-foreground: 220 15% 65%;
+    
+    --accent: 142 45% 55%;
+    --accent-foreground: 225 25% 8%;
+    
+    --destructive: 357 65% 65%;
+    --destructive-foreground: 225 25% 8%;
+    
+    --border: 225 15% 22%;
+    --input: 225 15% 22%;
+    --ring: 212 60% 65%;
+    
+    --highlight: 45 85% 60%;
+    --hero-gradient: linear-gradient(135deg, hsl(212 60% 25%), hsl(212 40% 35%));
+    --card-shadow: 220 50% 5% / 0.15;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  
+  /* Search highlight styling - simple light yellow background */
+  mark {
+    background-color: #fef3c7; /* Light yellow */
+    color: inherit;
+    padding: 0;
+    border-radius: 2px;
+  }
+  
+  /* All search highlights use the same simple styling */
+  mark.exact-search,
+  mark.exact-match,
+  mark.partial-match {
+    background-color: #fef3c7; /* Light yellow */
+    color: inherit;
+    padding: 0;
+    border-radius: 2px;
+    box-shadow: none;
+    border: none;
+    text-shadow: none;
+    transform: none;
+    display: inline;
+    margin: 0;
+  }
+  
+  /* Dark mode - slightly darker yellow */
+  .dark mark,
+  .dark mark.exact-search,
+  .dark mark.exact-match,
+  .dark mark.partial-match {
+    background-color: #fbbf24; /* Darker yellow for dark mode */
+    color: inherit;
+  }
+  
+  /* Smooth scrolling for deep links */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Mobile-specific optimizations */
+  @media (max-width: 640px) {
+    /* Ensure search input is easily tappable on mobile */
+    .search-input-mobile {
+      font-size: 16px; /* Prevents zoom on iOS */
+      min-height: 44px; /* Apple's recommended touch target size */
+    }
+    
+    /* Improve badge readability on small screens */
+    .badge-mobile {
+      font-size: 0.75rem;
+      line-height: 1.2;
+      padding: 0.25rem 0.5rem;
+    }
+    
+    /* Better spacing for mobile hero section */
+    .hero-mobile {
+      padding-top: 1.5rem;
+      padding-bottom: 1.5rem;
+    }
+    
+    /* Ensure text doesn't get too small on mobile */
+    .text-mobile-safe {
+      font-size: clamp(0.875rem, 2.5vw, 1rem);
+    }
+  }
+  
+  /* Extra small screens (phones in portrait) */
+  @media (max-width: 480px) {
+    /* Further reduce spacing for very small screens */
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    /* Make search bar more compact */
+    .search-compact {
+      height: 2.75rem;
+      font-size: 0.875rem;
+    }
+    
+    /* Adjust hero text for very small screens */
+    .hero-title-mobile {
+      font-size: 1.5rem;
+      line-height: 1.3;
+    }
+    
+    .hero-subtitle-mobile {
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+  }
+
+  /* Print styles for article printing */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    
+    .print-article {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+}
