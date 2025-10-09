@@ -1,0 +1,19 @@
+# Copy these environment variables to Vercel Dashboard
+# Go to: https://vercel.com/dashboard → Your Project → Settings → Environment Variables
+
+VITE_GOOGLE_CLIENT_ID=843281701937-m1qi0rt6q7r33h45801n0nueu44krod8.apps.googleusercontent.com
+VITE_FIREBASE_API_KEY=AIzaSyDvGE_on74GR18QQrDyx8OdrKEEneD7DpI
+VITE_FIREBASE_AUTH_DOMAIN=mobilaws-46056.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=mobilaws-46056
+VITE_FIREBASE_STORAGE_BUCKET=mobilaws-46056.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=843281701937
+VITE_FIREBASE_APP_ID=1:843281701937:web:9b1227398de4a9384ec910
+VITE_BACKEND_URL=http://localhost:8000
+
+# For each variable above:
+# 1. Click "Add New" in Vercel
+# 2. Enter the Name (left side of =)
+# 3. Enter the Value (right side of =)
+# 4. Select: Production, Preview, Development (all three)
+# 5. Click Save
+
