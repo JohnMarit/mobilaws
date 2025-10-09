@@ -1,0 +1,14 @@
+// ⚠️ DEPRECATED - DO NOT USE
+// This file directly exposed OpenAI API keys in the browser (SECURITY RISK)
+// Use backend-service.ts instead, which connects to the secure backend
+
+// This file has been renamed to prevent accidental use
+// The frontend now uses the secure backend at ai-backend/ for all AI operations
+// No API keys are exposed in the browser anymore
+
+export const DEPRECATED_MESSAGE = `
+This service is deprecated for security reasons.
+Use backendService from '@/lib/backend-service' instead.
+`;
+
+

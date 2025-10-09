@@ -477,6 +477,14 @@ class ConversationalLawSearch extends LawSearch {
       this.conversationContext = context;
     }
 
+    // Check for follow-up queries (yes, tell me more, explain, etc.)
+    const isFollowUp = this.isFollowUpQuery(query);
+    
+    if (isFollowUp && this.conversationContext.mentionedArticles.length > 0) {
+      // User wants more details about previously mentioned articles
+      return this.handleFollowUpQuery(query);
+    }
+
     // Add to conversation context
     this.conversationContext.previousQueries.push(query);
 
@@ -497,6 +505,61 @@ class ConversationalLawSearch extends LawSearch {
     this.conversationContext.mentionedArticles = searchResults.map(r => r.article);
     
     return response;
+  }
+
+  private isFollowUpQuery(query: string): boolean {
+    const lowerQuery = query.toLowerCase().trim();
+    const followUpPhrases = [
+      'yes', 'yeah', 'sure', 'ok', 'okay', 'go ahead', 'please',
+      'tell me more', 'explain more', 'continue', 'elaborate',
+      'what else', 'more details', 'more info', 'explain further',
+      'yes please', 'sure please', 'go on'
+    ];
+    
+    return followUpPhrases.some(phrase => lowerQuery === phrase || lowerQuery.startsWith(phrase));
+  }
+
+  private handleFollowUpQuery(query: string): ChatResponse {
+    // Get the last mentioned article
+    const lastArticleNum = this.conversationContext.mentionedArticles[0];
+    const article = this.getArticleByNumber(lastArticleNum);
+    
+    if (!article) {
+      return {
+        message: "I apologize, I seem to have lost track of our conversation. Could you please ask your question again?",
+        searchResults: [],
+        suggestions: []
+      };
+    }
+
+    // Provide a detailed explanation
+    const detailedExplanation = this.generateDetailedExplanation(article);
+    
+    return {
+      message: detailedExplanation,
+      searchResults: [],
+      suggestions: [
+        "Can you explain this in simpler terms?",
+        "Are there related articles I should know about?",
+        "What are the practical implications of this?"
+      ]
+    };
+  }
+
+  private generateDetailedExplanation(article: LawArticle): string {
+    // Clean up the article text for better readability
+    const cleanText = article.text
+      .replace(/^\(\d+\)\s*/gm, '\n\n• ') // Convert (1), (2) to bullet points
+      .replace(/^\([a-z]\)\s*/gm, '\n  - ') // Convert (a), (b) to sub-bullets
+      .trim();
+    
+    return `Let me break down **Article ${article.article}** (${article.title}) for you:
+
+${cleanText}
+
+**In simpler terms:** This article establishes the fundamental framework and protections. It ensures that these rights are not just written on paper but are actively protected and enforced by the courts and government institutions.
+
+Is there any specific part of this you'd like me to clarify?`;
   }
 
   private analyzeIntent(query: string): 'search' | 'explain' | 'compare' | 'general' | 'fulltext' {
@@ -576,7 +639,7 @@ class ConversationalLawSearch extends LawSearch {
 
     return {
       message,
-      searchResults: results.slice(0, 5), // Limit to 5 most relevant results
+      searchResults: [], // Don't show article cards - keep response clean
       suggestions,
       context: this.conversationContext.currentTopic
     };
@@ -586,72 +649,97 @@ class ConversationalLawSearch extends LawSearch {
     const topResult = results[0];
     const articleNum = topResult.article;
     
-    // Generate a concise summary instead of showing full article
+    // Generate a concise summary
     const summary = this.generateArticleSummary(topResult, query);
     
-    return `Based on Article ${articleNum} (${topResult.title}), here's what I found:\n\n${summary}\n\nWould you like me to show you the full article text?`;
+    return `Great question! **Article ${articleNum}** (${topResult.title}) addresses this.
+
+**What it says:** ${summary}
+
+**In essence:** This article ensures that the rights and protections outlined in the Constitution are not just theoretical - they're enforceable and protected by the government and courts. It makes these rights real and actionable for every citizen.
+
+Would you like me to explain this further or break down any specific part?`;
   }
 
   private generateComparisonResponse(query: string, results: SearchResult[]): string {
     if (results.length < 2) {
-      return `I found one relevant article for your comparison question. Here's what Article ${results[0].article} says about this topic.`;
+      const article = results[0];
+      const summary = this.generateArticleSummary(article, query);
+      return `I found **Article ${article.article}** (${article.title}) that's relevant to your question. ${summary}
+
+Is there a specific aspect you'd like me to elaborate on?`;
     }
     
-    const articles = results.slice(0, 2).map(r => `Article ${r.article}`);
-    return `I found relevant information in ${articles.join(' and ')}. Let me show you both articles so you can compare their provisions.`;
+    const article1 = results[0];
+    const article2 = results[1];
+    return `I found two key articles that address your question:
+
+**Article ${article1.article}** covers ${article1.title.toLowerCase()}, while **Article ${article2.article}** addresses ${article2.title.toLowerCase()}. 
+
+Both articles are related to your question. Let me show you the details so you can see how they compare.`;
   }
 
   private generateSearchResponse(query: string, results: SearchResult[]): string {
-    const count = results.length;
-    const articleNumbers = results.slice(0, 3).map(r => r.article);
+    const topResult = results[0];
+    const summary = this.generateArticleSummary(topResult, query);
     
-    if (count === 1) {
-      const topResult = results[0];
-      const summary = this.generateArticleSummary(topResult, query);
-      return `I found Article ${topResult.article} (${topResult.title}):\n\n${summary}\n\nWould you like me to show you the full article text?`;
-    } else if (count <= 3) {
-      return `I found ${count} relevant articles: ${articleNumbers.join(', ')}. Here are the details:`;
-    } else {
-      return `I found ${count} articles related to your search. Here are the most relevant ones:`;
-    }
+    return `**Article ${topResult.article}** (${topResult.title}) addresses what you're asking about:
+
+${summary}
+
+Would you like me to explain any particular article further?`;
   }
 
   private generateGeneralResponse(query: string, results: SearchResult[]): string {
-    const count = results.length;
     const topResult = results[0];
+    const summary = this.generateArticleSummary(topResult, query);
     
-    if (count === 1) {
-      const summary = this.generateArticleSummary(topResult, query);
-      return `I found Article ${topResult.article} (${topResult.title}) that addresses your question about "${query}":\n\n${summary}\n\nWould you like me to show you the full article text?`;
-    }
-    
-    return `I found ${count} articles related to your question. Here's what the law says about "${query}":`;
+    return `Here's what the South Sudan Constitution says about your question:
+
+**Article ${topResult.article}** (${topResult.title})
+
+${summary}
+
+**What this means:** This provision establishes the key principles and protections related to your question. It's part of the constitutional framework that ensures these rights are protected and enforceable.
+
+Would you like me to explain this in more detail or clarify any specific aspect?`;
   }
 
   private generateArticleSummary(article: SearchResult, query: string): string {
-    // Extract key sentences from the article text
-    const sentences = article.text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+    // Clean up the article text - remove section numbers and legal formatting
+    let text = article.text
+      .replace(/^\(\d+\)\s*/gm, '') // Remove (1), (2), etc.
+      .replace(/^\([a-z]\)\s*/gm, '') // Remove (a), (b), etc.
+      .replace(/\s+/g, ' ') // Clean up whitespace
+      .trim();
     
-    // Find sentences that are most relevant to the query
-    const queryWords = query.toLowerCase().split(/\s+/).filter(word => word.length > 3);
-    const relevantSentences = sentences
-      .map(sentence => ({
-        sentence: sentence.trim(),
-        relevance: queryWords.reduce((score, word) => 
-          sentence.toLowerCase().includes(word) ? score + 1 : score, 0
-        )
-      }))
-      .filter(item => item.relevance > 0)
-      .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 2)
-      .map(item => item.sentence);
-
-    if (relevantSentences.length > 0) {
-      return relevantSentences.join('. ') + '.';
+    // Extract key sentences (first 2-3 complete thoughts)
+    const sentences = text.split(/[.;]+/).filter(s => s.trim().length > 30);
+    
+    // Get the most important sentences (usually first 2)
+    const keySentences = sentences.slice(0, 2);
+    
+    // Create a natural, conversational summary
+    let summary = keySentences.join('. ').trim();
+    
+    // Make it more readable - remove excessive legal jargon if too long
+    if (summary.length > 300) {
+      summary = summary.substring(0, 280).trim();
+      // Find the last complete sentence
+      const lastPeriod = summary.lastIndexOf('.');
+      if (lastPeriod > 100) {
+        summary = summary.substring(0, lastPeriod + 1);
+      } else {
+        summary += '...';
+      }
     }
-
-    // Fallback: return first 2-3 sentences
-    return sentences.slice(0, 2).join('. ') + '.';
+    
+    // Ensure it ends properly
+    if (!summary.endsWith('.') && !summary.endsWith('...')) {
+      summary += '.';
+    }
+    
+    return summary;
   }
 
   private generateFollowUpSuggestions(results: SearchResult[]): string[] {
@@ -740,13 +828,13 @@ class ConversationalLawSearch extends LawSearch {
   }
 
   // Generate welcome message
-  getWelcomeMessage(): string {
-    return "Hello! I am your law assistant, ask me anything about South Sudan laws and I'll help you find the information you need. I can help you find and understand legal provisions from the Transitional Constitution and other laws. What would you like to know?";
+  getWelcomeMessage(counselName: string = 'Deng'): string {
+    return `Hello! 👋 I'm Counsel ${counselName}, your South Sudan law assistant. I'm here to help you understand the Constitution and legal provisions in a clear, conversational way.\n\nYou can ask me anything - like "What are the fundamental rights?" or "Tell me about citizenship requirements." I'll explain the law in plain language and show you the relevant articles.\n\nWhat would you like to know about South Sudan law?`;
   }
 
   // Generate help message
   getHelpMessage(): string {
-    return "I can help you with:\n\n• Finding specific articles by number or keyword\n• Explaining legal concepts and provisions\n• Comparing different articles\n• Answering questions about South Sudan law\n\nTry asking me something like 'What are the fundamental rights?' or 'Tell me about Article 25'.";
+    return "I can help you with:\n\n• 📚 **Finding Articles**: Search by number or topic (e.g., \"Article 23\" or \"freedom of speech\")\n• 💡 **Explanations**: I'll break down complex legal language into clear terms\n• ⚖️ **Understanding Rights**: Learn about constitutional rights and freedoms\n• 🔍 **Legal Research**: Find relevant laws for your specific questions\n\n**Try asking:**\n- \"What are the fundamental rights in South Sudan?\"\n- \"Tell me about citizenship laws\"\n- \"Explain Article 14\"\n- \"What does the constitution say about education?\"\n\nI'm here to make South Sudan law accessible to everyone!";
   }
 }
 

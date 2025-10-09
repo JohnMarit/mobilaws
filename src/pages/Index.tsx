@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Loader2, FileText, MessageSquare, Menu, HelpCircle, RotateCcw } from 'lucide-react';
+import { Loader2, Menu, HelpCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
+import CounselNameSelector from '@/components/CounselNameSelector';
 import { useChatContext } from '@/contexts/ChatContext';
+import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,6 +22,7 @@ const Index = () => {
     deleteChat, 
     renameChat 
   } = useChatContext();
+  const { setShowSubscriptionModal } = usePromptLimit();
 
   // Close mobile sidebar when chat is selected
   const handleSelectChat = (chatId: string) => {
@@ -31,21 +34,27 @@ const Index = () => {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        console.log('Initializing law search system...');
         await conversationalLawSearch.initialize();
-        console.log('Chatbot initialized successfully');
+        console.log('✅ Chatbot initialized successfully');
       } catch (error) {
-        console.error('Failed to initialize chatbot:', error);
-        toast({
-          title: "Error loading law data",
-          description: "Failed to load law data. Please refresh the page.",
-          variant: "destructive",
-        });
+        console.error('❌ Failed to initialize chatbot:', error);
+        // Don't show error toast immediately - let the app load anyway
+        console.warn('⚠️ Continuing without law data - app will still work');
       } finally {
         setIsLoading(false);
       }
     };
 
-    initializeApp();
+    // Add a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ Law search initialization timeout - continuing anyway');
+      setIsLoading(false);
+    }, 5000); // 5 second timeout
+
+    initializeApp().finally(() => {
+      clearTimeout(timeoutId);
+    });
   }, [toast]);
 
 
@@ -89,20 +98,24 @@ const Index = () => {
         onRenameChat={renameChat}
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
+        onManageSubscription={() => setShowSubscriptionModal(true)}
       />
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative">
         {/* Mobile Header - Only visible on mobile */}
         <div className="md:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-30">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-            className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+            <CounselNameSelector className="text-xs" />
+          </div>
           <div className="flex items-center gap-2">
             <img src="/mobilogo.png" alt="Mobilaws Logo" className="h-5 w-5" />
             <h2 className="text-lg font-semibold text-gray-900">Mobilaws</h2>
@@ -112,7 +125,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={handleMobileShowHelp}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100"
+              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             >
               <HelpCircle className="h-4 w-4" />
             </Button>
@@ -120,7 +133,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={handleMobileClearChat}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100"
+              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             >
               <RotateCcw className="h-4 w-4" />
             </Button>

@@ -182,7 +182,7 @@ export default function SearchBar({
                 setActiveLawSource('');
                 onFilterChange({ tags: [] });
               }}
-              className="h-6 text-xs px-2"
+              className="h-6 text-xs px-2 hover:text-gray-900"
             >
               Clear filters
             </Button>

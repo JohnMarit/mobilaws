@@ -1,18 +1,54 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- Security Headers -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://accounts.google.com https://www.gstatic.com;
+      style-src 'self' 'unsafe-inline' https://accounts.google.com;
+      img-src 'self' data: https: blob:;
+      font-src 'self' data:;
+      connect-src 'self' https://www.google-analytics.com https://accounts.google.com http://localhost:* ws://localhost:*;
+      frame-src 'self' https://accounts.google.com;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self' https://accounts.google.com;
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+    ">
+    
+    <!-- Additional Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    
+    <!-- Permissions Policy -->
+    <meta http-equiv="Permissions-Policy" content="
+      geolocation=(),
+      microphone=(),
+      camera=(),
+      payment=(),
+      usb=(),
+      magnetometer=(),
+      gyroscope=(),
+      accelerometer=()
+    " />
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JDZ9GD0VRH"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-JDZ9GD0VRH');
     </script>
     
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/mobilogo.png" />
     <title>South Sudan Constitution Search - Instant Article Finder</title>
     <meta name="description" content="Search and read articles from the Constitution of the Republic of South Sudan. Instant access to fundamental rights, citizenship laws, and constitutional provisions." />

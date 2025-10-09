@@ -1,0 +1,347 @@
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { saveUserToFirestore, getUserFromFirestore } from '@/lib/userService';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+  subscription?: {
+    planId: string;
+    tokensRemaining: number;
+    tokensUsed: number;
+    totalTokens: number;
+    isActive: boolean;
+  };
+}
+
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: () => Promise<void>;
+  loginWithEmail?: (email: string, password: string) => Promise<void>;
+  registerWithEmail?: (email: string, password: string, name: string) => Promise<void>;
+  loginWithGithub?: () => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [firebaseAvailable, setFirebaseAvailable] = useState(false);
+
+  // Check if Firebase is available
+  useEffect(() => {
+    const checkFirebase = async () => {
+      try {
+        await import('firebase/app');
+        setFirebaseAvailable(true);
+        console.log('✅ Firebase available - using Firebase Auth');
+        initializeFirebaseAuth();
+      } catch (error) {
+        console.warn('⚠️ Firebase not installed - using fallback Google OAuth');
+        setFirebaseAvailable(false);
+        initializeGoogleAuth();
+      }
+    };
+
+    checkFirebase();
+  }, []);
+
+  // Firebase Authentication
+  const initializeFirebaseAuth = async () => {
+    try {
+      const { onAuthStateChanged } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+
+      if (!auth) {
+        throw new Error('Firebase auth not initialized');
+      }
+
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          const userData: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            email: firebaseUser.email || '',
+            picture: firebaseUser.photoURL || undefined,
+          };
+          
+          // Save user data to Firestore backend
+          try {
+            await saveUserToFirestore(userData);
+            
+            // Try to get updated user data from Firestore (including subscription info)
+            const firestoreUser = await getUserFromFirestore(userData.id);
+            if (firestoreUser) {
+              // Merge Firestore data with auth data
+              setUser(firestoreUser);
+              localStorage.setItem('user', JSON.stringify(firestoreUser));
+            } else {
+              setUser(userData);
+              localStorage.setItem('user', JSON.stringify(userData));
+            }
+          } catch (error) {
+            console.error('Error syncing user with Firestore:', error);
+            // Fallback to local data if Firestore fails
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+          }
+          
+          console.log('✅ User authenticated:', userData.name);
+        } else {
+          setUser(null);
+          localStorage.removeItem('user');
+        }
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error initializing Firebase auth:', error);
+      initializeGoogleAuth();
+    }
+  };
+
+  // Fallback Google OAuth (original implementation)
+  const initializeGoogleAuth = () => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (typeof window !== 'undefined' && window.google) {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        
+        if (clientId) {
+          try {
+            window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: handleCredentialResponse,
+              auto_select: false,
+              cancel_on_tap_outside: false,
+            });
+            console.log('✅ Google OAuth initialized successfully');
+          } catch (error) {
+            console.error('❌ Error initializing Google OAuth:', error);
+          }
+        }
+      }
+    };
+    document.head.appendChild(script);
+
+    // Check for existing session
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        console.error('Error parsing saved user:', error);
+        localStorage.removeItem('user');
+      }
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleCredentialResponse = useCallback(async (response: any) => {
+    try {
+      const payload = JSON.parse(atob(response.credential.split('.')[1]));
+      const userData: User = {
+        id: payload.sub,
+        name: payload.name,
+        email: payload.email,
+        picture: payload.picture,
+      };
+      
+      // Save user data to Firestore backend (fallback OAuth)
+      try {
+        await saveUserToFirestore(userData);
+        
+        // Try to get updated user data from Firestore (including subscription info)
+        const firestoreUser = await getUserFromFirestore(userData.id);
+        if (firestoreUser) {
+          setUser(firestoreUser);
+          localStorage.setItem('user', JSON.stringify(firestoreUser));
+        } else {
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      } catch (error) {
+        console.error('Error syncing user with Firestore:', error);
+        // Fallback to local data if Firestore fails
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      console.log('✅ User logged in successfully:', userData.name);
+    } catch (error) {
+      console.error('❌ Error processing login response:', error);
+    }
+  }, []);
+
+  const login = useCallback(async () => {
+    if (firebaseAvailable) {
+      // Firebase login
+      try {
+        const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        
+        if (!auth) throw new Error('Firebase auth not available');
+        
+        const provider = new GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        
+        await signInWithPopup(auth, provider);
+        console.log('✅ Firebase Google login successful');
+      } catch (error) {
+        console.error('❌ Firebase login failed:', error);
+        throw error;
+      }
+    } else {
+      // Fallback Google OAuth
+      if (typeof window !== 'undefined' && window.google && window.google.accounts) {
+        try {
+          window.google.accounts.id.prompt();
+        } catch (error) {
+          console.error('Error triggering Google login:', error);
+        }
+      }
+    }
+  }, [firebaseAvailable]);
+
+  const loginWithEmail = useCallback(async (email: string, password: string) => {
+    if (!firebaseAvailable) {
+      throw new Error('Email login requires Firebase');
+    }
+
+    try {
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      if (!auth) throw new Error('Firebase auth not available');
+      
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log('✅ Email login successful');
+    } catch (error) {
+      console.error('❌ Email login failed:', error);
+      throw error;
+    }
+  }, [firebaseAvailable]);
+
+  const registerWithEmail = useCallback(async (email: string, password: string, name: string) => {
+    if (!firebaseAvailable) {
+      throw new Error('Email registration requires Firebase');
+    }
+
+    try {
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      if (!auth) throw new Error('Firebase auth not available');
+      
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(result.user, { displayName: name });
+      console.log('✅ Email registration successful');
+    } catch (error) {
+      console.error('❌ Email registration failed:', error);
+      throw error;
+    }
+  }, [firebaseAvailable]);
+
+  const loginWithGithub = useCallback(async () => {
+    if (!firebaseAvailable) {
+      throw new Error('GitHub login requires Firebase');
+    }
+
+    try {
+      const { signInWithPopup, GithubAuthProvider } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      
+      if (!auth) throw new Error('Firebase auth not available');
+      
+      const provider = new GithubAuthProvider();
+      provider.addScope('user:email');
+      
+      await signInWithPopup(auth, provider);
+      console.log('✅ GitHub login successful');
+    } catch (error) {
+      console.error('❌ GitHub login failed:', error);
+      throw error;
+    }
+  }, [firebaseAvailable]);
+
+  const logout = useCallback(async () => {
+    if (firebaseAvailable) {
+      try {
+        const { signOut } = await import('firebase/auth');
+        const { auth } = await import('@/lib/firebase');
+        
+        if (auth) {
+          await signOut(auth);
+        }
+      } catch (error) {
+        console.error('Error signing out from Firebase:', error);
+      }
+    }
+    
+    // Clear local state
+    setUser(null);
+    localStorage.removeItem('user');
+    
+    if (typeof window !== 'undefined' && window.google) {
+      window.google.accounts.id.disableAutoSelect();
+    }
+    
+    console.log('✅ User signed out');
+  }, [firebaseAvailable]);
+
+  const value: AuthContextType = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    loginWithEmail: firebaseAvailable ? loginWithEmail : undefined,
+    registerWithEmail: firebaseAvailable ? registerWithEmail : undefined,
+    loginWithGithub: firebaseAvailable ? loginWithGithub : undefined,
+    logout,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Extend Window interface for Google OAuth
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: any) => void;
+          prompt: () => void;
+          renderButton: (element: HTMLElement, config: any) => void;
+          disableAutoSelect: () => void;
+        };
+      };
+    };
+  }
+}

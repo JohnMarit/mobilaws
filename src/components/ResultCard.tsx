@@ -121,7 +121,7 @@ export default function ResultCard({
               e.stopPropagation();
               handleToggleExpand();
             }}
-            className="shrink-0 no-print"
+            className="shrink-0 no-print hover:text-gray-900"
             aria-label={isExpanded ? "Collapse article" : "Expand article"}
           >
             {isExpanded ? (

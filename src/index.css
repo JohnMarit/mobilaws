@@ -2,6 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Fastbots widget - using custom interface only */
+#fastbots-widget,
+#fastbots-bubble,
+[id*="fastbots"],
+[class*="fastbots"] {
+  display: none !important;
+}
+
+/* Google Sign-in Button Custom Styling - Override Google's default styling */
+#google-signin-button iframe,
+#google-signin-button div[role="button"],
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc {
+  background-color: hsl(var(--primary)) !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: 1px solid hsl(var(--primary)) !important;
+  border-radius: 0.5rem !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease-in-out !important;
+  width: 100% !important;
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
+/* Force override any inline styles */
+#google-signin-button iframe[style],
+#google-signin-button div[style],
+#google-signin-button *[style] {
+  background-color: hsl(var(--primary)) !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Hover states */
+#google-signin-button iframe:hover,
+#google-signin-button div[role="button"]:hover,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe:hover,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId:hover,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc:hover {
+  background-color: hsl(var(--primary) / 0.9) !important;
+  border-color: hsl(var(--primary) / 0.9) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px hsl(var(--primary) / 0.3) !important;
+}
+
+/* Active states */
+#google-signin-button iframe:active,
+#google-signin-button div[role="button"]:active,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe:active,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId:active,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 4px hsl(var(--primary) / 0.3) !important;
+}
+
+/* Override all Google button text colors */
+#google-signin-button * {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Specific overrides for Google's button elements */
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc,
+#google-signin-button .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc .nsm7Bb-HzV7m-LgbsSe-BPrWId-Sx9Kwc-BPrWId {
+  color: hsl(var(--primary-foreground)) !important;
+  background-color: transparent !important;
+}
+
+/* Override any green colors that Google might use */
+#google-signin-button iframe[style*="green"],
+#google-signin-button div[style*="green"],
+#google-signin-button *[style*="green"] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Ensure proper button dimensions */
+#google-signin-button {
+  width: 100% !important;
+  display: block !important;
+}
+
+#google-signin-button iframe,
+#google-signin-button div[role="button"] {
+  width: 100% !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+}
+
 /* South Sudan Constitution Search App Design System
    Inspired by South Sudan's colors with modern, accessible design
    All colors MUST be HSL.
@@ -232,5 +325,21 @@
       break-inside: avoid;
       page-break-inside: avoid;
     }
+  }
+
+  /* Animation for fade-in effect */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
   }
 }

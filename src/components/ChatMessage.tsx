@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Copy, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, ExternalLink, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { SearchResult, highlightSearchTerms } from '@/lib/search';
 
@@ -125,9 +126,11 @@ export default function ChatMessage({
       <div className="max-w-[85%] space-y-3">
         {/* Assistant avatar and message */}
         <div className="flex items-start gap-3">
-          <div className="w-8 h-8 bg-[#10a37f] rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-medium text-white">AI</span>
-          </div>
+          <Avatar className="w-8 h-8 flex-shrink-0">
+            <AvatarFallback className="bg-[#10a37f] text-white">
+              <User className="w-4 h-4" />
+            </AvatarFallback>
+          </Avatar>
           <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-md px-4 py-3 flex-1">
             {message.isTyping ? (
               <div className="flex items-center gap-1">

@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { sanitizeInput, validateInput, checkRateLimit } from '@/utils/security';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -34,6 +36,7 @@ export default function ChatInput({
   const [showSuggestions, setShowSuggestions] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const { toast } = useToast();
 
   // Load recent queries from localStorage
   useEffect(() => {
@@ -65,13 +68,59 @@ export default function ChatInput({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() && !isLoading && !disabled) {
-      saveToHistory(input.trim());
-      onSendMessage(input.trim());
-      setInput('');
-      setShowSuggestions(false);
-      setShowHistory(false);
+    
+    if (!input.trim() || isLoading || disabled) {
+      return;
     }
+
+    const trimmedInput = input.trim();
+
+    // Security: Validate input length (prevent excessively long inputs)
+    if (trimmedInput.length > 1000) {
+      toast({
+        title: 'Input too long',
+        description: 'Please limit your query to 1000 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Security: Validate input doesn't contain dangerous patterns
+    if (!validateInput(trimmedInput)) {
+      toast({
+        title: 'Invalid input',
+        description: 'Your input contains potentially unsafe content. Please rephrase your query.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Security: Rate limiting (10 messages per minute per user)
+    const userId = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).id : 'anonymous';
+    const rateLimitResult = checkRateLimit(`chat-input-${userId}`, {
+      maxRequests: 10,
+      windowMs: 60000, // 1 minute
+    });
+
+    if (!rateLimitResult.allowed) {
+      const resetTime = new Date(rateLimitResult.resetTime);
+      const secondsRemaining = Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000);
+      toast({
+        title: 'Too many requests',
+        description: `Please wait ${secondsRemaining} seconds before sending another message.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Sanitize input before sending
+    const sanitizedInput = sanitizeInput(trimmedInput);
+    
+    saveToHistory(sanitizedInput);
+    onSendMessage(sanitizedInput);
+    setInput('');
+    setShowSuggestions(false);
+    setShowHistory(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -174,7 +223,7 @@ export default function ChatInput({
                 variant="ghost"
                 size="sm"
                 onClick={clearHistory}
-                className="h-6 text-xs"
+                className="h-6 text-xs hover:text-gray-900"
               >
                 Clear
               </Button>

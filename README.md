@@ -1,31 +1,38 @@
-# South Sudan Constitution Search
+# Mobilaws - South Sudan Law Assistant
 
-A fast, accessible one-page web application for searching and reading articles from the Constitution of the Republic of South Sudan.
+An AI-powered legal assistant for searching and understanding South Sudan laws, including the Constitution and Penal Code.
 
 ## Features
 
+- 🤖 **AI-Powered Chat**: Natural language conversations about South Sudan laws (powered by Fastbots)
 - 🔍 **Instant Search**: Full-text search with fuzzy matching using Fuse.js
+- 📚 **Comprehensive Database**: Constitution of South Sudan + Penal Code
+- 💬 **Conversational Interface**: Ask questions in plain language and get detailed legal answers
+- 🔐 **Google Authentication**: Secure login with Google OAuth for daily token access
+- 📊 **Token System**: 3 free prompts for anonymous users, 20 tokens per day for authenticated users
 - 📱 **Mobile-First**: Responsive design that works on all devices
 - 🔗 **Deep Linking**: Share direct links to specific articles with search terms
 - ⚡ **Fast Performance**: Client-side search with <200ms response times
-- 🎯 **Smart Filters**: Quick filter by topic tags (rights, citizenship, justice, etc.)
+- 🎯 **Smart Context**: AI remembers conversation history for follow-up questions
 - 📋 **Easy Sharing**: Copy article links, text, or print individual articles
-- 🔄 **Search History**: Recent searches stored locally for quick access
 - ♿ **Accessible**: ARIA labels, semantic HTML, keyboard navigation
 
 ## Tech Stack
 
 - **Framework**: Vite + React + TypeScript
+- **AI Backend**: Fastbots AI
 - **Styling**: Tailwind CSS with custom design system
 - **Search**: Fuse.js for fuzzy full-text search
 - **UI Components**: shadcn/ui components
 - **Icons**: Lucide React
+- **State Management**: React Context API
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+ and npm
+- Google Cloud Platform account (for OAuth setup)
 
 ### Installation
 
@@ -37,11 +44,31 @@ cd constitution-search
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your Google OAuth Client ID
+
 # Start development server
 npm run dev
 ```
 
-The app will be available at `http://localhost:8080`
+The app will be available at `http://localhost:5173`
+
+### Google OAuth Setup
+
+1. Follow the [Google Auth Setup Guide](./GOOGLE_AUTH_SETUP.md) to configure OAuth
+2. Add your Google Client ID to the `.env` file
+3. Test the authentication flow
+
+## Fastbots Integration
+
+This application uses **Fastbots AI** to power the conversational interface. See [FASTBOTS_INTEGRATION.md](./FASTBOTS_INTEGRATION.md) for detailed integration documentation.
+
+### Key Points
+- Bot ID: `cmgc1bkqx06r7p31l972xran2`
+- Custom UI with Fastbots backend
+- Two chat options: Custom interface + Fastbots widget
+- No local AI server required
 
 ### Building for Production
 
@@ -55,12 +82,31 @@ npm run preview
 
 ## Usage
 
-### Search Functionality
+### AI Chat Interface
+
+The main interface is now an AI-powered chatbot that can:
+- Answer questions about South Sudan laws in natural language
+- Find relevant articles from the Constitution and Penal Code
+- Provide explanations and interpretations
+- Remember conversation context for follow-up questions
+
+**Authentication & Usage:**
+- **Anonymous Users**: Can make 3 free prompts before being required to login
+- **Authenticated Users**: 20 tokens per day after signing in with Google (resets daily)
+- **Visual Indicators**: See your prompt/token count and login status in the interface
+
+**Example questions:**
+- "What are the fundamental rights guaranteed by the constitution?"
+- "Tell me about citizenship laws in South Sudan"
+- "What is the penalty for theft?"
+- "Explain Article 23"
+
+### Search Functionality (Classic Mode)
 
 - **Keyword Search**: Type any keyword (e.g., "freedom", "education", "rights")
 - **Article Number**: Search by article number (e.g., "23", "Article 23", "Art 23")  
 - **Quick Filters**: Use topic tags to filter results
-- **Recent Searches**: Click on recent searches to quickly repeat them
+- **Natural Language**: Ask questions conversationally and get AI-powered answers
 
 ### URL Parameters
 
@@ -76,9 +122,17 @@ When an article is expanded, you can:
 - **Copy Text**: Copy the full article text
 - **Print**: Print the article with clean formatting
 
-## Data Structure
+## Architecture
 
-The constitution data is stored in `public/constitution.json` with this structure:
+### AI Integration Flow
+1. User types a message in the custom chat interface
+2. Message is sent to Fastbots AI via the `AIChatService`
+3. Fastbots processes the query using trained law data
+4. Response is streamed back and displayed in the custom UI
+
+### Data Structure
+
+The law data is stored in `public/law.json` with this structure:
 
 ```json
 [
@@ -185,6 +239,38 @@ For issues or questions:
 - Review this README
 - Test with the demo data first
 
+## Related Documentation
+
+- [Google Auth Setup Guide](./GOOGLE_AUTH_SETUP.md) - Google OAuth configuration and setup
+- [Fastbots Integration Guide](./FASTBOTS_INTEGRATION.md) - Detailed Fastbots setup and configuration
+- [Law Search README](./LAW_SEARCH_README.md) - Search functionality documentation
+- [Server Setup](./SERVER_SETUP.md) - Server configuration (legacy)
+
+## Changelog
+
+### v2.1 - Google Authentication & Token System (December 2024)
+- ✅ Added Google OAuth authentication system
+- ✅ Implemented 3-prompt limit for anonymous users
+- ✅ Added 20 tokens per day for authenticated users (resets daily)
+- ✅ Added login modal with Google sign-in
+- ✅ User session persistence across browser sessions
+- ✅ Visual indicators for prompt/token count and user status
+- ✅ Logout functionality
+- ✅ Mobile-responsive authentication UI
+
+### v2.0 - Fastbots Integration (October 2025)
+- ✅ Integrated Fastbots AI for natural language conversations
+- ✅ Custom chat interface with Fastbots backend
+- ✅ Removed dependency on local AI server
+- ✅ Added conversation history and context
+- ✅ Improved mobile experience
+- ✅ Added chat history management
+
+### v1.0 - Initial Release
+- ✅ Constitution search functionality
+- ✅ Penal code database
+- ✅ Basic search interface
+
 ---
 
-**Current Status**: Demo version with sample constitution articles. Ready for official constitution data integration.
+**Current Status**: Production-ready with Fastbots AI integration and Google OAuth authentication. Custom UI powered by Fastbots backend with token-based access control (3 prompts for anonymous users, 20 tokens/day for authenticated users).
