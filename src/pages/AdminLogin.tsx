@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Shield, Mail, AlertCircle, CheckCircle, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '../lib/api';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function AdminLogin() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/magic-link', {
+      const response = await fetch(getApiUrl('auth/magic-link'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

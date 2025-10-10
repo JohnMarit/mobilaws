@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button';
 import { Shield, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '../lib/api';
 
 export default function AdminVerify() {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export default function AdminVerify() {
 
   const verifyToken = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/verify-magic-link', {
+      const response = await fetch(getApiUrl('auth/verify-magic-link'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
