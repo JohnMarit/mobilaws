@@ -116,10 +116,6 @@ const Index = () => {
             </Button>
             <CounselNameSelector className="text-xs" />
           </div>
-          <div className="flex items-center gap-2">
-            <img src="/mobilogo.png" alt="Mobilaws Logo" className="h-5 w-5" />
-            <h2 className="text-lg font-semibold text-gray-900">Mobilaws</h2>
-          </div>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"

@@ -417,7 +417,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
       {!hasUserMessages ? (
         /* Centered Search Bar - No Chat Yet */
-        <div className="flex-1 flex items-center justify-center bg-white">
+        <div className="flex-1 flex items-center justify-center bg-white md:pt-0 pt-16">
           <div className="max-w-2xl w-full px-4">
             <div className="text-center mb-8">
               {showAnimatedIntro ? (
@@ -483,7 +483,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         <>
           {/* Messages Area */}
           <ScrollArea className="flex-1 bg-white">
-            <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
+            <div className="max-w-3xl mx-auto px-4 py-6 pb-24 md:pt-6 pt-16">
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}
