@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
 import CounselNameSelector from '@/components/CounselNameSelector';
+import UserProfileNav from '@/components/UserProfileNav';
 import { useChatContext } from '@/contexts/ChatContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { conversationalLawSearch } from '@/lib/search';
@@ -117,6 +118,10 @@ const Index = () => {
             <CounselNameSelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
+            <UserProfileNav 
+              onManageSubscription={() => setShowSubscriptionModal(true)}
+              compact={true}
+            />
             <Button
               variant="ghost"
               size="sm"

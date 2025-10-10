@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { HelpCircle, RotateCcw, Bot, LogOut, Bug } from 'lucide-react';
+import { HelpCircle, RotateCcw, Bot, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
 import ChatInput from './ChatInput';
 import CounselNameSelector from './CounselNameSelector';
+import UserProfileNav from './UserProfileNav';
 import LoginModal from './LoginModal';
 import AnimatedCounselIntroduction from './AnimatedCounselIntroduction';
 import { useChatContext } from '@/contexts/ChatContext';
@@ -352,19 +353,9 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
             <span className="text-xs text-orange-500">● Backend Offline</span>
           )}
           {isAuthenticated ? (
-            <div className="flex items-center gap-2 ml-4">
-              {user?.picture && (
-                <img 
-                  src={user.picture} 
-                  alt={user.name} 
-                  className="w-6 h-6 rounded-full"
-                />
-              )}
-              <span className="text-xs text-blue-600">● {user?.name}</span>
-              <span className="text-xs text-gray-500">
-                ● {dailyTokensUsed}/{maxDailyTokens} tokens today
-              </span>
-            </div>
+            <span className="text-xs text-gray-500 ml-4">
+              ● {dailyTokensUsed}/{maxDailyTokens} tokens today
+            </span>
           ) : (
             <span className="text-xs text-gray-500 ml-4">
               ● {promptCount}/{maxPrompts} free prompts
@@ -401,24 +392,17 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
-          {isAuthenticated && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="h-8 px-2 text-gray-600 hover:bg-gray-100"
-              title="Sign out"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
+          <UserProfileNav 
+            onManageSubscription={() => setShowSubscriptionModal(true)}
+            compact={false}
+          />
         </div>
       </div>
 
       {!hasUserMessages ? (
         /* Centered Search Bar - No Chat Yet */
-        <div className="flex-1 flex items-center justify-center bg-white md:pt-0 pt-16">
-          <div className="max-w-2xl w-full px-4">
+        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-16">
+          <div className="max-w-2xl w-full px-4 mx-auto">
             <div className="text-center mb-8">
               {showAnimatedIntro ? (
                 <div className="flex justify-center">
@@ -468,7 +452,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 )}
               </div>
             </div>
-            <div className="sticky bottom-4 z-20">
+            <div className="pb-8">
               <ChatInput
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}

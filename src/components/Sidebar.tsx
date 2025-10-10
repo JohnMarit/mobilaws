@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { 
   MessageSquare, 
   Plus, 
-  User, 
-  Settings, 
-  LogOut, 
   ChevronLeft, 
   ChevronRight,
   Trash2,
@@ -13,8 +10,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -22,10 +17,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import SubscriptionStatus from './SubscriptionStatus';
 
 export interface ChatHistory {
@@ -63,9 +54,6 @@ export default function Sidebar({
   onManageSubscription
 }: SidebarProps) {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const { user, isAuthenticated, logout } = useAuth();
-  const { userSubscription } = useSubscription();
-  const { setShowLoginModal } = usePromptLimit();
   const [editingTitle, setEditingTitle] = useState('');
 
   const handleRenameStart = (chat: ChatHistory) => {
@@ -241,79 +229,15 @@ export default function Sidebar({
         </div>
       </ScrollArea>
 
-      {/* User Profile Section - Fixed at bottom */}
-      <div className="mt-auto border-t border-gray-700 px-4 py-3">
-        {isAuthenticated && user ? (
-          <>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start p-2 h-auto text-gray-300 hover:text-white hover:bg-gray-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.picture} alt={user.name} />
-                      <AvatarFallback className="bg-gray-700 text-white text-xs">
-                        {user.name?.charAt(0) || <User className="h-4 w-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                    {!isCollapsed && (
-                      <div className="flex-1 text-left">
-                        <div className="text-sm font-medium">{user.name}</div>
-                        <div className="text-xs text-gray-400">
-                          {userSubscription?.isActive ? `${userSubscription.planId} Plan` : 'Free Plan'}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
-                  <User className="h-4 w-4 mr-2" />
-                  Profile
-                </DropdownMenuItem>
-                {onManageSubscription && (
-                  <DropdownMenuItem onClick={onManageSubscription}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Subscription
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400">
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            {/* Subscription Status */}
-            {!isCollapsed && onManageSubscription && (
-              <div className="mt-3">
-                <SubscriptionStatus 
-                  compact={true}
-                  onManageSubscription={onManageSubscription}
-                />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="text-center">
-            <div className="text-sm text-gray-400 mb-2">Not signed in</div>
-            <Button 
-              variant="default" 
-              size="sm" 
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => {
-                setShowLoginModal(true);
-              }}
-            >
-              Sign In
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Subscription Status Section - Fixed at bottom */}
+      {onManageSubscription && (
+        <div className="mt-auto border-t border-gray-700 px-4 py-3">
+          <SubscriptionStatus 
+            compact={true}
+            onManageSubscription={onManageSubscription}
+          />
+        </div>
+      )}
       </div>
     </>
   );
