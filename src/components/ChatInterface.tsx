@@ -352,15 +352,15 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           ) : (
             <span className="text-xs text-orange-500">● Backend Offline</span>
           )}
-          {isAuthenticated ? (
+          {isAuthenticated && userSubscription ? (
             <span className="text-xs text-gray-500 ml-4">
-              ● {dailyTokensUsed}/{maxDailyTokens} tokens today
+              ● {userSubscription.tokensUsed}/{userSubscription.totalTokens} tokens {userSubscription.isFree ? 'today' : ''}
             </span>
-          ) : (
+          ) : !isAuthenticated ? (
             <span className="text-xs text-gray-500 ml-4">
               ● {promptCount}/{maxPrompts} free prompts
             </span>
-          )}
+          ) : null}
         </div>
 
           {/* Action Buttons */}

@@ -8,6 +8,54 @@ const router = Router();
 const subscriptions = new Map<string, any>();
 
 /**
+ * Initialize free plan for authenticated users
+ * This gives users 5 tokens per day with daily reset
+ */
+const initializeFreePlan = (userId: string) => {
+  const today = new Date().toDateString();
+  const existingSub = subscriptions.get(userId);
+  
+  // Check if user already has a paid subscription
+  if (existingSub && existingSub.planId !== 'free') {
+    return existingSub;
+  }
+  
+  // Check if we need to reset daily tokens
+  if (existingSub && existingSub.planId === 'free') {
+    const lastResetDate = new Date(existingSub.lastResetDate).toDateString();
+    
+    if (lastResetDate !== today) {
+      // Reset tokens for new day
+      existingSub.tokensRemaining = 5;
+      existingSub.tokensUsed = 0;
+      existingSub.lastResetDate = new Date().toISOString();
+      subscriptions.set(userId, existingSub);
+      console.log(`✅ Daily tokens reset for user ${userId}: 5 tokens`);
+    }
+    
+    return existingSub;
+  }
+  
+  // Create new free plan
+  const freePlan = {
+    planId: 'free',
+    tokensRemaining: 5,
+    tokensUsed: 0,
+    totalTokens: 5,
+    purchaseDate: new Date().toISOString(),
+    lastResetDate: new Date().toISOString(),
+    isActive: true,
+    price: 0,
+    isFree: true
+  };
+  
+  subscriptions.set(userId, freePlan);
+  console.log(`✅ Free plan initialized for user ${userId}: 5 daily tokens`);
+  
+  return freePlan;
+};
+
+/**
  * Get user subscription
  * GET /api/subscription/:userId
  */
@@ -15,16 +63,22 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     
-    const subscription = subscriptions.get(userId);
+    let subscription = subscriptions.get(userId);
     
+    // If no subscription exists, initialize free plan
     if (!subscription) {
-      return res.json({ subscription: null });
-    }
-    
-    // Check if subscription is still valid
-    if (subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
-      subscription.isActive = false;
-      subscriptions.set(userId, subscription);
+      subscription = initializeFreePlan(userId);
+    } else {
+      // Check if free plan needs daily reset
+      if (subscription.planId === 'free') {
+        subscription = initializeFreePlan(userId);
+      }
+      
+      // Check if paid subscription is still valid
+      if (subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
+        subscription.isActive = false;
+        subscriptions.set(userId, subscription);
+      }
     }
     
     res.json({ subscription });
@@ -85,7 +139,17 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
   try {
     const { userId } = req.params;
     
-    const subscription = subscriptions.get(userId);
+    let subscription = subscriptions.get(userId);
+    
+    // Initialize free plan if no subscription exists
+    if (!subscription) {
+      subscription = initializeFreePlan(userId);
+    }
+    
+    // Check for daily reset on free plan
+    if (subscription.planId === 'free') {
+      subscription = initializeFreePlan(userId);
+    }
     
     if (!subscription || !subscription.isActive) {
       return res.status(400).json({ 
@@ -95,9 +159,15 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
     }
     
     if (subscription.tokensRemaining <= 0) {
+      const hoursUntilReset = subscription.planId === 'free' 
+        ? getHoursUntilMidnight() 
+        : null;
+      
       return res.status(400).json({ 
         error: 'No tokens remaining',
-        canUseToken: false 
+        canUseToken: false,
+        hoursUntilReset,
+        isFree: subscription.planId === 'free'
       });
     }
     
@@ -113,13 +183,25 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       success: true, 
       tokensRemaining: subscription.tokensRemaining,
       tokensUsed: subscription.tokensUsed,
-      canUseToken: subscription.tokensRemaining > 0
+      canUseToken: subscription.tokensRemaining > 0,
+      isFree: subscription.planId === 'free',
+      lastResetDate: subscription.lastResetDate
     });
   } catch (error) {
     console.error('❌ Error using token:', error);
     res.status(500).json({ error: 'Failed to use token' });
   }
 });
+
+/**
+ * Helper function to calculate hours until midnight
+ */
+const getHoursUntilMidnight = (): number => {
+  const now = new Date();
+  const midnight = new Date();
+  midnight.setHours(24, 0, 0, 0);
+  return Math.ceil((midnight.getTime() - now.getTime()) / (1000 * 60 * 60));
+};
 
 /**
  * Get subscription plans

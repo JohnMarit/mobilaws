@@ -39,8 +39,8 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const [tokensResetDate, setTokensResetDate] = useState('');
   const { isAuthenticated } = useAuth();
   const { userSubscription, useToken, canUseToken } = useSubscription();
-  const maxPrompts = 3; // Back to normal limit
-  const maxDailyTokens = 20;
+  const maxPrompts = 3; // Anonymous users limit
+  const maxDailyTokens = 5; // Free plan users limit (was 20, now 5)
 
   // Load prompt count and daily tokens from localStorage on mount
   useEffect(() => {
@@ -113,14 +113,18 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   const incrementPromptCount = useCallback(async (): Promise<boolean> => {
     if (isAuthenticated) {
-      // For authenticated users with subscription, use subscription tokens
+      // For authenticated users, always use subscription tokens (including free plan)
       if (userSubscription && userSubscription.isActive) {
-        return await useToken();
-      } else {
-        // For authenticated users without subscription, use daily tokens
-        setDailyTokensUsed(prev => prev + 1);
-        return true;
+        const tokenUsed = await useToken();
+        if (tokenUsed) {
+          // If it's a free plan, update the daily tokens used counter for display
+          if (userSubscription.isFree) {
+            setDailyTokensUsed(userSubscription.tokensUsed + 1);
+          }
+        }
+        return tokenUsed;
       }
+      return false;
     } else {
       // For anonymous users, increment prompt count
       setPromptCount(prev => prev + 1);
@@ -134,10 +138,8 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   // Check if user can send prompt based on their authentication status and subscription
   const canSendPrompt = isAuthenticated 
-    ? (userSubscription && userSubscription.isActive) 
-      ? canUseToken  // Authenticated users with subscription: use subscription tokens
-      : dailyTokensUsed < maxDailyTokens  // Authenticated users without subscription: 20 tokens per day
-    : promptCount < maxPrompts;         // Anonymous users: 3 prompts total
+    ? (userSubscription && userSubscription.isActive && canUseToken)  // All authenticated users use subscription (including free plan)
+    : promptCount < maxPrompts;  // Anonymous users: 3 prompts total
 
 
   const value: PromptLimitContextType = {

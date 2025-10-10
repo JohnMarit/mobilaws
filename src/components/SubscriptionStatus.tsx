@@ -44,11 +44,12 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
     }
   };
 
-  if (!userSubscription || !userSubscription.isActive) {
+  // Show free plan badge if user has free plan
+  if (userSubscription && userSubscription.isFree) {
     return (
       <div className={`flex items-center gap-2 ${compact ? 'text-sm' : ''}`}>
-        <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
-          Free Plan
+        <Badge variant="outline" className="bg-green-100 text-green-600 border-green-300">
+          Free Plan - {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens today
         </Badge>
         {onManageSubscription && (
           <Button
@@ -59,6 +60,27 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
           >
             <CreditCard className="h-3 w-3 mr-1" />
             Upgrade
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (!userSubscription || !userSubscription.isActive) {
+    return (
+      <div className={`flex items-center gap-2 ${compact ? 'text-sm' : ''}`}>
+        <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
+          No Plan
+        </Badge>
+        {onManageSubscription && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onManageSubscription}
+            className="h-6 px-2 text-xs"
+          >
+            <CreditCard className="h-3 w-3 mr-1" />
+            Get Plan
           </Button>
         )}
       </div>

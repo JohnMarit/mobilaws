@@ -19,6 +19,8 @@ export interface UserSubscription {
   purchaseDate: string;
   expiryDate?: string;
   isActive: boolean;
+  isFree?: boolean;
+  lastResetDate?: string;
 }
 
 interface SubscriptionContextType {
@@ -96,30 +98,60 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   ];
 
-  // Load user subscription from localStorage
+  // Load user subscription and initialize free plan if needed
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-      if (savedSubscription) {
+    const initializeSubscription = async () => {
+      if (isAuthenticated && user) {
+        setIsLoading(true);
         try {
-          const subscription: UserSubscription = JSON.parse(savedSubscription);
-          // Check if subscription is still valid
-          if (subscription.isActive && (!subscription.expiryDate || new Date(subscription.expiryDate) > new Date())) {
-            setUserSubscription(subscription);
+          // Fetch from backend API (this will auto-create free plan if needed)
+          const response = await fetch(`http://localhost:8000/api/subscription/${user.id}`);
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.subscription) {
+              setUserSubscription(result.subscription);
+              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
+              console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
+            }
           } else {
-            // Subscription expired, mark as inactive
-            const expiredSubscription = { ...subscription, isActive: false };
-            setUserSubscription(expiredSubscription);
-            localStorage.setItem(`subscription_${user.id}`, JSON.stringify(expiredSubscription));
+            // Fallback to localStorage if backend is unavailable
+            const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
+            if (savedSubscription) {
+              try {
+                const subscription: UserSubscription = JSON.parse(savedSubscription);
+                // Check if subscription is still valid
+                if (subscription.isActive && (!subscription.expiryDate || new Date(subscription.expiryDate) > new Date())) {
+                  setUserSubscription(subscription);
+                } else {
+                  // Subscription expired, mark as inactive
+                  const expiredSubscription = { ...subscription, isActive: false };
+                  setUserSubscription(expiredSubscription);
+                  localStorage.setItem(`subscription_${user.id}`, JSON.stringify(expiredSubscription));
+                }
+              } catch (error) {
+                console.error('Error parsing saved subscription:', error);
+                setUserSubscription(null);
+              }
+            }
           }
         } catch (error) {
-          console.error('Error parsing saved subscription:', error);
-          setUserSubscription(null);
+          console.error('Error fetching subscription:', error);
+          // Fallback to localStorage
+          const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
+          if (savedSubscription) {
+            const subscription: UserSubscription = JSON.parse(savedSubscription);
+            setUserSubscription(subscription);
+          }
+        } finally {
+          setIsLoading(false);
         }
+      } else {
+        setUserSubscription(null);
       }
-    } else {
-      setUserSubscription(null);
-    }
+    };
+
+    initializeSubscription();
   }, [isAuthenticated, user]);
 
   const purchasePlan = useCallback(async (planId: string): Promise<boolean> => {
