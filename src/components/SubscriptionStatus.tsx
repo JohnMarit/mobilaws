@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/FirebaseAuthContext';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Crown, Zap, Star, CreditCard } from 'lucide-react';

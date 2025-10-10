@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSubscription, SubscriptionPlan } from '../contexts/SubscriptionContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/FirebaseAuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';

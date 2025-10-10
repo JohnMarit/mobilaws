@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth } from './FirebaseAuthContext';
 import { useSubscription } from './SubscriptionContext';
 
 interface PromptLimitContextType {

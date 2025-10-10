@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { CounselNameProvider } from "@/contexts/CounselNameContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/FirebaseAuthContext";
 import { PromptLimitProvider } from "@/contexts/PromptLimitContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import Index from "./pages/Index";

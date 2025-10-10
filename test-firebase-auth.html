@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Auth Test - Mobilaws</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #1a73e8;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1557b0;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #userInfo {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .log {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Authentication Test</h1>
+        <p>This page tests your Firebase Google Sign-In configuration.</p>
+        
+        <div id="status" class="status info">
+            Loading Firebase...
+        </div>
+        
+        <div>
+            <button id="signInBtn" onclick="signInWithGoogle()" disabled>
+                Sign In with Google
+            </button>
+            <button id="signOutBtn" onclick="signOut()" disabled style="display:none;">
+                Sign Out
+            </button>
+        </div>
+        
+        <div id="userInfo"></div>
+        
+        <div class="log">
+            <h3>Debug Log:</h3>
+            <div id="logContainer"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        
+        // Log function
+        function log(message, type = 'info') {
+            console.log(message);
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : '📝';
+            entry.textContent = `[${time}] ${emoji} ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvGE_on74GR18QQrDyx8OdrKEEneD7DpI",
+            authDomain: "mobilaws-46056.firebaseapp.com",
+            projectId: "mobilaws-46056",
+            storageBucket: "mobilaws-46056.firebasestorage.app",
+            messagingSenderId: "843281701937",
+            appId: "1:843281701937:web:9b1227398de4a9384ec910",
+            measurementId: "G-SEE513K6TJ"
+        };
+        
+        // Initialize Firebase
+        let app, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            log('Firebase initialized successfully', 'success');
+            updateStatus('Firebase loaded successfully! Ready to test.', 'success');
+            document.getElementById('signInBtn').disabled = false;
+        } catch (error) {
+            log(`Firebase initialization failed: ${error.message}`, 'error');
+            updateStatus(`Failed to initialize Firebase: ${error.message}`, 'error');
+        }
+        
+        // Update status display
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Sign in with Google
+        window.signInWithGoogle = async function() {
+            try {
+                log('Starting Google sign-in...', 'info');
+                const provider = new GoogleAuthProvider();
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                
+                log(`Sign-in successful! User: ${user.displayName}`, 'success');
+                updateStatus('Sign-in successful!', 'success');
+                
+                // Display user info
+                document.getElementById('userInfo').innerHTML = `
+                    <h3>User Information:</h3>
+                    <p><strong>Name:</strong> ${user.displayName}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>User ID:</strong> ${user.uid}</p>
+                    <img src="${user.photoURL}" alt="Profile" style="border-radius: 50%; width: 60px; height: 60px;">
+                `;
+            } catch (error) {
+                log(`Sign-in error: ${error.code} - ${error.message}`, 'error');
+                updateStatus(`Sign-in failed: ${error.message}`, 'error');
+            }
+        };
+        
+        // Sign out
+        window.signOut = async function() {
+            try {
+                await firebaseSignOut(auth);
+                log('Sign-out successful', 'success');
+                updateStatus('Signed out successfully', 'info');
+                document.getElementById('userInfo').innerHTML = '';
+            } catch (error) {
+                log(`Sign-out error: ${error.message}`, 'error');
+                updateStatus(`Sign-out failed: ${error.message}`, 'error');
+            }
+        };
+        
+        // Listen for auth state changes
+        onAuthStateChanged(auth, (user) => {
+            const signInBtn = document.getElementById('signInBtn');
+            const signOutBtn = document.getElementById('signOutBtn');
+            
+            if (user) {
+                log(`User is signed in: ${user.displayName}`, 'success');
+                signInBtn.style.display = 'none';
+                signOutBtn.style.display = 'inline-block';
+                signOutBtn.disabled = false;
+            } else {
+                log('No user signed in', 'info');
+                signInBtn.style.display = 'inline-block';
+                signInBtn.disabled = false;
+                signOutBtn.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
+

@@ -10,7 +10,7 @@ import LoginModal from './LoginModal';
 import AnimatedCounselIntroduction from './AnimatedCounselIntroduction';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useCounselName } from '@/contexts/CounselNameContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { conversationalLawSearch, ConversationContext } from '@/lib/search';

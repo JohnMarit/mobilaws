@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { Loader2 } from 'lucide-react';
 
