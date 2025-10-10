@@ -1,4 +1,4 @@
-import TypewriterAnimation from './TypewriterAnimation';
+import WordAnimation from './WordAnimation';
 
 interface AnimatedCounselIntroductionProps {
   counselName: string;
@@ -9,15 +9,22 @@ export default function AnimatedCounselIntroduction({
   counselName,
   onComplete
 }: AnimatedCounselIntroductionProps) {
+  const words = [
+    `I am Counsel ${counselName}`,
+    "let's address your legal matter",
+    "how can I help you today?",
+    "what legal question do you have?"
+  ];
+
   return (
     <div className="text-center">
       <div className="text-lg text-gray-600 mb-4">
-        <TypewriterAnimation
-          text={`I am Counsel ${counselName}, let's address your legal matter.`}
+        <WordAnimation
+          words={words}
           onComplete={onComplete}
-          typingSpeed={80}
-          deletingSpeed={40}
-          pauseDuration={1500}
+          typingSpeed={120}
+          deletingSpeed={60}
+          pauseDuration={2500}
           className="font-medium"
           loop={true}
         />

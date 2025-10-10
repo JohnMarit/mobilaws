@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, History, X } from 'lucide-react';
+import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon, FileAudio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,10 @@ interface ChatInputProps {
   isLoading?: boolean;
   placeholder?: string;
   disabled?: boolean;
+  onFilesSelected?: (files: File[]) => void;
+  onAudioCaptured?: (audio: Blob) => void;
+  enableAttachments?: boolean;
+  enableVoice?: boolean;
 }
 
 
@@ -29,13 +33,24 @@ export default function ChatInput({
   onSendMessage, 
   isLoading = false, 
   placeholder = "Ask me anything about South Sudan laws...",
-  disabled = false
+  disabled = false,
+  onFilesSelected,
+  onAudioCaptured,
+  enableAttachments = true,
+  enableVoice = true
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [audioNotes, setAudioNotes] = useState<{ blob: Blob; url: string }[]>([]);
   const { toast } = useToast();
 
   // Load recent queries from localStorage
@@ -166,12 +181,117 @@ export default function ChatInput({
     }, 300);
   };
 
+  const handleAttachClick = () => {
+    if (!enableAttachments) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setAttachedFiles(prev => [...prev, ...files]);
+    onFilesSelected?.(files);
+    // Reset value to allow selecting the same file again
+    e.currentTarget.value = '';
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {}
+    try {
+      mediaStreamRef.current?.getTracks().forEach(t => t.stop());
+    } catch {}
+  };
+
+  const handleMicClick = async () => {
+    if (!enableVoice) return;
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        chunksRef.current = [];
+        const url = URL.createObjectURL(blob);
+        setAudioNotes(prev => [...prev, { blob, url }]);
+        onAudioCaptured?.(blob);
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Microphone access denied or unavailable', error);
+    }
+  };
+
   return (
     <div className="relative w-full max-w-4xl mx-auto">
       {/* Main Input */}
       <form onSubmit={handleSubmit} className="relative" onClick={() => inputRef.current?.focus()}>
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex items-center">
           <div className="flex-1 relative" onClick={() => inputRef.current?.focus()}>
+            {/* Attachment chips - ChatGPT style */}
+            {(attachedFiles.length > 0 || audioNotes.length > 0) && (
+              <div className="absolute left-3 right-3 top-1 z-10 flex flex-wrap gap-1.5 pointer-events-auto">
+                {attachedFiles.map((file, idx) => {
+                  const isImage = file.type.startsWith('image/');
+                  const displayName = file.name.length > 20 ? file.name.slice(0, 17) + '...' : file.name;
+                  return (
+                    <div key={`file-${idx}`} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors">
+                      {isImage ? <ImageIcon className="h-3 w-3 text-gray-500" /> : <FileIcon className="h-3 w-3 text-gray-500" />}
+                      <span className="truncate max-w-[120px]">{displayName}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 transition-colors"
+                        aria-label="Remove file"
+                        title="Remove file"
+                      >
+                        <X className="h-3 w-3 text-gray-400" />
+                      </button>
+                    </div>
+                  );
+                })}
+                {audioNotes.map((note, idx) => (
+                  <div key={`audio-${idx}`} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors">
+                    <FileAudio className="h-3 w-3 text-gray-500" />
+                    <span className="text-gray-600">Voice note</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        URL.revokeObjectURL(note.url);
+                        setAudioNotes(prev => prev.filter((_, i) => i !== idx));
+                      }}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 transition-colors"
+                      aria-label="Remove audio"
+                      title="Remove audio"
+                    >
+                      <X className="h-3 w-3 text-gray-400" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <input
               ref={inputRef}
               type="text"
@@ -181,27 +301,67 @@ export default function ChatInput({
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
-              className="flex h-12 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length || audioNotes.length ? 'pt-7 pb-2' : 'py-3'} pl-24 pr-12 text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
               autoFocus
             />
-            {input && (
+
+            {/* Hidden File Input */}
+            {enableAttachments && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,image/*"
+                multiple
+                className="hidden"
+                onChange={handleFilesChange}
+              />
+            )}
+
+            {/* Attachment Button */}
+            {enableAttachments && (
+              <button
+                type="button"
+                onClick={handleAttachClick}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 text-gray-600 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100"
+                title="Attach files"
+              >
+                <Paperclip className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* Voice Recording Button */}
+            {enableVoice && (
+              <button
+                type="button"
+                onClick={handleMicClick}
+                className={`absolute left-12 top-1/2 -translate-y-1/2 p-2.5 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-800'}`}
+                title={isRecording ? 'Stop recording' : 'Record voice'}
+              >
+                {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+            )}
+
+            {/* Clear Button */}
+            {input && !isLoading && (
               <button
                 type="button"
                 onClick={() => setInput('')}
-                className="absolute right-12 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted"
+                className="absolute right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
                 title="Clear input"
               >
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
+          
+          {/* Send Button */}
           <Button
             type="submit"
             size="lg"
-            className="h-12 px-6 rounded-xl bg-blue-500 hover:bg-blue-600 text-white"
+            className="ml-2 h-12 px-6 rounded-xl bg-blue-500 hover:bg-blue-600 text-white"
             disabled={!input.trim() || isLoading || disabled}
           >
             {isLoading ? (

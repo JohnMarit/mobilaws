@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 // South Sudan names from names.md (removing duplicates)
 const SOUTH_SUDAN_NAMES = [
-  'Deng', 'Pout', 'Wani', 'Poni', 'Aluel', 'Mary'
+  'Poni', 'Deng', 'Pout'
 ];
 
 interface CounselNameContextType {
@@ -29,7 +29,7 @@ interface CounselNameProviderProps {
 }
 
 export const CounselNameProvider: React.FC<CounselNameProviderProps> = ({ children }) => {
-  const [selectedName, setSelectedNameState] = useState<string>('Deng'); // Default to Deng
+  const [selectedName, setSelectedNameState] = useState<string>('Poni'); // Default to Poni
   const [customNames, setCustomNames] = useState<string[]>([]);
 
   // Load from localStorage on mount
@@ -54,7 +54,7 @@ export const CounselNameProvider: React.FC<CounselNameProviderProps> = ({ childr
     if (savedName && allNames.includes(savedName)) {
       setSelectedNameState(savedName);
     } else {
-      setSelectedNameState('Deng');
+      setSelectedNameState('Poni');
     }
   }, []);
 
@@ -92,8 +92,8 @@ export const CounselNameProvider: React.FC<CounselNameProviderProps> = ({ childr
     
     // If the deleted name was selected, switch to default
     if (selectedName === name) {
-      setSelectedNameState('Deng');
-      localStorage.setItem('counselName', 'Deng');
+      setSelectedNameState('Poni');
+      localStorage.setItem('counselName', 'Poni');
     }
   };
 

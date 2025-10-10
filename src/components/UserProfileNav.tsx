@@ -78,11 +78,9 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
       className="h-8 px-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
     >
       <User className="h-4 w-4 mr-2" />
-      {!compact && (
-        <span className="text-sm">
-          Sign In
-        </span>
-      )}
+      <span className="text-sm">
+        Sign In
+      </span>
     </Button>
   );
 }
