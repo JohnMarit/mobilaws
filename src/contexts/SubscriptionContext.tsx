@@ -28,6 +28,8 @@ interface SubscriptionContextType {
   userSubscription: UserSubscription | null;
   isLoading: boolean;
   purchasePlan: (planId: string) => Promise<boolean>;
+  initiatePayment: (planId: string) => Promise<{ success: boolean; clientSecret?: string; error?: string }>;
+  verifyPayment: (paymentIntentId: string) => Promise<boolean>;
   useToken: () => boolean;
   canUseToken: boolean;
   refreshSubscription: () => Promise<void>;
@@ -169,7 +171,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setIsLoading(true);
     
     try {
-      // Call backend API to create subscription
+      // Call backend API to create subscription (demo mode - no payment)
       const response = await fetch(`http://localhost:8000/api/subscription/${user.id}`, {
         method: 'POST',
         headers: {
@@ -203,6 +205,101 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setIsLoading(false);
     }
   }, [isAuthenticated, user, plans]);
+
+  const initiatePayment = useCallback(async (planId: string): Promise<{ success: boolean; clientSecret?: string; error?: string }> => {
+    if (!isAuthenticated || !user) {
+      return { success: false, error: 'User must be authenticated to purchase a plan' };
+    }
+
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) {
+      return { success: false, error: 'Invalid plan ID' };
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Create payment intent with Stripe
+      const response = await fetch('http://localhost:8000/api/payment/create-intent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: plan.id,
+          userId: user.id,
+          planName: plan.name,
+          price: plan.price,
+          tokens: plan.tokens
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create payment intent');
+      }
+
+      const result = await response.json();
+      
+      if (result.clientSecret) {
+        console.log(`✅ Payment intent created for ${plan.name} plan - $${plan.price}`);
+        return { success: true, clientSecret: result.clientSecret };
+      } else {
+        throw new Error('No client secret received');
+      }
+    } catch (error) {
+      console.error('Error creating payment intent:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to create payment intent' 
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user, plans]);
+
+  const verifyPayment = useCallback(async (paymentIntentId: string): Promise<boolean> => {
+    if (!isAuthenticated || !user) {
+      console.error('User must be authenticated to verify payment');
+      return false;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Verify payment with backend
+      const response = await fetch('http://localhost:8000/api/payment/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentIntentId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to verify payment');
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.subscription) {
+        setUserSubscription(result.subscription);
+        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
+        console.log(`✅ Payment verified and subscription created successfully`);
+        return true;
+      } else {
+        throw new Error(result.error || 'Payment verification failed');
+      }
+    } catch (error) {
+      console.error('Error verifying payment:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
 
   const useToken = useCallback(async (): Promise<boolean> => {
     if (!userSubscription || !userSubscription.isActive || userSubscription.tokensRemaining <= 0) {
@@ -293,6 +390,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     userSubscription,
     isLoading,
     purchasePlan,
+    initiatePayment,
+    verifyPayment,
     useToken,
     canUseToken,
     refreshSubscription,

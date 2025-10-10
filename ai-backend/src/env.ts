@@ -39,6 +39,20 @@ const envSchema = z.object({
   API_KEY_REQUIRED: z.string().default('false').transform(val => val === 'true'),
   API_KEY_SECRET: z.string().optional(),
 
+  // Stripe Payment Gateway
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Email Configuration
+  EMAIL_HOST: z.string().optional(),
+  EMAIL_PORT: z.string().default('587').transform(Number),
+  EMAIL_SECURE: z.string().default('false').transform(val => val === 'true'),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASSWORD: z.string().optional(),
+  EMAIL_FROM: z.string().default('noreply@mobilaws.com'),
+  FRONTEND_URL: z.string().default('http://localhost:5173'),
+
   // LLM Parameters
   TEMPERATURE: z.string().default('0.1').transform(Number),
   MAX_TOKENS: z.string().default('1024').transform(Number),

@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { env } from '../env';
 
 const router = Router();
 

@@ -9,6 +9,9 @@ import uploadRouter from './routes/upload';
 import searchRouter from './routes/search';
 import chatRouter from './routes/chat';
 import subscriptionRouter from './routes/subscription';
+import paymentRouter from './routes/payment';
+import adminRouter from './routes/admin';
+import authRouter from './routes/auth';
 
 const app = express();
 
@@ -36,6 +39,9 @@ app.use('/api', uploadRouter);
 app.use('/api', searchRouter);
 app.use('/api', chatRouter);
 app.use('/api', subscriptionRouter);
+app.use('/api', paymentRouter);
+app.use('/api', adminRouter);
+app.use('/api', authRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -52,6 +58,10 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'GET', path: '/api/subscription/:userId', description: 'Get user subscription' },
       { method: 'POST', path: '/api/subscription/:userId', description: 'Create/update subscription' },
       { method: 'POST', path: '/api/subscription/:userId/use-token', description: 'Use subscription token' },
+      { method: 'POST', path: '/api/payment/create-intent', description: 'Create payment intent' },
+      { method: 'POST', path: '/api/payment/verify', description: 'Verify payment and create subscription' },
+      { method: 'GET', path: '/api/payment/status/:paymentIntentId', description: 'Get payment status' },
+      { method: 'POST', path: '/api/payment/webhook', description: 'Stripe webhook endpoint' },
     ],
     config: {
       vectorBackend: env.VECTOR_BACKEND,

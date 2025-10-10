@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/FirebaseAuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Check, Crown, Zap, Star } from 'lucide-react';
+import { Check, Crown, Zap, Star, CreditCard } from 'lucide-react';
+import PaymentModal from './PaymentModal';
 
 interface SubscriptionManagerProps {
   onClose?: () => void;
@@ -14,6 +15,8 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
   const { plans, userSubscription, purchasePlan, isLoading } = useSubscription();
   const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<string | null>(null);
 
   const handlePurchase = async (planId: string) => {
     setSelectedPlan(planId);
@@ -23,6 +26,18 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
       console.log('Purchase successful!');
     }
     setSelectedPlan(null);
+  };
+
+  const handlePaymentPurchase = (planId: string) => {
+    setSelectedPlanForPayment(planId);
+    setPaymentModalOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setPaymentModalOpen(false);
+    setSelectedPlanForPayment(null);
+    // Refresh subscription data
+    window.location.reload(); // Simple refresh for now
   };
 
   const getPlanIcon = (planId: string) => {
@@ -138,7 +153,7 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
             <CardFooter>
               <Button 
                 className="w-full"
-                onClick={() => handlePurchase(plan.id)}
+                onClick={() => handlePaymentPurchase(plan.id)}
                 disabled={isLoading || selectedPlan === plan.id}
                 variant={plan.popular ? "default" : "outline"}
               >
@@ -147,7 +162,10 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
                 ) : userSubscription?.planId === plan.id ? (
                   'Current Plan'
                 ) : (
-                  `Purchase ${plan.name}`
+                  <>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Purchase {plan.name}
+                  </>
                 )}
               </Button>
             </CardFooter>
@@ -172,6 +190,18 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
             Close
           </Button>
         </div>
+      )}
+
+      {/* Payment Modal */}
+      {selectedPlanForPayment && (
+        <PaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setSelectedPlanForPayment(null);
+          }}
+          planId={selectedPlanForPayment}
+        />
       )}
     </div>
   );
