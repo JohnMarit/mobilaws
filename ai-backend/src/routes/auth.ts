@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { sendMagicLink } from '../services/emailService';
+import { env } from '../env';
+import { OAuth2Client } from 'google-auth-library';
 
 const router = Router();
+
+// Initialize Google OAuth client
+const googleClient = env.GOOGLE_CLIENT_ID 
+  ? new OAuth2Client(env.GOOGLE_CLIENT_ID)
+  : null;
 
 // In-memory storage for magic link tokens
 // In production, use Redis or database with TTL
@@ -244,6 +250,100 @@ router.get('/auth/magic-link-stats', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('❌ Error getting magic link stats:', error);
     res.status(500).json({ error: 'Failed to get statistics' });
+  }
+});
+
+/**
+ * Google OAuth Admin Login
+ * POST /api/auth/admin/google
+ */
+router.post('/auth/admin/google', async (req: Request, res: Response) => {
+  try {
+    const { credential } = req.body;
+    
+    if (!credential) {
+      return res.status(400).json({ error: 'Google credential is required' });
+    }
+    
+    if (!googleClient) {
+      return res.status(500).json({ error: 'Google OAuth is not configured' });
+    }
+    
+    // Verify the Google credential
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Invalid Google credential' });
+    }
+    
+    const email = payload.email.toLowerCase();
+    
+    // Check if email is in admin whitelist
+    if (!env.adminEmails.includes(email)) {
+      console.log(`❌ Unauthorized admin access attempt: ${email}`);
+      return res.status(403).json({ 
+        error: 'Access denied. Your email is not authorized for admin access.' 
+      });
+    }
+    
+    // Generate session token
+    const sessionToken = uuidv4();
+    
+    // Create admin object
+    const adminData = {
+      id: `admin_${Date.now()}`,
+      email: email,
+      name: payload.name || 'Admin User',
+      picture: payload.picture,
+      role: 'admin',
+      permissions: ['users', 'subscriptions', 'support', 'settings'],
+      authenticatedAt: new Date().toISOString()
+    };
+    
+    console.log(`✅ Admin authenticated via Google OAuth: ${email}`);
+    
+    res.json({
+      success: true,
+      admin: adminData,
+      token: sessionToken,
+      message: 'Admin authentication successful'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error verifying Google OAuth:', error);
+    res.status(500).json({ error: 'Failed to verify Google authentication' });
+  }
+});
+
+/**
+ * Check if email is authorized admin
+ * POST /api/auth/admin/check-email
+ */
+router.post('/auth/admin/check-email', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    const isAuthorized = env.adminEmails.includes(email.toLowerCase());
+    
+    res.json({
+      authorized: isAuthorized,
+      message: isAuthorized 
+        ? 'Email is authorized for admin access' 
+        : 'Email is not authorized for admin access'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error checking admin email:', error);
+    res.status(500).json({ error: 'Failed to check email authorization' });
   }
 });
 

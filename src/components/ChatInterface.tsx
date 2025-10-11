@@ -38,7 +38,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const [showAnimatedIntro, setShowAnimatedIntro] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { currentChatId, addChat, updateCurrentChat } = useChatContext();
+  const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
   const { selectedName } = useCounselName();
   const { user, isAuthenticated, logout } = useAuth();
   const { 
@@ -65,17 +65,14 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
   // Show animated intro on initial load
   useEffect(() => {
-    console.log('Initial load effect - messages.length:', messages.length, 'selectedName:', selectedName, 'showAnimatedIntro:', showAnimatedIntro);
     // Show animation on initial load when there are no messages
     if (messages.length === 0 && !showAnimatedIntro) {
-      console.log('Setting showAnimatedIntro to true on initial load');
       setShowAnimatedIntro(true);
     }
-  }, [selectedName]);
+  }, [selectedName, messages.length, showAnimatedIntro]);
 
   // Initialize animation on component mount
   useEffect(() => {
-    console.log('Component mounted - setting up initial animation');
     setShowAnimatedIntro(true);
   }, []);
 
@@ -86,29 +83,46 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
     }
   }, [currentChatId, addChat]);
 
-  // Reset chat when currentChatId changes (new chat selected)
+  // Load chat data when currentChatId changes
   useEffect(() => {
     if (currentChatId) {
-      // Reset to show animated intro again for new chats
-      setShowAnimatedIntro(true);
-      setMessages([]);
+      const storedChat = loadChat(currentChatId);
       
-      // Reset conversation context
-      setConversationContext({
-        previousQueries: [],
-        mentionedArticles: [],
-      });
-      conversationalLawSearch.clearConversationContext();
-      
-      // Reset expanded articles
-      setExpandedArticles(new Set());
+      if (storedChat && storedChat.messages && storedChat.messages.length > 0) {
+        // Load existing chat with messages
+        setMessages(storedChat.messages);
+        setConversationContext(storedChat.conversationContext);
+        setExpandedArticles(new Set(storedChat.expandedArticles));
+        setShowAnimatedIntro(false); // Don't show intro for existing chats
+      } else {
+        // New chat - reset everything immediately
+        setMessages([]);
+        setShowAnimatedIntro(true);
+        
+        // Reset conversation context
+        setConversationContext({
+          previousQueries: [],
+          mentionedArticles: [],
+        });
+        conversationalLawSearch.clearConversationContext();
+        
+        // Reset expanded articles
+        setExpandedArticles(new Set());
+      }
     }
-  }, [currentChatId]);
+  }, [currentChatId, loadChat]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-save chat when messages change
+  useEffect(() => {
+    if (currentChatId && messages.length > 0) {
+      saveChat(currentChatId, messages, conversationContext, expandedArticles);
+    }
+  }, [messages, conversationContext, expandedArticles, currentChatId, saveChat]);
 
   // Test backend connection on component mount
   useEffect(() => {
@@ -148,9 +162,10 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
       return;
     }
 
-    // Update chat title if this is the first user message
-    if (messages.length === 1) {
-      const title = userMessage.length > 30 ? userMessage.substring(0, 30) + '...' : userMessage;
+    // Update chat title if this is the first user message in the conversation
+    const userMessages = messages.filter(msg => msg.type === 'user');
+    if (userMessages.length === 0) {
+      const title = userMessage.length > 50 ? userMessage.substring(0, 50) + '...' : userMessage;
       updateCurrentChat(title);
     }
 
@@ -401,11 +416,11 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
       {!hasUserMessages ? (
         /* Centered Search Bar - No Chat Yet */
-        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-16">
-          <div className="max-w-2xl w-full px-4 mx-auto">
-            <div className="text-center mb-8">
+        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-8">
+          <div className="max-w-5xl w-full px-4 mx-auto">
+            <div className="text-center mb-8 md:mb-12 min-h-[120px] md:min-h-[200px] flex items-center justify-center">
               {showAnimatedIntro ? (
-                <div className="flex justify-center">
+                <div className="flex justify-center w-full -mt-8 md:mt-0">
                   <AnimatedCounselIntroduction
                     counselName={selectedName}
                     onComplete={handleAnimatedIntroComplete}
@@ -445,14 +460,10 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                       onManageSubscription={() => setShowSubscriptionModal(true)}
                     />
                   </div>
-                ) : (
-                  <div className="text-sm text-gray-500">
-                    {promptCount}/{maxPrompts} free prompts remaining
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
-            <div className="pb-8">
+            <div className="pb-8 md:pb-8">
               <ChatInput
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
@@ -474,6 +485,10 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                   message={message}
                   onToggleExpand={handleToggleExpand}
                   expandedArticles={expandedArticles}
+                  currentChatId={currentChatId}
+                  saveEditedMessage={saveEditedMessage}
+                  getEditedMessage={getEditedMessage}
+                  clearEditedMessage={clearEditedMessage}
                 />
               ))}
               

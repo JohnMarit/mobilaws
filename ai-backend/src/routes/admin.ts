@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { env } from '../env';
 
 const router = Router();
 
@@ -7,24 +8,8 @@ const router = Router();
 const users = new Map<string, any>();
 const subscriptions = new Map<string, any>();
 const supportTickets = new Map<string, any>();
-const adminUsers = new Map<string, any>();
 
-// Initialize admin users
-const initializeAdminUsers = () => {
-  // Default admin account
-  adminUsers.set('admin@mobilaws.com', {
-    id: 'admin-001',
-    email: 'admin@mobilaws.com',
-    name: 'Admin User',
-    role: 'admin',
-    createdAt: new Date().toISOString(),
-    permissions: ['users', 'subscriptions', 'support', 'settings']
-  });
-};
-
-initializeAdminUsers();
-
-// Middleware to verify admin access
+// Middleware to verify admin access with email whitelist
 const verifyAdmin = (req: Request, res: Response, next: Function): void => {
   const adminEmail = req.headers['x-admin-email'] as string;
   const adminToken = req.headers['x-admin-token'] as string;
@@ -34,14 +19,19 @@ const verifyAdmin = (req: Request, res: Response, next: Function): void => {
     return;
   }
 
-  const admin = adminUsers.get(adminEmail);
-  if (!admin) {
-    res.status(403).json({ error: 'Admin access denied' });
+  // Check if email is in admin whitelist
+  if (!env.adminEmails.includes(adminEmail.toLowerCase())) {
+    console.log(`❌ Unauthorized admin access attempt from: ${adminEmail}`);
+    res.status(403).json({ error: 'Admin access denied. Email not authorized.' });
     return;
   }
 
-  // In production, verify token properly
-  req.body.adminUser = admin;
+  // In production, verify token with JWT
+  console.log(`✅ Admin access granted: ${adminEmail}`);
+  req.body.adminUser = {
+    email: adminEmail,
+    role: 'admin'
+  };
   next();
 };
 

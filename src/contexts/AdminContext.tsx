@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { getApiUrl } from '../lib/api';
 
 export interface AdminUser {
   id: string;
   email: string;
   name: string;
+  picture?: string;
   role: string;
   permissions: string[];
 }
@@ -105,8 +107,6 @@ interface AdminProviderProps {
   children: ReactNode;
 }
 
-const API_BASE_URL = 'http://localhost:8000/api';
-
 export function AdminProvider({ children }: AdminProviderProps) {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -144,7 +144,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/login`, {
+      const response = await fetch(getApiUrl('admin/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -212,7 +212,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
         params.append('search', search);
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/users?${params}`, {
+      const response = await fetch(getApiUrl(`admin/users?${params}`), {
         headers: getHeaders()
       });
 
@@ -229,7 +229,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const getUserDetails = useCallback(async (userId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+      const response = await fetch(getApiUrl(`admin/users/${userId}`), {
         headers: getHeaders()
       });
 
@@ -246,7 +246,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const updateUserStatus = useCallback(async (userId: string, status: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/status`, {
+      const response = await fetch(getApiUrl(`admin/users/${userId}/status`), {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify({ status })
@@ -272,7 +272,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
         ...filters
       });
 
-      const response = await fetch(`${API_BASE_URL}/admin/subscriptions?${params}`, {
+      const response = await fetch(getApiUrl(`admin/subscriptions?${params}`), {
         headers: getHeaders()
       });
 
@@ -289,7 +289,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const updateSubscription = useCallback(async (userId: string, updates: any): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscriptions/${userId}`, {
+      const response = await fetch(getApiUrl(`admin/subscriptions/${userId}`), {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify(updates)
@@ -318,7 +318,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
         params.append('status', status);
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/support/tickets?${params}`, {
+      const response = await fetch(getApiUrl(`admin/support/tickets?${params}`), {
         headers: getHeaders()
       });
 
@@ -335,7 +335,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const updateTicket = useCallback(async (ticketId: string, updates: any): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/support/tickets/${ticketId}`, {
+      const response = await fetch(getApiUrl(`admin/support/tickets/${ticketId}`), {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify(updates)
@@ -355,7 +355,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
 
   const getStats = useCallback(async (): Promise<AdminStats | null> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/stats`, {
+      const response = await fetch(getApiUrl('admin/stats'), {
         headers: getHeaders()
       });
 

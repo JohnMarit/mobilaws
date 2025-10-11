@@ -1,71 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Shield, Mail, AlertCircle, CheckCircle, Send } from 'lucide-react';
+import { Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getApiUrl } from '../lib/api';
+import { useAdmin } from '../contexts/AdminContext';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('thuchabraham42@gmail.com');
+  const { setAdminFromToken, isAuthenticated } = useAdmin();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/admin/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
-    if (!email) {
-      setError('Please enter your email address');
+  // Initialize Google OAuth
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google) {
+        setGoogleReady(true);
+        initializeGoogleSignIn();
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  const initializeGoogleSignIn = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    
+    if (!clientId) {
+      setError('Google OAuth is not configured. Please set VITE_GOOGLE_CLIENT_ID.');
       return;
     }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-
-    setIsLoading(true);
 
     try {
-      const response = await fetch(getApiUrl('auth/magic-link'), {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCallback,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      // Render the button
+      const buttonDiv = document.getElementById('google-signin-button');
+      if (buttonDiv) {
+        window.google.accounts.id.renderButton(buttonDiv, {
+          theme: 'outline',
+          size: 'large',
+          width: buttonDiv.offsetWidth,
+          text: 'signin_with',
+          shape: 'rectangular',
+        });
+      }
+    } catch (err) {
+      console.error('Error initializing Google Sign-In:', err);
+      setError('Failed to initialize Google Sign-In');
+    }
+  };
+
+  const handleGoogleCallback = useCallback(async (response: any) => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Send the credential to backend for verification
+      const result = await fetch(getApiUrl('auth/admin/google'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.toLowerCase(),
-          type: 'admin'
+          credential: response.credential
         })
       });
 
-      const data = await response.json();
+      const data = await result.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send magic link');
+      if (!result.ok) {
+        throw new Error(data.error || 'Authentication failed');
       }
 
-      setEmailSent(true);
-      toast.success('Magic link sent! Check your email.');
-      
-      // In development, show the token
-      if (data.token) {
-        console.log('🔗 Magic Link Token:', data.token);
-        console.log('🔗 Verification URL:', `http://localhost:5173/admin/verify?token=${data.token}`);
+      if (data.success && data.admin && data.token) {
+        setAdminFromToken(data.admin, data.token);
+        toast.success('Welcome to Admin Dashboard!');
+        navigate('/admin/dashboard');
+      } else {
+        throw new Error('Invalid response from server');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send magic link');
-      toast.error('Failed to send magic link');
+      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setAdminFromToken, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
@@ -78,110 +122,59 @@ export default function AdminLogin() {
           </div>
           <CardTitle className="text-2xl">Admin Login</CardTitle>
           <CardDescription>
-            {emailSent 
-              ? 'Check your email for the magic link' 
-              : 'Sign in to access the Mobilaws admin dashboard'}
+            Sign in with your authorized Google account to access the admin dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {emailSent ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-800">Magic link sent!</p>
-                    <p className="text-sm text-green-700 mt-1">
-                      We've sent a secure login link to <strong>{email}</strong>
-                    </p>
-                    <p className="text-xs text-green-600 mt-2">
-                      The link will expire in 15 minutes
-                    </p>
+          <div className="space-y-6">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-gray-600">Authenticating...</p>
+              </div>
+            ) : (
+              <>
+                <div 
+                  id="google-signin-button" 
+                  className="flex justify-center"
+                  style={{ minHeight: '44px' }}
+                />
+                
+                {!googleReady && (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400 mr-2" />
+                    <p className="text-sm text-gray-500">Loading Google Sign-In...</p>
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600 font-medium">Next steps:</p>
-                <ol className="text-sm text-gray-600 space-y-1 pl-5 list-decimal">
-                  <li>Check your email inbox</li>
-                  <li>Click the "Sign In to Mobilaws" button</li>
-                  <li>You'll be automatically logged in</li>
-                </ol>
-              </div>
-
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800 font-medium mb-1">💡 Development Mode:</p>
-                <p className="text-xs text-blue-600">
-                  Check the browser console for the magic link token
-                </p>
-              </div>
-
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => {
-                  setEmailSent(false);
-                  setError('');
-                }}
-              >
-                Send Another Link
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Admin Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@mobilaws.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    disabled={isLoading}
-                  />
-                </div>
-                <p className="text-xs text-gray-500">
-                  We'll send a secure login link to your email
-                </p>
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Send className="h-4 w-4 mr-2 animate-pulse" />
-                    Sending Magic Link...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="h-4 w-4 mr-2" />
-                    Send Magic Link
-                  </>
                 )}
-              </Button>
+              </>
+            )}
 
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800 font-medium mb-1">🔐 Secure Login:</p>
-                <p className="text-xs text-blue-600">
-                  No password needed! We'll send you a secure one-time link via email.
-                </p>
-              </div>
-            </form>
-          )}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-800 font-medium mb-2">🔐 Authorized Access Only</p>
+              <p className="text-xs text-blue-600 mb-2">
+                Only specific email addresses are authorized to access the admin dashboard.
+              </p>
+              <p className="text-xs text-blue-600">
+                Current authorized email: <strong>thuchabraham42@gmail.com</strong>
+              </p>
+            </div>
+
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs text-green-800 font-medium mb-1">✨ How it works:</p>
+              <ol className="text-xs text-green-700 space-y-1 pl-4 list-decimal">
+                <li>Click "Sign in with Google" above</li>
+                <li>Sign in with your authorized Google account</li>
+                <li>You'll be automatically redirected to the admin dashboard</li>
+              </ol>
+            </div>
+          </div>
 
           <div className="mt-6 text-center">
             <Button 

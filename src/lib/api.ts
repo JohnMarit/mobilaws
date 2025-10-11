@@ -5,10 +5,14 @@ const isDevelopment = import.meta.env.MODE === 'development';
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 // Get API URL from environment or use defaults
+// In production, VITE_API_URL MUST be set in environment variables
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 
   (isDevelopment || isLocalhost 
     ? 'http://localhost:8000/api' 
-    : 'https://your-backend-url.com/api');
+    : (() => {
+        console.error('❌ VITE_API_URL is not set! Please set it in Vercel environment variables.');
+        return 'http://localhost:8000/api'; // Fallback to prevent crashes
+      })());
 
 // For backward compatibility, export individual API endpoints
 export const getApiUrl = (endpoint: string): string => {

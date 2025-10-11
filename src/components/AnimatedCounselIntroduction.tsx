@@ -17,15 +17,15 @@ export default function AnimatedCounselIntroduction({
   ];
 
   return (
-    <div className="text-center">
-      <div className="text-lg text-gray-600 mb-4">
+    <div className="text-center px-4">
+      <div className="text-5xl md:text-6xl lg:text-7xl text-gray-700 mb-8 leading-tight">
         <WordAnimation
           words={words}
           onComplete={onComplete}
-          typingSpeed={120}
-          deletingSpeed={60}
+          typingSpeed={80}
+          deletingSpeed={40}
           pauseDuration={2500}
-          className="font-medium"
+          className="font-semibold block"
           loop={true}
         />
       </div>

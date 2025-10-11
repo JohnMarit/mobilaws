@@ -53,6 +53,10 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default('noreply@mobilaws.com'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
 
+  // Admin Configuration
+  ADMIN_EMAILS: z.string().default('thuchabraham42@gmail.com'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+
   // LLM Parameters
   TEMPERATURE: z.string().default('0.1').transform(Number),
   MAX_TOKENS: z.string().default('1024').transform(Number),
@@ -106,6 +110,7 @@ export const env = {
   corsOrigins: parsedEnv.CORS_ORIGINS.split(',').map(origin => origin.trim()),
   chromaPath: path.resolve(process.cwd(), parsedEnv.CHROMA_DIR),
   docsPath: path.resolve(process.cwd(), parsedEnv.DOCS_DIR),
+  adminEmails: parsedEnv.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase()),
 };
 
 export type Env = typeof env;

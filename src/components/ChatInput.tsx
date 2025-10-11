@@ -301,7 +301,7 @@ export default function ChatInput({
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
-              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length || audioNotes.length ? 'pt-7 pb-2' : 'py-3'} pl-24 pr-12 text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length || audioNotes.length ? 'pt-7 pb-2' : 'py-3'} pl-24 ${input && !isLoading ? 'pr-12' : 'pr-12'} text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
@@ -344,12 +344,12 @@ export default function ChatInput({
               </button>
             )}
 
-            {/* Clear Button */}
+            {/* Clear Button - positioned inside the input field */}
             {input && !isLoading && (
               <button
                 type="button"
                 onClick={() => setInput('')}
-                className="absolute right-2 p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
                 title="Clear input"
               >
                 <X className="h-4 w-4" />

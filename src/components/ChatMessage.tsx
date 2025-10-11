@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { Copy, ExternalLink, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Copy, ExternalLink, ChevronDown, ChevronUp, User, FileText, Check, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { SearchResult, highlightSearchTerms } from '@/lib/search';
+import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
+import ResponseEditor from './ResponseEditor';
+import './ResponseEditor.css';
 
 export interface ChatMessage {
   id: string;
@@ -20,15 +24,43 @@ interface ChatMessageProps {
   message: ChatMessage;
   onToggleExpand?: (articleNumber: number) => void;
   expandedArticles?: Set<number>;
+  currentChatId?: string | null;
+  saveEditedMessage?: (messageId: string, editedContent: string) => void;
+  getEditedMessage?: (messageId: string) => string | null;
+  clearEditedMessage?: (messageId: string) => void;
 }
 
 export default function ChatMessage({ 
   message, 
   onToggleExpand,
-  expandedArticles = new Set()
+  expandedArticles = new Set(),
+  currentChatId,
+  saveEditedMessage,
+  getEditedMessage,
+  clearEditedMessage
 }: ChatMessageProps) {
   const { toast } = useToast();
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(() => {
+    // Convert plain text to HTML with proper paragraph tags if it's not already HTML
+    if (message.content.includes('<')) {
+      return message.content;
+    }
+    return `<p>${message.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+  });
+
+  // Update edited content when switching chats or when storage functions become available
+  useEffect(() => {
+    if (getEditedMessage && currentChatId && message.id) {
+      const savedContent = getEditedMessage(message.id);
+      if (savedContent) {
+        setEditedContent(savedContent);
+      }
+    }
+  }, [currentChatId, message.id, getEditedMessage]);
 
   const handleToggleExpand = (articleNumber: number) => {
     if (!onToggleExpand) return;
@@ -100,6 +132,315 @@ export default function ChatMessage({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const parseHtmlToWordParagraphs = (htmlContent: string) => {
+    const paragraphs: any[] = [];
+    
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Process each element
+    const processElement = (element: Element): any[] => {
+      const results: any[] = [];
+      
+      if (element.tagName === 'P') {
+        // Process paragraph content
+        const children = Array.from(element.childNodes);
+        const textRuns: any[] = [];
+        
+        const processNode = (node: ChildNode): void => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent?.trim();
+            if (text) {
+              textRuns.push(new TextRun(text));
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
+            const text = element.textContent?.trim();
+            if (text) {
+              let formatting: any = {};
+              
+              if (element.tagName === 'STRONG' || element.tagName === 'B') {
+                formatting.bold = true;
+              }
+              if (element.tagName === 'EM' || element.tagName === 'I') {
+                formatting.italics = true;
+              }
+              if (element.tagName === 'U') {
+                formatting.underline = {};
+              }
+              
+              textRuns.push(new TextRun({ text, ...formatting }));
+            }
+          }
+        };
+        
+        children.forEach(processNode);
+        
+        if (textRuns.length > 0) {
+          // Check for text alignment
+          const style = element.getAttribute('style') || '';
+          let alignment: any = {};
+          
+          if (style.includes('text-align: center')) {
+            alignment.alignment = 'center';
+          } else if (style.includes('text-align: right')) {
+            alignment.alignment = 'right';
+          } else if (style.includes('text-align: left')) {
+            alignment.alignment = 'left';
+          }
+          
+          results.push(new Paragraph({
+            children: textRuns,
+            spacing: { after: 120 },
+            ...alignment,
+          }));
+        }
+      } else if (element.tagName === 'UL') {
+        // Process unordered list
+        const listItems = Array.from(element.children).filter(child => child.tagName === 'LI');
+        listItems.forEach(item => {
+          const text = item.textContent?.trim();
+          if (text) {
+            results.push(new Paragraph({
+              children: [new TextRun(`• ${text}`)],
+              spacing: { after: 80 },
+              indent: { left: 360 }, // Indent for list items
+            }));
+          }
+        });
+      } else if (element.tagName === 'OL') {
+        // Process ordered list
+        const listItems = Array.from(element.children).filter(child => child.tagName === 'LI');
+        listItems.forEach((item, index) => {
+          const text = item.textContent?.trim();
+          if (text) {
+            results.push(new Paragraph({
+              children: [new TextRun(`${index + 1}. ${text}`)],
+              spacing: { after: 80 },
+              indent: { left: 360 }, // Indent for list items
+            }));
+          }
+        });
+      } else if (element.tagName === 'BR') {
+        // Handle line breaks
+        results.push(new Paragraph({
+          children: [new TextRun(' ')],
+          spacing: { after: 60 },
+        }));
+      } else {
+        // Process other elements recursively
+        const children = Array.from(element.children);
+        children.forEach(child => {
+          results.push(...processElement(child));
+        });
+      }
+      
+      return results;
+    };
+    
+    // Process all top-level elements
+    const children = Array.from(tempDiv.children);
+    if (children.length === 0) {
+      // If no block elements, treat as plain text
+      const text = tempDiv.textContent?.trim();
+      if (text) {
+        paragraphs.push(new Paragraph({
+          children: [new TextRun(text)],
+          spacing: { after: 120 },
+        }));
+      }
+    } else {
+      children.forEach(child => {
+        paragraphs.push(...processElement(child));
+      });
+    }
+    
+    return paragraphs;
+  };
+
+  const copyMessage = async () => {
+    try {
+      // Try to copy both HTML and plain text formats
+      const htmlContent = editedContent;
+      const textContent = editedContent.replace(/<[^>]*>/g, '');
+      
+      // Create clipboard item with both formats
+      const clipboardItem = new ClipboardItem({
+        'text/html': new Blob([htmlContent], { type: 'text/html' }),
+        'text/plain': new Blob([textContent], { type: 'text/plain' })
+      });
+      
+      await navigator.clipboard.write([clipboardItem]);
+      setIsCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Formatted response copied to clipboard",
+      });
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      // Fallback to plain text if HTML copy fails
+      try {
+        const textContent = editedContent.replace(/<[^>]*>/g, '');
+        await navigator.clipboard.writeText(textContent);
+        setIsCopied(true);
+        toast({
+          title: "Copied!",
+          description: "Response copied to clipboard (plain text)",
+        });
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (fallbackError) {
+        console.error('Failed to copy message:', fallbackError);
+        toast({
+          title: "Failed to copy",
+          description: "Could not copy response to clipboard",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const exportToWord = async () => {
+    setIsExporting(true);
+    try {
+      // Parse HTML content and create formatted paragraphs
+      const contentParagraphs = parseHtmlToWordParagraphs(editedContent);
+
+      // Create sections array
+      const sections = [
+        new Paragraph({
+          text: "AI Legal Assistant Response",
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 200 },
+        }),
+        new Paragraph({
+          text: `Generated on: ${new Date().toLocaleString()}`,
+          spacing: { after: 400 },
+        }),
+        ...contentParagraphs,
+      ];
+
+      // Add search results if available
+      if (message.searchResults && message.searchResults.length > 0) {
+        sections.push(
+          new Paragraph({
+            text: "",
+            spacing: { before: 400, after: 200 },
+          }),
+          new Paragraph({
+            text: "Related Legal Articles",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { after: 200 },
+          })
+        );
+
+        message.searchResults.forEach(result => {
+          sections.push(
+            new Paragraph({
+              text: `Article ${result.article} — ${result.title}`,
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 200, after: 120 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Source: ${result.lawSource || 'N/A'}`,
+                  italics: true,
+                }),
+              ],
+              spacing: { after: 120 },
+            })
+          );
+
+          // Add article text paragraphs
+          const articleParagraphs = result.text.split('\n').map(line =>
+            new Paragraph({
+              children: [new TextRun(line || ' ')],
+              spacing: { after: 120 },
+            })
+          );
+          sections.push(...articleParagraphs);
+        });
+      }
+
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: sections,
+        }],
+      });
+
+      // Generate and save the document
+      const blob = await Packer.toBlob(doc);
+      const timestamp = new Date().toISOString().slice(0, 10);
+      saveAs(blob, `legal-response-${timestamp}.docx`);
+
+      toast({
+        title: "Exported!",
+        description: "Response exported as Word document",
+      });
+    } catch (error) {
+      console.error('Failed to export to Word:', error);
+      toast({
+        title: "Export failed",
+        description: "Could not export response to Word",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleEditSave = (newContent: string) => {
+    setEditedContent(newContent);
+    
+    // Save to persistent storage
+    if (saveEditedMessage && currentChatId) {
+      saveEditedMessage(message.id, newContent);
+    }
+    
+    setIsEditing(false);
+    toast({
+      title: "Response updated",
+      description: "Your edits have been saved and will persist across page refreshes",
+    });
+  };
+
+  const handleEditCancel = () => {
+    // Restore to saved content if available, otherwise use original
+    if (getEditedMessage && currentChatId) {
+      const savedContent = getEditedMessage(message.id);
+      if (savedContent) {
+        setEditedContent(savedContent);
+      } else {
+        setEditedContent(message.content);
+      }
+    } else {
+      setEditedContent(message.content);
+    }
+    setIsEditing(false);
+  };
+
+  const handleEditReset = () => {
+    // Reset to original content and clear saved edits
+    const originalContent = message.content.includes('<') 
+      ? message.content 
+      : `<p>${message.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+    
+    setEditedContent(originalContent);
+    
+    // Clear saved edits from storage
+    if (clearEditedMessage) {
+      clearEditedMessage(message.id);
+    }
+    
+    toast({
+      title: "Response reset",
+      description: "Response has been reset to original content and edits cleared",
+    });
+  };
+
   if (message.type === 'user') {
     return (
       <div className="flex justify-end mb-6">
@@ -143,7 +484,59 @@ export default function ChatMessage({
               </div>
             ) : (
               <>
-                <p className="text-sm whitespace-pre-wrap text-gray-900 leading-relaxed">{message.content}</p>
+                <div 
+                  className={`formatted-content ${editedContent !== message.content ? 'border-l-2 border-blue-200 pl-3' : ''}`}
+                  dangerouslySetInnerHTML={{ __html: editedContent }}
+                />
+                
+                {/* Edited indicator */}
+                {editedContent !== message.content && (
+                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                    <Edit3 className="h-3 w-3" />
+                    <span>Response has been edited</span>
+                  </div>
+                )}
+                
+                {/* Action buttons for response */}
+                <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-2 text-xs h-8 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    <span>Edit response</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyMessage}
+                    className="flex items-center gap-2 text-xs h-8 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                        <span className="text-green-600">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copy response</span>
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportToWord}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 text-xs h-8 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>{isExporting ? 'Exporting...' : 'Export to Word'}</span>
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -255,6 +648,15 @@ export default function ChatMessage({
           </div>
         )}
       </div>
+
+      {/* Response Editor Modal */}
+      <ResponseEditor
+        initialContent={editedContent}
+        onSave={handleEditSave}
+        onCancel={handleEditCancel}
+        onReset={handleEditReset}
+        isOpen={isEditing}
+      />
     </div>
   );
 }

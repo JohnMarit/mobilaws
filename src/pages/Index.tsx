@@ -27,6 +27,7 @@ const Index = () => {
 
   // Close mobile sidebar when chat is selected
   const handleSelectChat = (chatId: string) => {
+    // selectChat will automatically use currentChatId to clean up empty chats
     selectChat(chatId);
     setIsMobileSidebarOpen(false);
   };
@@ -71,9 +72,8 @@ const Index = () => {
   }
 
   const handleNewChat = () => {
-    const newChatId = addChat('New Chat');
-    // The chat context will automatically set this as currentChatId
-    // and the ChatInterface will reset to show the welcome screen
+    addChat('New Chat');
+    // addChat will automatically clean up the previous empty chat
     setIsMobileSidebarOpen(false);
   };
 
