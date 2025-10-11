@@ -230,8 +230,8 @@ export default function Sidebar({
       </ScrollArea>
 
       {/* Subscription Status Section - Fixed at bottom */}
-      {onManageSubscription && (
-        <div className="mt-auto border-t border-gray-700 px-4 py-3">
+      {!isCollapsed && onManageSubscription && (
+        <div className="mt-auto border-t border-gray-700 px-4 py-3 bg-gray-900">
           <SubscriptionStatus 
             compact={true}
             onManageSubscription={onManageSubscription}

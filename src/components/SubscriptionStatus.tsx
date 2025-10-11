@@ -47,16 +47,16 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
   // Show free plan badge if user has free plan
   if (userSubscription && userSubscription.isFree) {
     return (
-      <div className={`flex items-center gap-2 ${compact ? 'text-sm' : ''}`}>
-        <Badge variant="outline" className="bg-green-100 text-green-600 border-green-300">
-          Free Plan - {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens today
+      <div className={`flex flex-col gap-2 ${compact ? 'text-sm' : ''}`}>
+        <Badge variant="outline" className="bg-green-700 text-green-200 border-green-600 text-xs">
+          Free Plan: {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens
         </Badge>
         {onManageSubscription && (
           <Button
             variant="outline"
             size="sm"
             onClick={onManageSubscription}
-            className="h-6 px-2 text-xs"
+            className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white border-blue-500 w-full"
           >
             <CreditCard className="h-3 w-3 mr-1" />
             Upgrade
@@ -69,7 +69,7 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
   if (!userSubscription || !userSubscription.isActive) {
     return (
       <div className={`flex items-center gap-2 ${compact ? 'text-sm' : ''}`}>
-        <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-300">
+        <Badge variant="outline" className="bg-gray-700 text-gray-300 border-gray-600">
           No Plan
         </Badge>
         {onManageSubscription && (
@@ -77,7 +77,7 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
             variant="outline"
             size="sm"
             onClick={onManageSubscription}
-            className="h-6 px-2 text-xs"
+            className="h-7 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
           >
             <CreditCard className="h-3 w-3 mr-1" />
             Get Plan
@@ -92,20 +92,22 @@ export default function SubscriptionStatus({ onManageSubscription, compact = fal
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2">
-        <Badge className={`${getPlanColor(userSubscription.planId)} flex items-center gap-1`}>
-          {getPlanIcon(userSubscription.planId)}
-          {plan?.name}
-        </Badge>
-        <span className="text-sm text-gray-600">
-          {userSubscription.tokensRemaining} tokens left
-        </span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-purple-700 text-purple-100 border-purple-600 flex items-center gap-1">
+            {getPlanIcon(userSubscription.planId)}
+            {plan?.name}
+          </Badge>
+          <span className="text-xs text-gray-300">
+            {userSubscription.tokensRemaining} left
+          </span>
+        </div>
         {onManageSubscription && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onManageSubscription}
-            className="h-6 px-2 text-xs"
+            className="h-7 px-3 text-xs bg-gray-700 hover:bg-gray-600 text-white border-gray-600 w-full"
           >
             Manage
           </Button>
