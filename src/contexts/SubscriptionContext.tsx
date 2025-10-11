@@ -104,6 +104,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   useEffect(() => {
     const initializeSubscription = async () => {
       if (isAuthenticated && user) {
+        console.log(`🔄 Initializing subscription for user: ${user.id}`);
         setIsLoading(true);
         try {
           // Fetch from backend API (this will auto-create free plan if needed)
@@ -115,9 +116,26 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
               setUserSubscription(result.subscription);
               localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
               console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
+            } else {
+              // Backend responded but no subscription - create local free plan
+              console.warn('⚠️ No subscription from backend - creating local free plan');
+              const localFreePlan: UserSubscription = {
+                planId: 'free',
+                tokensRemaining: 5,
+                tokensUsed: 0,
+                totalTokens: 5,
+                purchaseDate: new Date().toISOString(),
+                lastResetDate: new Date().toISOString(),
+                isActive: true,
+                isFree: true
+              };
+              setUserSubscription(localFreePlan);
+              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+              console.log(`✅ Local free plan created: 5 daily tokens`);
             }
           } else {
-            // Fallback to localStorage if backend is unavailable
+            // Fallback to localStorage if backend returns error
+            console.warn(`⚠️ Backend returned error: ${response.status}`);
             const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
             if (savedSubscription) {
               try {
@@ -125,6 +143,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
                 // Check if subscription is still valid
                 if (subscription.isActive && (!subscription.expiryDate || new Date(subscription.expiryDate) > new Date())) {
                   setUserSubscription(subscription);
+                  console.log(`✅ Loaded subscription from localStorage`);
                 } else {
                   // Subscription expired, mark as inactive
                   const expiredSubscription = { ...subscription, isActive: false };
@@ -133,8 +152,37 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
                 }
               } catch (error) {
                 console.error('Error parsing saved subscription:', error);
-                setUserSubscription(null);
+                // Create local free plan as last resort
+                const localFreePlan: UserSubscription = {
+                  planId: 'free',
+                  tokensRemaining: 5,
+                  tokensUsed: 0,
+                  totalTokens: 5,
+                  purchaseDate: new Date().toISOString(),
+                  lastResetDate: new Date().toISOString(),
+                  isActive: true,
+                  isFree: true
+                };
+                setUserSubscription(localFreePlan);
+                localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+                console.log(`✅ Local free plan created after error: 5 daily tokens`);
               }
+            } else {
+              // No saved subscription - create local free plan
+              console.warn('⚠️ No saved subscription - creating local free plan');
+              const localFreePlan: UserSubscription = {
+                planId: 'free',
+                tokensRemaining: 5,
+                tokensUsed: 0,
+                totalTokens: 5,
+                purchaseDate: new Date().toISOString(),
+                lastResetDate: new Date().toISOString(),
+                isActive: true,
+                isFree: true
+              };
+              setUserSubscription(localFreePlan);
+              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+              console.log(`✅ Local free plan created: 5 daily tokens`);
             }
           }
         } catch (error) {
@@ -144,6 +192,22 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           if (savedSubscription) {
             const subscription: UserSubscription = JSON.parse(savedSubscription);
             setUserSubscription(subscription);
+          } else {
+            // If no saved subscription and backend is unavailable, create a local free plan
+            console.warn('⚠️ Backend unavailable - creating local free plan');
+            const localFreePlan: UserSubscription = {
+              planId: 'free',
+              tokensRemaining: 5,
+              tokensUsed: 0,
+              totalTokens: 5,
+              purchaseDate: new Date().toISOString(),
+              lastResetDate: new Date().toISOString(),
+              isActive: true,
+              isFree: true
+            };
+            setUserSubscription(localFreePlan);
+            localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+            console.log(`✅ Local free plan created: 5 daily tokens`);
           }
         } finally {
           setIsLoading(false);
@@ -340,8 +404,20 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         return false;
       }
     } catch (error) {
-      console.error('Error using token:', error);
-      return false;
+      console.error('Error using token via backend:', error);
+      // Fallback to local token management
+      console.warn('⚠️ Using local token management');
+      
+      const updatedSubscription = {
+        ...userSubscription,
+        tokensRemaining: userSubscription.tokensRemaining - 1,
+        tokensUsed: userSubscription.tokensUsed + 1
+      };
+
+      setUserSubscription(updatedSubscription);
+      localStorage.setItem(`subscription_${user.id}`, JSON.stringify(updatedSubscription));
+      console.log(`✅ Token used locally. Remaining: ${updatedSubscription.tokensRemaining}`);
+      return true;
     }
   }, [userSubscription, user]);
 
