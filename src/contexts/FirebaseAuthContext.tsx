@@ -41,8 +41,27 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Load user from localStorage immediately on mount (synchronous)
+  // This prevents the "signing in" flash on page refresh
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        console.log('✅ Restored user from localStorage:', parsedUser.name);
+        return parsedUser;
+      }
+    } catch (error) {
+      console.error('Error loading saved user:', error);
+    }
+    return null;
+  });
+  
+  // Start with isLoading=false if we have a cached user, true otherwise
+  const [isLoading, setIsLoading] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return !savedUser; // Only show loading if there's no cached user
+  });
   const [firebaseAvailable, setFirebaseAvailable] = useState(false);
 
   // Check if Firebase is available
@@ -76,7 +95,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔄 Setting up Firebase auth state listener...');
 
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        console.log('🔄 Auth state changed:', firebaseUser ? 'User signed in' : 'User signed out');
+        console.log('🔄 Firebase auth state check:', firebaseUser ? 'User confirmed' : 'User signed out');
         
         if (firebaseUser) {
           const userData: User = {
@@ -86,7 +105,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
             picture: firebaseUser.photoURL || undefined,
           };
           
-          // Save user data to Firestore backend
+          // Update localStorage immediately with basic user data
+          setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
+          
+          // Then try to sync with Firestore in the background (don't block UI)
           try {
             await saveUserToFirestore(userData);
             
@@ -96,18 +119,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
               // Merge Firestore data with auth data
               setUser(firestoreUser);
               localStorage.setItem('user', JSON.stringify(firestoreUser));
-            } else {
-              setUser(userData);
-              localStorage.setItem('user', JSON.stringify(userData));
             }
           } catch (error) {
             console.error('Error syncing user with Firestore:', error);
-            // Fallback to local data if Firestore fails
-            setUser(userData);
-            localStorage.setItem('user', JSON.stringify(userData));
+            // Continue with local data if Firestore fails (already set above)
           }
           
-          console.log('✅ User authenticated:', userData.name);
+          console.log('✅ User session verified:', userData.name);
         } else {
           console.log('ℹ️ No user signed in');
           setUser(null);
@@ -151,17 +169,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
     document.head.appendChild(script);
 
-    // Check for existing session
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
-        localStorage.removeItem('user');
-      }
-    }
-    
+    // User is already loaded from localStorage in the initial state
+    // Just finish loading
     setIsLoading(false);
   };
 
