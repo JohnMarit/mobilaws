@@ -40,7 +40,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const { toast } = useToast();
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
   const { selectedName } = useCounselName();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const { 
     promptCount, 
     maxPrompts, 
@@ -151,6 +151,12 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
     // Check if user can send prompt
     if (!canSendPrompt) {
+      // Don't show modals while auth is still loading
+      if (authLoading) {
+        console.log('⏳ Auth still loading, waiting before showing modal...');
+        return;
+      }
+      
       if (isAuthenticated && (!userSubscription || !userSubscription.isActive)) {
         // Authenticated user without active subscription - show subscription modal
         setShowSubscriptionModal(true);

@@ -73,7 +73,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Firebase auth not initialized');
       }
 
+      console.log('🔄 Setting up Firebase auth state listener...');
+
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        console.log('🔄 Auth state changed:', firebaseUser ? 'User signed in' : 'User signed out');
+        
         if (firebaseUser) {
           const userData: User = {
             id: firebaseUser.uid,
@@ -105,6 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           
           console.log('✅ User authenticated:', userData.name);
         } else {
+          console.log('ℹ️ No user signed in');
           setUser(null);
           localStorage.removeItem('user');
         }
@@ -114,6 +119,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return () => unsubscribe();
     } catch (error) {
       console.error('Error initializing Firebase auth:', error);
+      setIsLoading(false);
       initializeGoogleAuth();
     }
   };

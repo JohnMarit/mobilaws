@@ -37,7 +37,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [dailyTokensUsed, setDailyTokensUsed] = useState(0);
   const [tokensResetDate, setTokensResetDate] = useState('');
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { userSubscription, useToken, canUseToken, isLoading: subscriptionLoading } = useSubscription();
   const maxPrompts = 3; // Anonymous users limit
   const maxDailyTokens = 5; // Free plan users limit
@@ -104,12 +104,15 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   // Reset prompt count and close modal when user authenticates
   useEffect(() => {
+    // Don't do anything while auth is still loading
+    if (authLoading) return;
+    
     if (isAuthenticated) {
       setPromptCount(0);
       setShowLoginModal(false);
       console.log('✅ User authenticated - prompt count reset and modal closed');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
 
   const incrementPromptCount = useCallback(async (): Promise<boolean> => {
     if (isAuthenticated) {

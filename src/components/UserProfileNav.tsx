@@ -19,9 +19,14 @@ interface UserProfileNavProps {
 }
 
 export default function UserProfileNav({ onManageSubscription, compact = false }: UserProfileNavProps) {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { userSubscription } = useSubscription();
   const { setShowLoginModal, promptCount, maxPrompts, dailyTokensUsed, maxDailyTokens } = usePromptLimit();
+
+  // Show nothing while auth is loading (prevents flickering and premature sign-in prompts)
+  if (isLoading) {
+    return null;
+  }
 
   if (isAuthenticated && user) {
     return (
