@@ -440,28 +440,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                   )}
                 </p>
               )}
-              
-              {/* Mobile User Status */}
-              <div className="md:hidden mb-4">
-                {isAuthenticated ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      {user?.picture && (
-                        <img 
-                          src={user.picture} 
-                          alt={user.name} 
-                          className="w-6 h-6 rounded-full"
-                        />
-                      )}
-                      <span className="text-sm text-blue-600">Signed in as {user?.name}</span>
-                    </div>
-                    <SubscriptionStatus 
-                      compact={true}
-                      onManageSubscription={() => setShowSubscriptionModal(true)}
-                    />
-                  </div>
-                ) : null}
-              </div>
             </div>
             <div className="pb-8 md:pb-8">
               <ChatInput
