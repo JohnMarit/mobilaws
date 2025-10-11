@@ -54,7 +54,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
     maxDailyTokens,
     tokensResetDate
   } = usePromptLimit();
-  const { userSubscription } = useSubscription();
+  const { userSubscription, isLoading: subscriptionLoading } = useSubscription();
 
   // Initialize with welcome message after animated intro completes
   const handleAnimatedIntroComplete = () => {
@@ -143,13 +143,22 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const handleSendMessage = async (userMessage: string) => {
     if (!userMessage.trim() || isLoading) return;
 
+    // Wait for subscription to load before checking limits
+    if (isAuthenticated && subscriptionLoading) {
+      console.log('⏳ Waiting for subscription to load...');
+      return;
+    }
+
     // Check if user can send prompt
     if (!canSendPrompt) {
       if (isAuthenticated && (!userSubscription || !userSubscription.isActive)) {
-        // Authenticated user without subscription - show subscription modal
+        // Authenticated user without active subscription - show subscription modal
+        setShowSubscriptionModal(true);
+      } else if (isAuthenticated && userSubscription && userSubscription.isActive && !canSendPrompt) {
+        // Authenticated user with subscription but no tokens - show subscription modal
         setShowSubscriptionModal(true);
       } else {
-        // Anonymous user or user with expired subscription - show login modal
+        // Anonymous user - show login modal
         setShowLoginModal(true);
       }
       return;
@@ -158,7 +167,18 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
     // Increment prompt count/token usage
     const tokenUsed = await incrementPromptCount();
     if (!tokenUsed) {
-      // Token usage failed, don't proceed with the message
+      // Token usage failed - show appropriate modal
+      if (isAuthenticated) {
+        // Authenticated user ran out of tokens
+        setShowSubscriptionModal(true);
+        toast({
+          title: "No tokens remaining",
+          description: userSubscription?.isFree 
+            ? "You've used all your free daily tokens. Upgrade to get more!" 
+            : "Purchase a plan to continue using the chatbot.",
+          variant: "default",
+        });
+      }
       return;
     }
 

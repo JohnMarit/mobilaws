@@ -8,7 +8,7 @@ const subscriptions = new Map<string, any>();
 
 /**
  * Initialize free plan for authenticated users
- * This gives users 10 tokens per day with daily reset
+ * This gives users 5 tokens per day with daily reset
  */
 const initializeFreePlan = (userId: string) => {
   const today = new Date().toDateString();
@@ -25,11 +25,11 @@ const initializeFreePlan = (userId: string) => {
     
     if (lastResetDate !== today) {
       // Reset tokens for new day
-      existingSub.tokensRemaining = 10;
+      existingSub.tokensRemaining = 5;
       existingSub.tokensUsed = 0;
       existingSub.lastResetDate = new Date().toISOString();
       subscriptions.set(userId, existingSub);
-      console.log(`✅ Daily tokens reset for user ${userId}: 10 tokens`);
+      console.log(`✅ Daily tokens reset for user ${userId}: 5 tokens`);
     }
     
     return existingSub;
@@ -38,9 +38,9 @@ const initializeFreePlan = (userId: string) => {
   // Create new free plan
   const freePlan = {
     planId: 'free',
-    tokensRemaining: 10,
+    tokensRemaining: 5,
     tokensUsed: 0,
-    totalTokens: 10,
+    totalTokens: 5,
     purchaseDate: new Date().toISOString(),
     lastResetDate: new Date().toISOString(),
     isActive: true,
@@ -49,7 +49,7 @@ const initializeFreePlan = (userId: string) => {
   };
   
   subscriptions.set(userId, freePlan);
-  console.log(`✅ Free plan initialized for user ${userId}: 10 daily tokens`);
+  console.log(`✅ Free plan initialized for user ${userId}: 5 daily tokens`);
   
   return freePlan;
 };

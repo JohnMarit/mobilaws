@@ -38,9 +38,9 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const [dailyTokensUsed, setDailyTokensUsed] = useState(0);
   const [tokensResetDate, setTokensResetDate] = useState('');
   const { isAuthenticated } = useAuth();
-  const { userSubscription, useToken, canUseToken } = useSubscription();
+  const { userSubscription, useToken, canUseToken, isLoading: subscriptionLoading } = useSubscription();
   const maxPrompts = 3; // Anonymous users limit
-  const maxDailyTokens = 5; // Free plan users limit (was 20, now 5)
+  const maxDailyTokens = 5; // Free plan users limit
 
   // Load prompt count and daily tokens from localStorage on mount
   useEffect(() => {
@@ -138,7 +138,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   // Check if user can send prompt based on their authentication status and subscription
   const canSendPrompt = isAuthenticated 
-    ? (userSubscription && userSubscription.isActive && canUseToken)  // All authenticated users use subscription (including free plan)
+    ? (!subscriptionLoading && userSubscription && userSubscription.isActive && canUseToken)  // Authenticated users with active subscription (including free plan) and available tokens
     : promptCount < maxPrompts;  // Anonymous users: 3 prompts total
 
 
