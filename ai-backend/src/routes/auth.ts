@@ -33,6 +33,21 @@ setInterval(() => {
   }
 }, 60 * 1000); // Run every minute
 
+// Stub function for magic link email sending
+// Note: Email sending is not implemented. In production, integrate with an email service.
+async function sendMagicLink(params: { email: string; token: string; type: string }): Promise<boolean> {
+  // In development, just log the magic link
+  if (env.NODE_ENV === 'development') {
+    const magicLink = `${env.FRONTEND_URL}/admin/verify?token=${params.token}`;
+    console.log(`\n📧 Magic Link for ${params.email}:`);
+    console.log(`🔗 ${magicLink}\n`);
+  }
+  
+  // TODO: Integrate with email service (SendGrid, AWS SES, etc.)
+  // For now, return true in development, false in production
+  return env.NODE_ENV === 'development';
+}
+
 /**
  * Request a magic link
  * POST /api/auth/magic-link
