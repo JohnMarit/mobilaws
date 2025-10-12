@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { saveUserToFirestore, getUserFromFirestore } from '@/lib/userService';
+import { getApiUrl } from '@/lib/api';
 
 interface User {
   id: string;
@@ -120,6 +121,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
               setUser(firestoreUser);
               localStorage.setItem('user', JSON.stringify(firestoreUser));
             }
+            // Also sync user to backend for admin dashboard listing
+            try {
+              await fetch(getApiUrl('users/sync'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: userData.id,
+                  email: userData.email,
+                  name: userData.name,
+                  picture: userData.picture,
+                })
+              });
+            } catch (e) {
+              console.warn('⚠️ Failed to sync user to backend (admin list):', e);
+            }
           } catch (error) {
             console.error('Error syncing user with Firestore:', error);
             // Continue with local data if Firestore fails (already set above)
@@ -196,6 +212,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } else {
           setUser(userData);
           localStorage.setItem('user', JSON.stringify(userData));
+        }
+        // Also sync user to backend for admin dashboard listing
+        try {
+          await fetch(getApiUrl('users/sync'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              picture: userData.picture,
+            })
+          });
+        } catch (e) {
+          console.warn('⚠️ Failed to sync user to backend (admin list):', e);
         }
       } catch (error) {
         console.error('Error syncing user with Firestore:', error);

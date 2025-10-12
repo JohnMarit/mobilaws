@@ -11,6 +11,7 @@ import chatRouter from './routes/chat';
 import subscriptionRouter from './routes/subscription';
 import paymentRouter from './routes/payment';
 import adminRouter from './routes/admin';
+import usersRouter from './routes/users';
 import authRouter from './routes/auth';
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/api', chatRouter);
 app.use('/api', subscriptionRouter);
 app.use('/api', paymentRouter);
 app.use('/api', adminRouter);
+app.use('/api', usersRouter);
 app.use('/api', authRouter);
 
 // Root endpoint

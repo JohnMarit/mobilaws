@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
+import { adminStorage } from './admin';
 
 const router = Router();
 
-// In-memory storage for demo purposes
-// In production, this would be stored in a database
-const subscriptions = new Map<string, any>();
+// Use shared in-memory storage from admin router so admin endpoints see updates
+const subscriptions = adminStorage.subscriptions;
 
 /**
  * Initialize free plan for authenticated users

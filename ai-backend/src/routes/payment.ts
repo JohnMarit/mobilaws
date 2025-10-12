@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { env } from '../env';
+import { adminStorage } from './admin';
 
 const router = Router();
 
@@ -115,8 +116,10 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       paymentStatus: 'completed'
     };
 
-    // In production, save to database
-    // For now, we'll use the existing subscription system
+    // Persist subscription into shared admin storage so admin dashboard can see it
+    const existing = adminStorage.subscriptions.get(userId);
+    const merged = existing ? { ...existing, ...newSubscription } : newSubscription;
+    adminStorage.subscriptions.set(userId, merged);
     console.log(`✅ Payment verified for user ${userId}: ${planName} - $${price}`);
 
     // Clean up stored payment intent
