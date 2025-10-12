@@ -36,40 +36,17 @@ const verifyAdmin = (req: Request, res: Response, next: Function): void => {
 };
 
 /**
- * Admin login
+ * Admin login (Legacy - Deprecated)
  * POST /api/admin/login
+ * 
+ * Note: This endpoint is deprecated. Use Google OAuth instead.
+ * See /api/auth/admin/google for the current authentication method.
  */
 router.post('/admin/login', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    const admin = adminUsers.get(email);
-    
-    // In production, verify password with proper hashing
-    // For demo, we'll use a simple check
-    if (!admin || password !== 'admin123') {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Generate token (in production, use JWT)
-    const token = `token_${Date.now()}_${admin.id}`;
-
-    console.log(`✅ Admin login successful: ${email}`);
-
-    res.json({
-      success: true,
-      admin: {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        permissions: admin.permissions
-      },
-      token
+    res.status(410).json({ 
+      error: 'Password-based admin login is deprecated. Please use Google OAuth authentication.',
+      redirectTo: '/admin/login'
     });
   } catch (error) {
     console.error('❌ Error during admin login:', error);
@@ -481,8 +458,7 @@ router.get('/support/tickets/user/:userId', async (req: Request, res: Response) 
 export const adminStorage = {
   users,
   subscriptions,
-  supportTickets,
-  adminUsers
+  supportTickets
 };
 
 export default router;
