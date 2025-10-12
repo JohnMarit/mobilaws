@@ -9,8 +9,7 @@
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/server.ts",
     "build": "tsc",
-    "start": "node dist/src/server.js",
-    "postinstall": "npm run build"
+    "start": "node dist/src/server.js"
   },
   "keywords": [
     "legal",
