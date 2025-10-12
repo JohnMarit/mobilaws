@@ -123,7 +123,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
             // Also sync user to backend for admin dashboard listing
             try {
-              await fetch(getApiUrl('users/sync'), {
+              const syncUrl = getApiUrl('users/sync');
+              console.log('📡 Syncing user to backend:', syncUrl, userData);
+              const syncResponse = await fetch(syncUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -133,6 +135,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   picture: userData.picture,
                 })
               });
+              if (syncResponse.ok) {
+                const syncResult = await syncResponse.json();
+                console.log('✅ User synced to backend:', syncResult);
+              } else {
+                console.error('❌ Failed to sync user:', syncResponse.status, await syncResponse.text());
+              }
             } catch (e) {
               console.warn('⚠️ Failed to sync user to backend (admin list):', e);
             }
@@ -215,7 +223,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         // Also sync user to backend for admin dashboard listing
         try {
-          await fetch(getApiUrl('users/sync'), {
+          const syncUrl = getApiUrl('users/sync');
+          console.log('📡 Syncing user to backend (fallback OAuth):', syncUrl, userData);
+          const syncResponse = await fetch(syncUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -225,6 +235,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
               picture: userData.picture,
             })
           });
+          if (syncResponse.ok) {
+            const syncResult = await syncResponse.json();
+            console.log('✅ User synced to backend (fallback OAuth):', syncResult);
+          } else {
+            console.error('❌ Failed to sync user:', syncResponse.status, await syncResponse.text());
+          }
         } catch (e) {
           console.warn('⚠️ Failed to sync user to backend (admin list):', e);
         }

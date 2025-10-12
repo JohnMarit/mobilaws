@@ -43,17 +43,30 @@ export default function SupportManagement() {
 
   useEffect(() => {
     loadTickets();
-  }, [currentPage, filterStatus]);
+  }, [currentPage, filterStatus, getTickets]);
 
   const loadTickets = async () => {
     setIsLoading(true);
-    const result = await getTickets(currentPage, filterStatus);
-    if (result) {
-      setTickets(result.tickets || []);
-      setTotalPages(result.pagination?.totalPages || 1);
-      setStats(result.stats || null);
+    try {
+      console.log('🔄 Loading support tickets...', { currentPage, filterStatus });
+      const result = await getTickets(currentPage, filterStatus);
+      console.log('✅ Support tickets loaded:', result);
+      
+      if (result) {
+        setTickets(result.tickets || []);
+        setTotalPages(result.pagination?.totalPages || 1);
+        setStats(result.stats || null);
+      } else {
+        console.warn('⚠️ No result from getTickets');
+        setTickets([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading support tickets:', error);
+      toast.error('Failed to load support tickets');
+      setTickets([]);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleViewTicket = (ticket: SupportTicket) => {

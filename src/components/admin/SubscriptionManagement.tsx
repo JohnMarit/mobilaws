@@ -44,21 +44,34 @@ export default function SubscriptionManagement() {
 
   useEffect(() => {
     loadSubscriptions();
-  }, [currentPage, filterPlan, filterStatus]);
+  }, [currentPage, filterPlan, filterStatus, getSubscriptions]);
 
   const loadSubscriptions = async () => {
     setIsLoading(true);
-    const filters: any = {};
-    if (filterPlan) filters.planId = filterPlan;
-    if (filterStatus) filters.status = filterStatus;
+    try {
+      const filters: any = {};
+      if (filterPlan) filters.planId = filterPlan;
+      if (filterStatus) filters.status = filterStatus;
 
-    const result = await getSubscriptions(currentPage, filters);
-    if (result) {
-      setSubscriptions(result.subscriptions || []);
-      setTotalPages(result.pagination?.totalPages || 1);
-      setStats(result.stats || null);
+      console.log('🔄 Loading subscriptions...', { currentPage, filters });
+      const result = await getSubscriptions(currentPage, filters);
+      console.log('✅ Subscriptions loaded:', result);
+      
+      if (result) {
+        setSubscriptions(result.subscriptions || []);
+        setTotalPages(result.pagination?.totalPages || 1);
+        setStats(result.stats || null);
+      } else {
+        console.warn('⚠️ No result from getSubscriptions');
+        setSubscriptions([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading subscriptions:', error);
+      toast.error('Failed to load subscriptions');
+      setSubscriptions([]);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleEditSubscription = (subscription: Subscription) => {

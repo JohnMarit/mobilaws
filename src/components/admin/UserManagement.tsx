@@ -32,16 +32,29 @@ export default function UserManagement() {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, getUsers]);
 
   const loadUsers = async () => {
     setIsLoading(true);
-    const result = await getUsers(currentPage, searchTerm);
-    if (result) {
-      setUsers(result.users || []);
-      setTotalPages(result.pagination?.totalPages || 1);
+    try {
+      console.log('🔄 Loading users...', { currentPage, searchTerm });
+      const result = await getUsers(currentPage, searchTerm);
+      console.log('✅ Users loaded:', result);
+      
+      if (result) {
+        setUsers(result.users || []);
+        setTotalPages(result.pagination?.totalPages || 1);
+      } else {
+        console.warn('⚠️ No result from getUsers');
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('❌ Error loading users:', error);
+      toast.error('Failed to load users');
+      setUsers([]);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleStatusChange = async (userId: string, newStatus: string) => {

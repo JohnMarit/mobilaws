@@ -212,18 +212,23 @@ export function AdminProvider({ children }: AdminProviderProps) {
         params.append('search', search);
       }
 
+      console.log('📡 Fetching users from:', getApiUrl(`admin/users?${params}`));
       const response = await fetch(getApiUrl(`admin/users?${params}`), {
         headers: getHeaders()
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch users');
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch users:', response.status, errorText);
+        throw new Error(`Failed to fetch users: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Users fetched successfully:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching users:', error);
-      return null;
+      console.error('❌ Error fetching users:', error);
+      return { users: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 1 } };
     }
   }, [getHeaders]);
 
@@ -272,18 +277,23 @@ export function AdminProvider({ children }: AdminProviderProps) {
         ...filters
       });
 
+      console.log('📡 Fetching subscriptions from:', getApiUrl(`admin/subscriptions?${params}`));
       const response = await fetch(getApiUrl(`admin/subscriptions?${params}`), {
         headers: getHeaders()
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch subscriptions');
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch subscriptions:', response.status, errorText);
+        throw new Error(`Failed to fetch subscriptions: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Subscriptions fetched successfully:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-      return null;
+      console.error('❌ Error fetching subscriptions:', error);
+      return { subscriptions: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 1 }, stats: { total: 0, active: 0, expired: 0, revenue: 0 } };
     }
   }, [getHeaders]);
 
@@ -318,18 +328,23 @@ export function AdminProvider({ children }: AdminProviderProps) {
         params.append('status', status);
       }
 
+      console.log('📡 Fetching tickets from:', getApiUrl(`admin/support/tickets?${params}`));
       const response = await fetch(getApiUrl(`admin/support/tickets?${params}`), {
         headers: getHeaders()
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch tickets');
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch tickets:', response.status, errorText);
+        throw new Error(`Failed to fetch tickets: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Tickets fetched successfully:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching tickets:', error);
-      return null;
+      console.error('❌ Error fetching tickets:', error);
+      return { tickets: [], pagination: { total: 0, page: 1, limit: 20, totalPages: 1 }, stats: { total: 0, open: 0, inProgress: 0, resolved: 0 } };
     }
   }, [getHeaders]);
 
