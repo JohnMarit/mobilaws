@@ -55,12 +55,12 @@
 /* Formatted content display styling */
 .formatted-content {
   font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: 1.75;
   color: #111827;
 }
 
 .formatted-content p {
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
 }
 
 .formatted-content p:first-child {
@@ -73,6 +73,17 @@
 
 .formatted-content strong {
   font-weight: 600;
+  color: #1f2937;
+}
+
+/* Enhanced spacing for better readability */
+.formatted-content p + p {
+  margin-top: 1rem;
+}
+
+/* Style for bold titles/headings within paragraphs */
+.formatted-content p strong {
+  font-weight: 700;
 }
 
 .formatted-content em {

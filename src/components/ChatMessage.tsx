@@ -53,12 +53,42 @@ export default function ChatMessage({
     return tempDiv.textContent || tempDiv.innerText || '';
   };
   
+  // Convert markdown to HTML (handles **bold**, paragraphs, line breaks)
+  const markdownToHtml = (text: string): string => {
+    // If already HTML, return as is
+    if (text.includes('<') && text.includes('>')) {
+      return text;
+    }
+    
+    // Split by double newlines to create paragraphs
+    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+    
+    // Process each paragraph
+    const htmlParagraphs = paragraphs.map(para => {
+      // Convert markdown bold **text** to <strong>text</strong>
+      // Use non-greedy matching to handle multiple bold sections
+      let html = para
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>')
+        .trim();
+      
+      // Only wrap in <p> if there's actual content
+      if (html.length > 0) {
+        return `<p>${html}</p>`;
+      }
+      return '';
+    }).filter(p => p.length > 0);
+    
+    return htmlParagraphs.join('');
+  };
+  
   // Get original content in HTML format
   const getOriginalContentHtml = (): string => {
     if (message.content.includes('<')) {
       return message.content;
     }
-    return `<p>${message.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+    // Use markdown converter for better formatting
+    return markdownToHtml(message.content);
   };
   
   const [editedContent, setEditedContent] = useState(() => {
