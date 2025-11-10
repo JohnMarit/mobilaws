@@ -467,7 +467,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 </p>
               )}
             </div>
-            <div className="pb-8 md:pb-8">
+            <div className="pb-6 md:pb-8 safe-area-inset-bottom">
               <ChatInput
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
@@ -502,7 +502,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           </ScrollArea>
 
           {/* Input Area - Bottom */}
-          <div className="border-t border-gray-200 bg-white p-4 sticky bottom-0 z-20 flex-shrink-0">
+          <div className="border-t border-gray-200 bg-white p-4 pb-6 md:pb-4 sticky bottom-0 z-30 flex-shrink-0 safe-area-inset-bottom">
             <div className="max-w-3xl mx-auto">
               <ChatInput
                 onSendMessage={handleSendMessage}
