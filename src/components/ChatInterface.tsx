@@ -383,7 +383,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   return (
     <div className={`flex flex-col h-screen bg-white ${className}`}>
       {/* Top Bar with Actions - Hidden on mobile */}
-      <div className="hidden md:flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-20">
+      <div className="hidden md:flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm">
         {/* AI Status and User Info */}
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-blue-600" />

@@ -105,7 +105,7 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative">
         {/* Mobile Header - Only visible on mobile */}
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-30">
+        <div className="md:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
