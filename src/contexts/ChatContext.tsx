@@ -42,10 +42,14 @@ export function ChatProvider({ children }: ChatProviderProps) {
     chatStorage.cleanupEmptyChats();
     
     const storedHistory = chatStorage.getChatHistory();
-    const storedCurrentChatId = chatStorage.getCurrentChatId();
     
+    // Load chat history but don't restore currentChatId
+    // This ensures a fresh start on page refresh
     setChatHistory(storedHistory);
-    setCurrentChatId(storedCurrentChatId);
+    setCurrentChatId(null);
+    
+    // Clear the stored currentChatId so next refresh also starts fresh
+    chatStorage.saveCurrentChatId(null);
   }, []);
 
   // Clean up empty chats when navigating away
@@ -142,15 +146,29 @@ export function ChatProvider({ children }: ChatProviderProps) {
       return;
     }
     
+    // Get the first user message timestamp (time of the question)
+    const firstUserMessage = messages.find(m => m.type === 'user');
+    const chatTimestamp = firstUserMessage?.timestamp || new Date();
+    
+    // Generate title from first user message (truncate if too long)
+    const generateTitle = (userMessage: string): string => {
+      const maxLength = 50;
+      if (userMessage.length > maxLength) {
+        return userMessage.substring(0, maxLength) + '...';
+      }
+      return userMessage;
+    };
+    
     // Check if chat exists in history
     let chat = chatHistory.find(c => c.id === chatId);
     
     // If chat doesn't exist in history (new chat with first message), add it
     if (!chat) {
+      const chatTitle = firstUserMessage ? generateTitle(firstUserMessage.content) : 'New Chat';
       const newChatHistoryEntry: ChatHistory = {
         id: chatId,
-        title: 'New Chat', // Will be updated by updateCurrentChat
-        timestamp: new Date(),
+        title: chatTitle, // Use first question as title
+        timestamp: chatTimestamp, // Use timestamp from first question
         messageCount: messages.filter(m => m.type === 'user').length,
       };
       setChatHistory(prev => [newChatHistoryEntry, ...prev]);
@@ -163,8 +181,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
     
     const storedChat: StoredChat = {
       id: chatId,
-      title: chat.title,
-      timestamp: chat.timestamp,
+      title: chat.title, // Use the title from chat history (which may have been updated)
+      timestamp: chatTimestamp, // Use timestamp from first question
       messageCount: messages.filter(m => m.type === 'user').length,
       messages,
       conversationContext,

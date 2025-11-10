@@ -44,12 +44,39 @@ export default function ChatMessage({
   const [isCopied, setIsCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(() => {
-    // Convert plain text to HTML with proper paragraph tags if it's not already HTML
+  const [hasUserMadeChanges, setHasUserMadeChanges] = useState(false);
+  
+  // Helper function to normalize content for comparison (strip HTML tags)
+  const normalizeContent = (content: string): string => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    return tempDiv.textContent || tempDiv.innerText || '';
+  };
+  
+  // Get original content in HTML format
+  const getOriginalContentHtml = (): string => {
     if (message.content.includes('<')) {
       return message.content;
     }
     return `<p>${message.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+  };
+  
+  const [editedContent, setEditedContent] = useState(() => {
+    // Check if there's saved edited content
+    if (getEditedMessage && currentChatId && message.id) {
+      const savedContent = getEditedMessage(message.id);
+      if (savedContent) {
+        // Compare normalized content to see if it's actually different
+        const originalNormalized = normalizeContent(getOriginalContentHtml());
+        const savedNormalized = normalizeContent(savedContent);
+        if (originalNormalized !== savedNormalized) {
+          setHasUserMadeChanges(true);
+        }
+        return savedContent;
+      }
+    }
+    // Convert plain text to HTML with proper paragraph tags if it's not already HTML
+    return getOriginalContentHtml();
   });
 
   // Update edited content when switching chats or when storage functions become available
@@ -57,7 +84,19 @@ export default function ChatMessage({
     if (getEditedMessage && currentChatId && message.id) {
       const savedContent = getEditedMessage(message.id);
       if (savedContent) {
+        // Compare normalized content to see if it's actually different
+        const originalNormalized = normalizeContent(getOriginalContentHtml());
+        const savedNormalized = normalizeContent(savedContent);
+        if (originalNormalized !== savedNormalized) {
+          setHasUserMadeChanges(true);
+        } else {
+          setHasUserMadeChanges(false);
+        }
         setEditedContent(savedContent);
+      } else {
+        // No saved edits, reset to original
+        setEditedContent(getOriginalContentHtml());
+        setHasUserMadeChanges(false);
       }
     }
   }, [currentChatId, message.id, getEditedMessage]);
@@ -393,18 +432,38 @@ export default function ChatMessage({
   };
 
   const handleEditSave = (newContent: string) => {
-    setEditedContent(newContent);
+    // Compare normalized content to see if it's actually different
+    const originalNormalized = normalizeContent(getOriginalContentHtml());
+    const newNormalized = normalizeContent(newContent);
+    const hasChanges = originalNormalized !== newNormalized;
     
-    // Save to persistent storage
+    setEditedContent(newContent);
+    setHasUserMadeChanges(hasChanges);
+    
+    // Save to persistent storage only if there are actual changes
     if (saveEditedMessage && currentChatId) {
-      saveEditedMessage(message.id, newContent);
+      if (hasChanges) {
+        saveEditedMessage(message.id, newContent);
+      } else {
+        // If no actual changes, clear any saved edits
+        if (clearEditedMessage) {
+          clearEditedMessage(message.id);
+        }
+      }
     }
     
     setIsEditing(false);
-    toast({
-      title: "Response updated",
-      description: "Your edits have been saved and will persist across page refreshes",
-    });
+    if (hasChanges) {
+      toast({
+        title: "Response updated",
+        description: "Your edits have been saved and will persist across page refreshes",
+      });
+    } else {
+      toast({
+        title: "No changes detected",
+        description: "The content is the same as the original response",
+      });
+    }
   };
 
   const handleEditCancel = () => {
@@ -424,11 +483,10 @@ export default function ChatMessage({
 
   const handleEditReset = () => {
     // Reset to original content and clear saved edits
-    const originalContent = message.content.includes('<') 
-      ? message.content 
-      : `<p>${message.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+    const originalContent = getOriginalContentHtml();
     
     setEditedContent(originalContent);
+    setHasUserMadeChanges(false);
     
     // Clear saved edits from storage
     if (clearEditedMessage) {
@@ -485,12 +543,12 @@ export default function ChatMessage({
             ) : (
               <>
                 <div 
-                  className={`formatted-content ${editedContent !== message.content ? 'border-l-2 border-blue-200 pl-3' : ''}`}
+                  className={`formatted-content ${hasUserMadeChanges ? 'border-l-2 border-blue-200 pl-3' : ''}`}
                   dangerouslySetInnerHTML={{ __html: editedContent }}
                 />
                 
-                {/* Edited indicator */}
-                {editedContent !== message.content && (
+                {/* Edited indicator - only show when user has actually made changes */}
+                {hasUserMadeChanges && (
                   <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                     <Edit3 className="h-3 w-3" />
                     <span>Response has been edited</span>
