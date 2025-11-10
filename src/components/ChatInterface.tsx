@@ -381,9 +381,9 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const hasUserMessages = messages.some(msg => msg.type === 'user');
 
   return (
-    <div className={`flex flex-col h-screen bg-white ${className}`}>
+    <div className={`flex flex-col h-full md:h-screen bg-white ${className} overflow-hidden`}>
       {/* Top Bar with Actions - Hidden on mobile */}
-      <div className="hidden md:flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm">
+      <div className="hidden md:flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm flex-shrink-0">
         {/* AI Status and User Info */}
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-blue-600" />
@@ -442,7 +442,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
       {!hasUserMessages ? (
         /* Centered Search Bar - No Chat Yet */
-        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-8">
+        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-8 min-h-0 overflow-y-auto">
           <div className="max-w-5xl w-full px-4 mx-auto">
             <div className="text-center mb-8 md:mb-12 min-h-[120px] md:min-h-[200px] flex items-center justify-center">
               {showAnimatedIntro ? (
@@ -481,7 +481,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         /* Chat Interface - Messages and Bottom Input */
         <>
           {/* Messages Area */}
-          <ScrollArea className="flex-1 bg-white">
+          <ScrollArea className="flex-1 bg-white min-h-0">
             <div className="max-w-3xl mx-auto px-4 py-6 pb-24 md:pt-6 pt-16">
               {messages.map((message) => (
                 <ChatMessage
@@ -502,7 +502,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           </ScrollArea>
 
           {/* Input Area - Bottom */}
-          <div className="border-t border-gray-200 bg-white p-4 sticky bottom-0 z-20">
+          <div className="border-t border-gray-200 bg-white p-4 sticky bottom-0 z-20 flex-shrink-0">
             <div className="max-w-3xl mx-auto">
               <ChatInput
                 onSendMessage={handleSendMessage}
