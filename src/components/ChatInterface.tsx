@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
 import ChatInput from './ChatInput';
 import CounselNameSelector from './CounselNameSelector';
+import CountrySelector from './CountrySelector';
 import UserProfileNav from './UserProfileNav';
 import LoginModal from './LoginModal';
 import AnimatedCounselIntroduction from './AnimatedCounselIntroduction';
@@ -172,7 +173,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
     // Increment prompt count/token usage
     const tokenUsed = await incrementPromptCount();
-    if (!tokenUsed) {
+    if (!Boolean(tokenUsed)) {
       // Token usage failed - show appropriate modal
       if (isAuthenticated) {
         // Authenticated user ran out of tokens
@@ -388,6 +389,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-blue-600" />
           <CounselNameSelector />
+          <CountrySelector />
           {aiConnected ? (
             <span className="text-xs text-green-600">● Secure Backend Online</span>
           ) : (

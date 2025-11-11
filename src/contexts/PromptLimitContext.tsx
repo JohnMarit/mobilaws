@@ -6,7 +6,7 @@ interface PromptLimitContextType {
   promptCount: number;
   maxPrompts: number;
   canSendPrompt: boolean;
-  incrementPromptCount: () => void;
+  incrementPromptCount: () => Promise<boolean>;
   resetPromptCount: () => void;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;

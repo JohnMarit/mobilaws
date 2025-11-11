@@ -9,6 +9,7 @@ import { useChatContext } from '@/contexts/ChatContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
+import CountrySelector from '@/components/CountrySelector';
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +117,7 @@ const Index = () => {
               <Menu className="h-4 w-4" />
             </Button>
             <CounselNameSelector className="text-xs" />
+            <CountrySelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
             <UserProfileNav 
