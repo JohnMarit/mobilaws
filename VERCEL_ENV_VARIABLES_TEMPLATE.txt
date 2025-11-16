@@ -17,16 +17,16 @@ CORS_ORIGINS=https://mobilaws.vercel.app
 # Admin Emails (REQUIRED - Comma-separated list)
 ADMIN_EMAILS=thuchabraham42@gmail.com
 
-# Node Environment
-NODE_ENV=production
+# NOTE: NODE_ENV is automatically set by Vercel - do not set it manually
+# Vercel sets it to "production" for production deployments automatically
 
 # ============================================
 # OPTIONAL BUT RECOMMENDED
 # ============================================
 
 # Server Configuration
-PORT=8000
-TZ=Africa/Juba
+# NOTE: PORT and TZ are reserved by Vercel - do not set them
+# Vercel manages timezone automatically
 
 # Email Service (if using email features)
 EMAIL_HOST=smtp.gmail.com

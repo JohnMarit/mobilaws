@@ -1,0 +1,22 @@
+# Vercel Environment Variables - Ready to Import
+# Copy the variables below (without the # comments) and paste into Vercel Dashboard
+# Go to: Your Project → Settings → Environment Variables → Add
+
+OPENAI_API_KEY=your_openai_api_key_here
+FRONTEND_URL=https://mobilaws.vercel.app
+CORS_ORIGINS=https://mobilaws.vercel.app
+ADMIN_EMAILS=thuchabraham42@gmail.com
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=thuchabraham42@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=noreply@mobilaws.com
+LLM_MODEL=gpt-4o
+EMBED_MODEL=text-embedding-3-large
+TEMPERATURE=0.1
+MAX_TOKENS=1024
+VECTOR_BACKEND=chroma
+CHROMA_DIR=./storage/chroma
+DOCS_DIR=./storage/documents
+
