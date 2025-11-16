@@ -6,9 +6,8 @@ import { adminStorage } from './admin';
 const router = Router();
 
 // Initialize Stripe with secret key
-const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key', {
-  apiVersion: '2025-09-30.clover',
-});
+// Let Stripe SDK use the default API version (matches package types)
+const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key');
 
 // Store payment intents temporarily (in production, use a database)
 const paymentIntents = new Map<string, any>();
