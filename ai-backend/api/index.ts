@@ -14,6 +14,7 @@ import chatRouter from '../src/routes/chat';
 import subscriptionRouter from '../src/routes/subscription';
 import paymentRouter from '../src/routes/payment';
 import adminRouter from '../src/routes/admin';
+import usersRouter from '../src/routes/users';
 import authRouter from '../src/routes/auth';
 
 const app = express();
@@ -50,6 +51,7 @@ app.use('/api', chatRouter);
 app.use('/api', subscriptionRouter);
 app.use('/api', paymentRouter);
 app.use('/api', adminRouter);
+app.use('/api', usersRouter);
 app.use('/api', authRouter);
 
 // Root endpoint
@@ -64,6 +66,11 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'GET', path: '/api/search', description: 'Search documents' },
       { method: 'POST', path: '/api/chat', description: 'Chat with streaming SSE responses' },
       { method: 'GET', path: '/api/subscription/plans', description: 'Get subscription plans' },
+      { method: 'GET', path: '/api/subscription/:userId', description: 'Get user subscription' },
+      { method: 'POST', path: '/api/subscription/:userId', description: 'Create/update subscription' },
+      { method: 'POST', path: '/api/users/sync', description: 'Sync user to backend' },
+      { method: 'GET', path: '/api/admin/users', description: 'Get all users (admin)' },
+      { method: 'GET', path: '/api/admin/stats', description: 'Get admin statistics' },
       { method: 'POST', path: '/api/auth/admin/google', description: 'Admin Google OAuth' },
     ],
   });

@@ -1,0 +1,71 @@
+# Vercel Backend Environment Variables Template
+# Copy these to Vercel Dashboard → Settings → Environment Variables
+
+# ============================================
+# REQUIRED VARIABLES
+# ============================================
+
+# OpenAI API Key (REQUIRED)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Frontend URL (REQUIRED - Replace with your actual frontend URL)
+FRONTEND_URL=https://mobilaws.vercel.app
+
+# CORS Origins (REQUIRED - Replace with your actual frontend URL)
+CORS_ORIGINS=https://mobilaws.vercel.app
+
+# Admin Emails (REQUIRED - Comma-separated list)
+ADMIN_EMAILS=thuchabraham42@gmail.com
+
+# Node Environment
+NODE_ENV=production
+
+# ============================================
+# OPTIONAL BUT RECOMMENDED
+# ============================================
+
+# Server Configuration
+PORT=8000
+TZ=Africa/Juba
+
+# Email Service (if using email features)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=thuchabraham42@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=noreply@mobilaws.com
+
+# LLM Configuration
+LLM_MODEL=gpt-4o
+EMBED_MODEL=text-embedding-3-large
+TEMPERATURE=0.1
+MAX_TOKENS=1024
+
+# Vector Store (optional)
+VECTOR_BACKEND=chroma
+CHROMA_DIR=./storage/chroma
+DOCS_DIR=./storage/documents
+
+# ============================================
+# STRIPE (Only if using payments)
+# ============================================
+
+# STRIPE_SECRET_KEY=sk_live_your_key
+# STRIPE_PUBLISHABLE_KEY=pk_live_your_key
+# STRIPE_WEBHOOK_SECRET=whsec_your_secret
+
+# ============================================
+# INSTRUCTIONS
+# ============================================
+# 
+# 1. Copy each variable above
+# 2. Replace placeholder values with your actual values
+# 3. Go to Vercel Dashboard → Your Backend Project → Settings → Environment Variables
+# 4. Add each variable
+# 5. Make sure to select "Production" environment for each variable
+# 6. Click "Save"
+# 7. Redeploy your backend
+#
+# ============================================
+
