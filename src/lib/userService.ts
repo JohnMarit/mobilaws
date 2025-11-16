@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface UserData {
@@ -101,6 +101,42 @@ export const updateUserSubscription = async (
   } catch (error) {
     console.error('❌ Error updating user subscription:', error);
     throw error;
+  }
+};
+
+/**
+ * Get all users from Firestore
+ * Used for bulk syncing existing users to backend admin panel
+ */
+export const getAllUsersFromFirestore = async (): Promise<UserData[]> => {
+  if (!db) {
+    console.warn('⚠️ Firestore not initialized, cannot retrieve users');
+    return [];
+  }
+
+  try {
+    const usersCollection = collection(db, 'users');
+    const querySnapshot = await getDocs(usersCollection);
+    
+    const users: UserData[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      users.push({
+        id: docSnap.id,
+        name: data.name || '',
+        email: data.email || '',
+        picture: data.picture,
+        subscription: data.subscription,
+        createdAt: data.createdAt,
+        lastLoginAt: data.lastLoginAt,
+      } as UserData);
+    });
+    
+    console.log(`✅ Retrieved ${users.length} users from Firestore`);
+    return users;
+  } catch (error) {
+    console.error('❌ Error retrieving all users from Firestore:', error);
+    return [];
   }
 };
 

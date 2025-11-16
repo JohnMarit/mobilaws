@@ -19,13 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Search, RefreshCw, UserCheck, UserX, Ban } from 'lucide-react';
+import { Search, RefreshCw, UserCheck, UserX, Ban, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UserManagement() {
-  const { getUsers, updateUserStatus } = useAdmin();
+  const { getUsers, updateUserStatus, syncAllUsersFromFirestore } = useAdmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -67,6 +68,28 @@ export default function UserManagement() {
     }
   };
 
+  const handleBulkSync = async () => {
+    setIsSyncing(true);
+    try {
+      toast.info('Starting bulk user sync from Firestore...');
+      const result = await syncAllUsersFromFirestore();
+      
+      if (result.success) {
+        toast.success(`Successfully synced ${result.count} users from Firestore!`);
+      } else {
+        toast.warning(`Synced ${result.count} users with ${result.errors} errors`);
+      }
+      
+      // Reload users to show the newly synced ones
+      await loadUsers();
+    } catch (error) {
+      console.error('Error during bulk sync:', error);
+      toast.error('Failed to sync users from Firestore');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -104,6 +127,15 @@ export default function UserManagement() {
                 className="pl-10"
               />
             </div>
+            <Button 
+              variant="default"
+              onClick={handleBulkSync}
+              disabled={isSyncing || isLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Download className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-bounce' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync from Firestore'}
+            </Button>
             <Button 
               variant="outline" 
               onClick={loadUsers}
