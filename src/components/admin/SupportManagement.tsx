@@ -42,20 +42,23 @@ export default function SupportManagement() {
   const [responseText, setResponseText] = useState('');
 
   useEffect(() => {
+    console.log('🔍 SupportManagement mounted, loading tickets...');
     loadTickets();
-  }, [currentPage, filterStatus, getTickets]);
+  }, [currentPage, filterStatus]);
 
   const loadTickets = async () => {
+    console.log('🔄 loadTickets called');
     setIsLoading(true);
     try {
       console.log('🔄 Loading support tickets...', { currentPage, filterStatus });
       const result = await getTickets(currentPage, filterStatus);
-      console.log('✅ Support tickets loaded:', result);
+      console.log('✅ Support tickets result:', result);
       
       if (result) {
         setTickets(result.tickets || []);
         setTotalPages(result.pagination?.totalPages || 1);
         setStats(result.stats || null);
+        console.log('✅ Tickets state updated:', result.tickets?.length || 0, 'tickets');
       } else {
         console.warn('⚠️ No result from getTickets');
         setTickets([]);
@@ -66,6 +69,7 @@ export default function SupportManagement() {
       setTickets([]);
     } finally {
       setIsLoading(false);
+      console.log('✅ loadTickets complete, isLoading set to false');
     }
   };
 
@@ -202,15 +206,15 @@ export default function SupportManagement() {
         <CardContent>
           {/* Filters */}
           <div className="flex gap-4 mb-6">
-            <Select value={filterStatus} onValueChange={(value) => {
-              setFilterStatus(value);
+            <Select value={filterStatus || "all_status"} onValueChange={(value) => {
+              setFilterStatus(value === "all_status" ? "" : value);
               setCurrentPage(1);
             }}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all_status">All Status</SelectItem>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>

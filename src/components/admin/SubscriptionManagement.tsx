@@ -43,10 +43,12 @@ export default function SubscriptionManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 SubscriptionManagement mounted, loading subscriptions...');
     loadSubscriptions();
-  }, [currentPage, filterPlan, filterStatus, getSubscriptions]);
+  }, [currentPage, filterPlan, filterStatus]);
 
   const loadSubscriptions = async () => {
+    console.log('🔄 loadSubscriptions called');
     setIsLoading(true);
     try {
       const filters: any = {};
@@ -55,12 +57,13 @@ export default function SubscriptionManagement() {
 
       console.log('🔄 Loading subscriptions...', { currentPage, filters });
       const result = await getSubscriptions(currentPage, filters);
-      console.log('✅ Subscriptions loaded:', result);
+      console.log('✅ Subscriptions result:', result);
       
       if (result) {
         setSubscriptions(result.subscriptions || []);
         setTotalPages(result.pagination?.totalPages || 1);
         setStats(result.stats || null);
+        console.log('✅ Subscriptions state updated:', result.subscriptions?.length || 0, 'subscriptions');
       } else {
         console.warn('⚠️ No result from getSubscriptions');
         setSubscriptions([]);
@@ -71,6 +74,7 @@ export default function SubscriptionManagement() {
       setSubscriptions([]);
     } finally {
       setIsLoading(false);
+      console.log('✅ loadSubscriptions complete, isLoading set to false');
     }
   };
 
@@ -188,15 +192,15 @@ export default function SubscriptionManagement() {
         <CardContent>
           {/* Filters */}
           <div className="flex gap-4 mb-6">
-            <Select value={filterPlan} onValueChange={(value) => {
-              setFilterPlan(value);
+            <Select value={filterPlan || "all_plans"} onValueChange={(value) => {
+              setFilterPlan(value === "all_plans" ? "" : value);
               setCurrentPage(1);
             }}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by plan" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Plans</SelectItem>
+                <SelectItem value="all_plans">All Plans</SelectItem>
                 <SelectItem value="free">Free</SelectItem>
                 <SelectItem value="basic">Basic</SelectItem>
                 <SelectItem value="standard">Standard</SelectItem>
@@ -204,15 +208,15 @@ export default function SubscriptionManagement() {
               </SelectContent>
             </Select>
 
-            <Select value={filterStatus} onValueChange={(value) => {
-              setFilterStatus(value);
+            <Select value={filterStatus || "all_status"} onValueChange={(value) => {
+              setFilterStatus(value === "all_status" ? "" : value);
               setCurrentPage(1);
             }}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all_status">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
