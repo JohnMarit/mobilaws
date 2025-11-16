@@ -20,7 +20,7 @@ import {
 } from './ui/select';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/FirebaseAuthContext';
 
 interface SupportDialogProps {
   open: boolean;

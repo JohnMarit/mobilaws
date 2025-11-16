@@ -11,7 +11,7 @@ import { Badge } from './ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { RefreshCw, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/FirebaseAuthContext';
 
 interface TicketResponse {
   message: string;
