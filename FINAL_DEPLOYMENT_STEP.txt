@@ -1,0 +1,47 @@
+🚨 LAST STEP TO COMPLETE DEPLOYMENT 🚨
+
+Your backend is LIVE and working!
+But your frontend doesn't know where to find it.
+
+═══════════════════════════════════════════════════
+
+YOU MUST DO THIS MANUALLY (I cannot access your Vercel dashboard):
+
+1. Go to: https://vercel.com/dashboard
+
+2. Click on your FRONTEND project: "mobilaws"
+   (NOT "mobilaws-ympe" - that's the backend)
+
+3. Click: Settings → Environment Variables
+
+4. Click: "Add New"
+
+5. Enter:
+   Name:  VITE_API_URL
+   Value: https://mobilaws-ympe.vercel.app/api
+
+6. Check: Production (environment)
+
+7. Click: Save
+
+8. Go to: Deployments tab
+
+9. Click: ⋯ (three dots) → Redeploy
+
+10. Wait 2 minutes for deployment
+
+11. Visit: https://mobilaws.vercel.app
+
+12. Sign in with Google
+
+13. Check admin panel - users should appear!
+
+═══════════════════════════════════════════════════
+
+COPY THIS:
+VITE_API_URL=https://mobilaws-ympe.vercel.app/api
+
+═══════════════════════════════════════════════════
+
+This is the ONLY remaining step!
+
