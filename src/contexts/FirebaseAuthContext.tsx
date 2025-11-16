@@ -124,7 +124,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // Also sync user to backend for admin dashboard listing
             try {
               const syncUrl = getApiUrl('users/sync');
-              console.log('📡 Syncing user to backend:', syncUrl, userData);
+              console.log('📡 Syncing user to backend for admin panel:', syncUrl);
+              console.log('👤 User data:', { id: userData.id, email: userData.email, name: userData.name });
               const syncResponse = await fetch(syncUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -137,12 +138,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
               });
               if (syncResponse.ok) {
                 const syncResult = await syncResponse.json();
-                console.log('✅ User synced to backend:', syncResult);
+                console.log('✅ User synced to backend successfully! Admin can now see this user.');
+                console.log('📊 Sync result:', syncResult);
               } else {
-                console.error('❌ Failed to sync user:', syncResponse.status, await syncResponse.text());
+                console.error('❌ Failed to sync user to admin panel:', syncResponse.status, await syncResponse.text());
+                console.error('⚠️ User will NOT appear in admin dashboard until backend is deployed');
               }
             } catch (e) {
               console.warn('⚠️ Failed to sync user to backend (admin list):', e);
+              console.warn('💡 Make sure backend is deployed and VITE_API_URL is set');
             }
           } catch (error) {
             console.error('Error syncing user with Firestore:', error);
@@ -224,7 +228,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Also sync user to backend for admin dashboard listing
         try {
           const syncUrl = getApiUrl('users/sync');
-          console.log('📡 Syncing user to backend (fallback OAuth):', syncUrl, userData);
+          console.log('📡 Syncing user to backend for admin panel (fallback OAuth):', syncUrl);
+          console.log('👤 User data:', { id: userData.id, email: userData.email, name: userData.name });
           const syncResponse = await fetch(syncUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -237,12 +242,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           });
           if (syncResponse.ok) {
             const syncResult = await syncResponse.json();
-            console.log('✅ User synced to backend (fallback OAuth):', syncResult);
+            console.log('✅ User synced to backend successfully! Admin can now see this user.');
+            console.log('📊 Sync result:', syncResult);
           } else {
-            console.error('❌ Failed to sync user:', syncResponse.status, await syncResponse.text());
+            console.error('❌ Failed to sync user to admin panel:', syncResponse.status, await syncResponse.text());
+            console.error('⚠️ User will NOT appear in admin dashboard until backend is deployed');
           }
         } catch (e) {
           console.warn('⚠️ Failed to sync user to backend (admin list):', e);
+          console.warn('💡 Make sure backend is deployed and VITE_API_URL is set');
         }
       } catch (error) {
         console.error('Error syncing user with Firestore:', error);
