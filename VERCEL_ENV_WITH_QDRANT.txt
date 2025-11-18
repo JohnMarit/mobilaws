@@ -1,0 +1,52 @@
+# Vercel Environment Variables for Mobilaws Backend (with Qdrant Cloud)
+# Copy and paste these into Vercel → Settings → Environment Variables
+# Make sure to select: Production, Preview, Development for each variable
+
+# ============================================
+# REQUIRED: OpenAI Configuration
+# ============================================
+OPENAI_API_KEY=sk-proj-your_actual_openai_key_here
+LLM_MODEL=gpt-4o
+EMBED_MODEL=text-embedding-3-large
+TEMPERATURE=0.1
+MAX_TOKENS=1024
+
+# ============================================
+# REQUIRED: Vector Database (Qdrant Cloud)
+# ============================================
+# Get these from: https://cloud.qdrant.io/
+VECTOR_BACKEND=qdrant
+QDRANT_URL=https://your-cluster-id.region.cloud.qdrant.io
+QDRANT_API_KEY=qdrant_your_api_key_here
+QDRANT_COLLECTION=mobilaws_legal
+
+# ============================================
+# REQUIRED: Frontend & CORS Configuration
+# ============================================
+FRONTEND_URL=https://mobilaws.vercel.app
+CORS_ORIGINS=https://mobilaws.vercel.app
+
+# ============================================
+# REQUIRED: Admin Configuration
+# ============================================
+ADMIN_EMAILS=thuchabraham42@gmail.com
+
+# ============================================
+# OPTIONAL: Email Configuration (for notifications)
+# ============================================
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=thuchabraham42@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password_here
+EMAIL_FROM=admin@mobilaws.com
+
+# ============================================
+# NOTES:
+# ============================================
+# 1. DO NOT set PORT, NODE_ENV, or TZ - Vercel manages these automatically
+# 2. Replace all placeholder values with your actual credentials
+# 3. CHROMA_DIR and DOCS_DIR are NOT needed for Qdrant Cloud
+# 4. Qdrant free tier: 1GB storage (enough for ~100k document chunks)
+# 5. Get Qdrant credentials: https://cloud.qdrant.io/ (free account, no credit card)
+

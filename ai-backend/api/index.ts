@@ -83,6 +83,25 @@ app.get('/api/env-check', (_req: Request, res: Response) => {
   const openaiKeyLength = process.env.OPENAI_API_KEY?.length || 0;
   const openaiKeyPrefix = process.env.OPENAI_API_KEY?.substring(0, 7) || 'NOT_SET';
   
+  // Check vector backend configuration
+  const vectorBackend = process.env.VECTOR_BACKEND || 'chroma';
+  const vectorConfig: any = {
+    backend: vectorBackend,
+    configured: false,
+    issue: '',
+  };
+
+  if (vectorBackend === 'chroma') {
+    vectorConfig.issue = 'Chroma requires external server - not compatible with Vercel serverless';
+    vectorConfig.recommendation = 'Switch to Qdrant Cloud (free tier available) or host Chroma separately';
+  } else if (vectorBackend === 'qdrant') {
+    vectorConfig.configured = !!process.env.QDRANT_URL;
+    vectorConfig.url = process.env.QDRANT_URL ? '***configured***' : 'NOT_SET';
+  } else if (vectorBackend === 'pinecone') {
+    vectorConfig.configured = !!process.env.PINECONE_API_KEY;
+    vectorConfig.status = 'Temporarily disabled in code';
+  }
+  
   res.json({
     status: 'Environment Check',
     openai: {
@@ -91,9 +110,9 @@ app.get('/api/env-check', (_req: Request, res: Response) => {
       keyPrefix: openaiKeyPrefix,
       isValid: openaiKeyExists && openaiKeyLength > 20 && openaiKeyPrefix.startsWith('sk-'),
     },
+    vectorStore: vectorConfig,
     llmModel: process.env.LLM_MODEL || 'NOT_SET',
     embedModel: process.env.EMBED_MODEL || 'NOT_SET',
-    vectorBackend: process.env.VECTOR_BACKEND || 'NOT_SET',
     corsOrigins: process.env.CORS_ORIGINS || 'NOT_SET',
     frontendUrl: process.env.FRONTEND_URL || 'NOT_SET',
   });
