@@ -138,7 +138,6 @@ try {
     Write-Host ""
     Write-Host "💬 Try chatting in your app now!" -ForegroundColor Cyan
     
-    
 } catch {
     Write-Host ""
     Write-Host "❌ Upload failed!" -ForegroundColor Red
