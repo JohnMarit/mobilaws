@@ -62,6 +62,7 @@ app.get('/', (_req: Request, res: Response) => {
     status: 'running',
     endpoints: [
       { method: 'GET', path: '/healthz', description: 'Health check' },
+      { method: 'GET', path: '/api/env-check', description: 'Check environment configuration' },
       { method: 'POST', path: '/api/upload', description: 'Upload and index documents' },
       { method: 'GET', path: '/api/search', description: 'Search documents' },
       { method: 'POST', path: '/api/chat', description: 'Chat with streaming SSE responses' },
@@ -73,6 +74,28 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'GET', path: '/api/admin/stats', description: 'Get admin statistics' },
       { method: 'POST', path: '/api/auth/admin/google', description: 'Admin Google OAuth' },
     ],
+  });
+});
+
+// Environment check endpoint
+app.get('/api/env-check', (_req: Request, res: Response) => {
+  const openaiKeyExists = !!process.env.OPENAI_API_KEY;
+  const openaiKeyLength = process.env.OPENAI_API_KEY?.length || 0;
+  const openaiKeyPrefix = process.env.OPENAI_API_KEY?.substring(0, 7) || 'NOT_SET';
+  
+  res.json({
+    status: 'Environment Check',
+    openai: {
+      keyExists: openaiKeyExists,
+      keyLength: openaiKeyLength,
+      keyPrefix: openaiKeyPrefix,
+      isValid: openaiKeyExists && openaiKeyLength > 20 && openaiKeyPrefix.startsWith('sk-'),
+    },
+    llmModel: process.env.LLM_MODEL || 'NOT_SET',
+    embedModel: process.env.EMBED_MODEL || 'NOT_SET',
+    vectorBackend: process.env.VECTOR_BACKEND || 'NOT_SET',
+    corsOrigins: process.env.CORS_ORIGINS || 'NOT_SET',
+    frontendUrl: process.env.FRONTEND_URL || 'NOT_SET',
   });
 });
 
