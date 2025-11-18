@@ -8,13 +8,16 @@ import { ingest } from '../rag';
 const router = Router();
 
 // Configure multer for file uploads
+// Use /tmp directory for Vercel serverless
+const uploadDir = process.env.VERCEL ? '/tmp' : env.docsPath;
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    // Ensure docs directory exists
-    if (!fs.existsSync(env.docsPath)) {
-      fs.mkdirSync(env.docsPath, { recursive: true });
+    // Ensure upload directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
-    cb(null, env.docsPath);
+    cb(null, uploadDir);
   },
   filename: (_req, file, cb) => {
     // Keep original filename with timestamp to avoid conflicts
