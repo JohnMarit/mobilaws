@@ -43,16 +43,25 @@ export class BackendService {
 
   private async checkConnection(): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/healthz`, {
+      // Health check is at root /healthz, not /api/healthz
+      const healthUrl = this.baseUrl.replace('/api', '') + '/healthz';
+      console.log('🔍 Checking backend connection:', healthUrl);
+      
+      const response = await fetch(healthUrl, {
         method: 'GET',
+        signal: AbortSignal.timeout(10000), // 10 second timeout
       });
       
       if (response.ok) {
         const data = await response.json();
         this.isConnected = data.ok === true;
         console.log('✅ Backend connected:', this.baseUrl);
+      } else {
+        console.warn('⚠️ Backend health check failed. Status:', response.status);
+        this.isConnected = false;
       }
     } catch (error) {
+      console.error('❌ Backend connection error:', error);
       console.warn('⚠️ Backend not connected. Make sure the backend server is running.');
       this.isConnected = false;
     }
@@ -60,11 +69,17 @@ export class BackendService {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/healthz`);
+      // Health check is at root /healthz, not /api/healthz
+      const healthUrl = this.baseUrl.replace('/api', '') + '/healthz';
+      const response = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
       const data = await response.json();
       this.isConnected = data.ok === true;
+      console.log('✅ Backend test connection successful');
       return this.isConnected;
     } catch (error) {
+      console.error('❌ Backend test connection failed:', error);
       this.isConnected = false;
       return false;
     }
@@ -264,7 +279,10 @@ export class BackendService {
 
 // Create singleton instance
 // Check for environment variable or use default
-const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+// VITE_API_URL includes /api, but BackendService expects base URL without /api
+const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const backendUrl = apiUrl.replace('/api', ''); // Remove /api suffix if present
+console.log('🔧 Backend Service initialized with:', backendUrl);
 export const backendService = new BackendService(backendUrl);
 
 
