@@ -13,7 +13,8 @@ import {
   Shield,
   DollarSign,
   Activity,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import UserManagement from '../components/admin/UserManagement';
 import SubscriptionManagement from '../components/admin/SubscriptionManagement';
@@ -173,6 +174,57 @@ export default function AdminDashboard() {
                   <div className="text-2xl font-bold">{stats?.support.open || 0}</div>
                   <p className="text-xs text-gray-600 mt-1">
                     {stats?.support.total || 0} total tickets
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Prompt Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Total Prompts */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Total Prompts
+                  </CardTitle>
+                  <MessageSquare className="h-4 w-4 text-gray-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-600">{stats?.prompts.total || 0}</div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {stats?.prompts.today || 0} today
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Authenticated User Prompts */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    User Prompts
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{stats?.prompts.authenticated || 0}</div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {stats?.prompts.todayAuthenticated || 0} today
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Anonymous User Prompts */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    Anonymous Prompts
+                  </CardTitle>
+                  <Activity className="h-4 w-4 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">{stats?.prompts.anonymous || 0}</div>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {stats?.prompts.todayAnonymous || 0} today
                   </p>
                 </CardContent>
               </Card>

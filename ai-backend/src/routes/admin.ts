@@ -9,6 +9,36 @@ const users = new Map<string, any>();
 const subscriptions = new Map<string, any>();
 const supportTickets = new Map<string, any>();
 
+// Prompt tracking for admin stats
+const promptStats = {
+  totalAuthenticatedPrompts: 0,
+  totalAnonymousPrompts: 0,
+  userPrompts: new Map<string, number>(), // userId -> prompt count
+  dailyPrompts: new Map<string, { authenticated: number; anonymous: number }>(), // date -> counts
+};
+
+// Track a prompt
+function trackPrompt(userId: string, isAnonymous: boolean): void {
+  const today = new Date().toISOString().split('T')[0];
+  
+  if (isAnonymous) {
+    promptStats.totalAnonymousPrompts++;
+    const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+    dailyData.anonymous++;
+    promptStats.dailyPrompts.set(today, dailyData);
+  } else {
+    promptStats.totalAuthenticatedPrompts++;
+    const userCount = promptStats.userPrompts.get(userId) || 0;
+    promptStats.userPrompts.set(userId, userCount + 1);
+    
+    const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+    dailyData.authenticated++;
+    promptStats.dailyPrompts.set(today, dailyData);
+  }
+  
+  console.log(`📊 Prompt tracked: ${isAnonymous ? 'Anonymous' : `User ${userId}`} | Total Auth: ${promptStats.totalAuthenticatedPrompts}, Total Anon: ${promptStats.totalAnonymousPrompts}`);
+}
+
 // Middleware to verify admin access with email whitelist
 const verifyAdmin = (req: Request, res: Response, next: Function): void => {
   const adminEmail = req.headers['x-admin-email'] as string;
@@ -256,6 +286,10 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
     const allSubscriptions = Array.from(subscriptions.values());
     const allTickets = Array.from(supportTickets.values());
 
+    // Calculate today's prompts
+    const today = new Date().toISOString().split('T')[0];
+    const todayPrompts = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+
     // Calculate statistics
     const stats = {
       users: {
@@ -293,6 +327,14 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
         open: allTickets.filter(t => t.status === 'open').length,
         inProgress: allTickets.filter(t => t.status === 'in_progress').length,
         resolved: allTickets.filter(t => t.status === 'resolved').length
+      },
+      prompts: {
+        total: promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts,
+        authenticated: promptStats.totalAuthenticatedPrompts,
+        anonymous: promptStats.totalAnonymousPrompts,
+        today: todayPrompts.authenticated + todayPrompts.anonymous,
+        todayAuthenticated: todayPrompts.authenticated,
+        todayAnonymous: todayPrompts.anonymous
       }
     };
 
@@ -458,7 +500,9 @@ router.get('/support/tickets/user/:userId', async (req: Request, res: Response) 
 export const adminStorage = {
   users,
   subscriptions,
-  supportTickets
+  supportTickets,
+  trackPrompt,
+  promptStats
 };
 
 export default router;

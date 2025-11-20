@@ -74,6 +74,14 @@ export interface AdminStats {
     inProgress: number;
     resolved: number;
   };
+  prompts: {
+    total: number;
+    authenticated: number;
+    anonymous: number;
+    today: number;
+    todayAuthenticated: number;
+    todayAnonymous: number;
+  };
 }
 
 interface AdminContextType {

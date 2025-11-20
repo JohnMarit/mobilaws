@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ask } from '../rag';
 import { initSSE, writeEvent, startHeartbeat, setupSSECleanup } from '../sse';
 import { env } from '../env';
+import { adminStorage } from './admin';
 
 const router = Router();
 
@@ -31,14 +32,23 @@ function verifyApiKey(req: Request, res: Response, next: () => void): void {
  */
 router.post('/chat', verifyApiKey, async (req: Request, res: Response) => {
   try {
-    const { message, convoId } = req.body;
+    const { message, convoId, userId } = req.body;
     
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'Message is required and must be a string' });
       return;
     }
     
-    console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}: "${message.substring(0, 50)}..."`);
+    console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}${userId ? ` (user: ${userId})` : ' (anonymous)'}: "${message.substring(0, 50)}..."`);
+    
+    // Track prompt for admin stats
+    if (userId) {
+      // Signed-up user prompt
+      adminStorage.trackPrompt(userId, false);
+    } else {
+      // Anonymous user prompt
+      adminStorage.trackPrompt('anonymous', true);
+    }
     
     // Initialize SSE
     initSSE(res);

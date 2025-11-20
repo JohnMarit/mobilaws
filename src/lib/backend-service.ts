@@ -90,7 +90,8 @@ export class BackendService {
    */
   async *streamChat(
     message: string,
-    convoId?: string
+    convoId?: string,
+    userId?: string | null
   ): AsyncGenerator<BackendStreamResponse, void, unknown> {
     try {
       const response = await fetch(`${this.baseUrl}/api/chat`, {
@@ -102,6 +103,7 @@ export class BackendService {
         body: JSON.stringify({
           message,
           convoId,
+          userId: userId || null, // Include userId for prompt tracking
         }),
       });
 

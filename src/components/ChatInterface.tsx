@@ -239,7 +239,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         try {
           let streamComplete = false;
           
-          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined)) {
+          // Pass userId for admin prompt tracking
+          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null)) {
             if (chunk.type === 'token' && chunk.text) {
               aiResponse += chunk.text;
               // Update the streaming message in real-time
