@@ -279,8 +279,24 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           
           // Finalize the message after streaming completes
           if (streamComplete && aiResponse) {
+            // Clean up any inline citations that might have been included
+            let cleanedResponse = aiResponse
+              .replace(/\(Source:[^)]+\)/gi, '') // Remove (Source: ...) patterns
+              .replace(/Source:\s*[^,]+,\s*Page\s*\d+/gi, '') // Remove Source: ..., Page X patterns
+              .replace(/\s+/g, ' ') // Clean up extra whitespace
+              .trim();
+            
+            // Determine source name from citations
+            let sourceName = 'South Sudan Law';
+            if (citations.length > 0) {
+              const hasPenalCode = citations.some(c => 
+                c.source.toLowerCase().includes('penal')
+              );
+              sourceName = hasPenalCode ? 'Penal Code' : 'South Sudan Law';
+            }
+            
             const citationsText = citations.length > 0
-              ? `\n\n**Source:** South Sudan Law`
+              ? `\n\n**Source:** ${sourceName}`
               : '';
             
             // Replace streaming message with final message (new ID to force re-render)
@@ -289,7 +305,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 ? { 
                     ...msg, 
                     id: `assistant-${Date.now()}`, // New ID to ensure re-render
-                    content: aiResponse + citationsText,
+                    content: cleanedResponse + citationsText,
                   }
                 : msg
             ));

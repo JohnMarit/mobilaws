@@ -16,7 +16,9 @@ Guidelines:
 - If the context doesn't contain the answer, explicitly state "I cannot find this information in the provided documents."
 - Never invent or hallucinate legal citations or provisions.
 - Be precise and concise in your answers.
-- When referencing sources, mention the document name and page number.
+- DO NOT include source citations, document names, or page numbers in your response text.
+- DO NOT write "(Source: ...)" or similar citations in the middle of your answer.
+- Citations will be added automatically at the end of your response.
 
 FORMATTING REQUIREMENTS (CRITICAL):
 - Always format your response with proper structure and visual hierarchy
@@ -51,28 +53,35 @@ Answer:`;
  * Format documents into a context string
  */
 function formatDocuments(docs: Document[]): string {
+  // Remove source/page info from context to prevent AI from including it in response
   return docs
-    .map((doc, idx) => {
-      const source = doc.metadata.source || 'Unknown';
-      const page = doc.metadata.page || 'N/A';
-      return `[${idx + 1}] Source: ${source} (Page ${page})\n${doc.pageContent}`;
+    .map((doc) => {
+      return doc.pageContent;
     })
     .join('\n\n---\n\n');
 }
 
 /**
  * Extract unique citations from retrieved documents
+ * Returns simplified source names: "Penal Code" or "South Sudan Law"
  */
 function extractCitations(docs: Document[]): Array<{ source: string; page: number | string }> {
   const citationsMap = new Map<string, { source: string; page: number | string }>();
   
   docs.forEach(doc => {
-    const source = doc.metadata.source || 'Unknown';
+    const originalSource = doc.metadata.source || 'Unknown';
     const page = doc.metadata.page || 'N/A';
-    const key = `${source}:${page}`;
+    
+    // Simplify source name
+    let simplifiedSource = 'South Sudan Law';
+    if (originalSource.toLowerCase().includes('penal')) {
+      simplifiedSource = 'Penal Code';
+    }
+    
+    const key = simplifiedSource;
     
     if (!citationsMap.has(key)) {
-      citationsMap.set(key, { source, page });
+      citationsMap.set(key, { source: simplifiedSource, page: '' });
     }
   });
   
