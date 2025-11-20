@@ -91,20 +91,48 @@ export class BackendService {
   async *streamChat(
     message: string,
     convoId?: string,
-    userId?: string | null
+    userId?: string | null,
+    files?: File[]
   ): AsyncGenerator<BackendStreamResponse, void, unknown> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Prepare form data if files are present, otherwise use JSON
+      let body: FormData | string;
+      let headers: HeadersInit;
+      
+      if (files && files.length > 0) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        formData.append('message', message);
+        if (convoId) formData.append('convoId', convoId);
+        if (userId) formData.append('userId', userId);
+        
+        // Add files
+        files.forEach((file, index) => {
+          formData.append(`file${index}`, file);
+        });
+        
+        body = formData;
+        headers = {
           'Accept': 'text/event-stream',
-        },
-        body: JSON.stringify({
+          // Don't set Content-Type for FormData - browser will set it with boundary
+        };
+      } else {
+        // Use JSON for text-only messages
+        body = JSON.stringify({
           message,
           convoId,
-          userId: userId || null, // Include userId for prompt tracking
-        }),
+          userId: userId || null,
+        });
+        headers = {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        };
+      }
+
+      const response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers,
+        body,
       });
 
       if (!response.ok) {

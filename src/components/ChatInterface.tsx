@@ -141,8 +141,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
   // No longer needed - backend handles RAG context automatically
 
-  const handleSendMessage = async (userMessage: string) => {
-    if (!userMessage.trim() || isLoading) return;
+  const handleSendMessage = async (userMessage: string, files?: File[]) => {
+    if ((!userMessage.trim() && (!files || files.length === 0)) || isLoading) return;
 
     // Wait for subscription to load before checking limits
     if (isAuthenticated && subscriptionLoading) {
@@ -196,11 +196,17 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
       updateCurrentChat(title);
     }
 
-    // Add user message
+    // Add user message (include file info if present)
+    let messageContent = userMessage;
+    if (files && files.length > 0) {
+      const fileNames = files.map(f => f.name).join(', ');
+      messageContent = userMessage ? `${userMessage}\n\n[Attached: ${fileNames}]` : `[Attached: ${fileNames}]`;
+    }
+    
     const userMsg: ChatMessageType = {
       id: `user-${Date.now()}`,
       type: 'user',
-      content: userMessage,
+      content: messageContent,
       timestamp: new Date(),
     };
 
@@ -239,8 +245,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         try {
           let streamComplete = false;
           
-          // Pass userId for admin prompt tracking
-          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null)) {
+          // Pass userId for admin prompt tracking, and files if present
+          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null, files || [])) {
             if (chunk.type === 'token' && chunk.text) {
               aiResponse += chunk.text;
               // Update the streaming message in real-time
@@ -503,6 +509,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 isLoading={isLoading}
                 placeholder={aiConnected ? "Ask me anything about South Sudan laws..." : "Backend offline - using local search"}
                 disabled={isLoading}
+                enableAttachments={true}
               />
             </div>
           </div>
@@ -539,6 +546,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 isLoading={isLoading}
                 placeholder={aiConnected ? "Ask me anything about South Sudan laws..." : "Backend offline - using local search"}
                 disabled={isLoading}
+                enableAttachments={true}
               />
             </div>
           </div>

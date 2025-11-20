@@ -1,10 +1,50 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { ask } from '../rag';
 import { initSSE, writeEvent, startHeartbeat, setupSSECleanup } from '../sse';
 import { env } from '../env';
 import { adminStorage } from './admin';
+import { processImage, isImageFile } from '../utils/image-processor';
+import { loadFile } from '../rag/loaders';
 
 const router = Router();
+
+// Configure multer for file uploads (temporary storage)
+const uploadDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'tmp');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const basename = path.basename(file.originalname, ext);
+    cb(null, `${basename}-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB max per file
+  },
+  fileFilter: (_req, file, cb) => {
+    // Allow images and documents
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.pdf', '.txt', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${ext} not allowed. Allowed types: ${allowedExts.join(', ')}`));
+    }
+  },
+});
 
 /**
  * Middleware to verify API key if required
@@ -28,18 +68,75 @@ function verifyApiKey(req: Request, res: Response, next: () => void): void {
 /**
  * Chat endpoint with SSE streaming
  * POST /api/chat
- * Body: { message: string, convoId?: string }
+ * Body: { message: string, convoId?: string } or multipart/form-data with files
  */
-router.post('/chat', verifyApiKey, async (req: Request, res: Response) => {
+router.post('/chat', verifyApiKey, upload.any(), async (req: Request, res: Response) => {
   try {
-    const { message, convoId, userId } = req.body;
+    // Handle both JSON and multipart/form-data
+    let message: string;
+    let convoId: string | undefined;
+    let userId: string | undefined;
+    
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      // Multipart form data
+      message = req.body.message || '';
+      convoId = req.body.convoId;
+      userId = req.body.userId;
+    } else {
+      // JSON body
+      message = req.body.message;
+      convoId = req.body.convoId;
+      userId = req.body.userId;
+    }
     
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'Message is required and must be a string' });
       return;
     }
     
-    console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}${userId ? ` (user: ${userId})` : ' (anonymous)'}: "${message.substring(0, 50)}..."`);
+    // Process uploaded files
+    const files = req.files as Express.Multer.File[] || [];
+    let processedContent = message;
+    
+    if (files.length > 0) {
+      console.log(`📎 Processing ${files.length} file(s) with message`);
+      
+      const fileContents: string[] = [];
+      
+      for (const file of files) {
+        try {
+          if (isImageFile(file.originalname)) {
+            // Process image with OpenAI Vision
+            console.log(`🖼️ Processing image: ${file.originalname}`);
+            const imageAnalysis = await processImage(file.path, message);
+            fileContents.push(`[Image: ${file.originalname}]\n${imageAnalysis}`);
+          } else {
+            // Process document (PDF, DOCX, etc.)
+            console.log(`📄 Processing document: ${file.originalname}`);
+            const documents = await loadFile(file.path);
+            const extractedText = documents.map(doc => doc.pageContent).join('\n\n');
+            fileContents.push(`[Document: ${file.originalname}]\n${extractedText}`);
+          }
+          
+          // Clean up temp file
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {
+            console.warn('Failed to delete temp file:', e);
+          }
+        } catch (fileError) {
+          console.error(`❌ Error processing file ${file.originalname}:`, fileError);
+          // Continue with other files
+        }
+      }
+      
+      // Combine message with file contents
+      if (fileContents.length > 0) {
+        processedContent = `${message}\n\n[Attached Files Analysis]\n${fileContents.join('\n\n---\n\n')}`;
+      }
+    }
+    
+    console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}${userId ? ` (user: ${userId})` : ' (anonymous)'}: "${message.substring(0, 50)}..."${files.length > 0 ? ` with ${files.length} file(s)` : ''}`);
     
     // Track prompt for admin stats - CRITICAL: This counts all prompts continuously
     // Uses Firestore for persistent storage (survives serverless restarts)
@@ -72,8 +169,8 @@ router.post('/chat', verifyApiKey, async (req: Request, res: Response) => {
     // Send metadata event
     writeEvent(res, 'metadata', { convoId: convoId || null, timestamp: new Date().toISOString() });
     
-    // Stream the response
-    const result = await ask(message, (token: string) => {
+    // Stream the response (use processed content which includes file analysis)
+    const result = await ask(processedContent, (token: string) => {
       writeEvent(res, 'token', { text: token });
     });
     

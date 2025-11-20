@@ -60,24 +60,46 @@ export default function ChatMessage({
       return text;
     }
     
-    // Split by double newlines to create paragraphs
-    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+    // First, split by double newlines to create major paragraph breaks
+    const majorSections = text.split(/\n\n+/);
     
-    // Process each paragraph
-    const htmlParagraphs = paragraphs.map(para => {
-      // Convert markdown bold **text** to <strong>text</strong>
-      // Use non-greedy matching to handle multiple bold sections
-      let html = para
+    // Process each section
+    const htmlParagraphs = majorSections.map(section => {
+      // Trim whitespace
+      let trimmed = section.trim();
+      if (!trimmed.length) return '';
+      
+      // Split by single newlines within the section
+      // This handles cases where AI uses single newlines for paragraph breaks
+      const lines = trimmed.split(/\n/);
+      
+      // If we have multiple lines, treat each as a separate paragraph
+      if (lines.length > 1) {
+        return lines
+          .map(line => {
+            const processed = line
+              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              .trim();
+            return processed ? `<p>${processed}</p>` : '';
+          })
+          .filter(p => p.length > 0)
+          .join('');
+      } else {
+        // Single line - just process markdown
+        const processed = trimmed
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        return `<p>${processed}</p>`;
+      }
+    }).filter(p => p.length > 0);
+    
+    // If no paragraphs were created, fallback to treating entire text as one paragraph
+    if (htmlParagraphs.length === 0) {
+      const processed = text
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/\n/g, '<br>')
         .trim();
-      
-      // Only wrap in <p> if there's actual content
-      if (html.length > 0) {
-        return `<p>${html}</p>`;
-      }
-      return '';
-    }).filter(p => p.length > 0);
+      return processed ? `<p>${processed}</p>` : '';
+    }
     
     return htmlParagraphs.join('');
   };

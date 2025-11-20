@@ -9,7 +9,7 @@ import { sanitizeInput, validateInput, checkRateLimit } from '@/utils/security';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, files?: File[]) => void;
   isLoading?: boolean;
   placeholder?: string;
   disabled?: boolean;
@@ -131,9 +131,13 @@ export default function ChatInput({
     // Sanitize input before sending
     const sanitizedInput = sanitizeInput(trimmedInput);
     
+    // Get files to send with message
+    const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
+    
     saveToHistory(sanitizedInput);
-    onSendMessage(sanitizedInput);
+    onSendMessage(sanitizedInput, filesToSend);
     setInput('');
+    setAttachedFiles([]); // Clear attached files after sending
     setShowSuggestions(false);
     setShowHistory(false);
   };
