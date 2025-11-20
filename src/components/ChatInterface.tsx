@@ -237,6 +237,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         setMessages(prev => [...prev, streamingMsg]);
 
         try {
+          let streamComplete = false;
+          
           for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined)) {
             if (chunk.type === 'token' && chunk.text) {
               aiResponse += chunk.text;
@@ -248,16 +250,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
               ));
             } else if (chunk.type === 'done' && chunk.citations) {
               citations = chunk.citations;
-              // Add citations to the final message
-              const citationsText = citations.length > 0
-                ? `\n\n**Sources:**\n${citations.map(c => `- ${c.source} (Page ${c.page})`).join('\n')}`
-                : '';
-              
-              setMessages(prev => prev.map(msg => 
-                msg.id === streamingMsg.id 
-                  ? { ...msg, content: aiResponse + citationsText }
-                  : msg
-              ));
+              streamComplete = true;
             } else if (chunk.type === 'error') {
               console.error('Backend error:', chunk.error);
               
@@ -282,6 +275,24 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
               
               throw new Error(chunk.error || 'Backend service error');
             }
+          }
+          
+          // Finalize the message after streaming completes
+          if (streamComplete && aiResponse) {
+            const citationsText = citations.length > 0
+              ? `\n\n**Sources:**\n${citations.map(c => `- ${c.source} (Page ${c.page})`).join('\n')}`
+              : '';
+            
+            // Replace streaming message with final message (new ID to force re-render)
+            setMessages(prev => prev.map(msg => 
+              msg.id === streamingMsg.id 
+                ? { 
+                    ...msg, 
+                    id: `assistant-${Date.now()}`, // New ID to ensure re-render
+                    content: aiResponse + citationsText,
+                  }
+                : msg
+            ));
           }
         } catch (streamError) {
           console.error('Stream error:', streamError);
