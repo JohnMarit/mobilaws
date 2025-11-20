@@ -246,7 +246,19 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           let streamComplete = false;
           
           // Pass userId for admin prompt tracking, and files if present
-          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null, files || [])) {
+          // Check if this is a modification request (make shorter, summarize, etc.)
+          const isModificationRequest = /make\s+(it|the\s+reply)\s+shorter|shorten|summarize|summary|make\s+it\s+longer|expand|simpler|simplify|clarify|rephrase|rewrite/i.test(userMessage);
+          
+          // Get the last assistant message if this is a modification request
+          let previousResponse: string | undefined;
+          if (isModificationRequest) {
+            const lastAssistantMsg = [...messages].reverse().find(msg => msg.type === 'assistant');
+            if (lastAssistantMsg) {
+              previousResponse = lastAssistantMsg.content;
+            }
+          }
+          
+          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null, files || [], previousResponse)) {
             if (chunk.type === 'token' && chunk.text) {
               aiResponse += chunk.text;
               // Update the streaming message in real-time

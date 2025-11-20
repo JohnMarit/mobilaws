@@ -67,11 +67,25 @@ Regarding **[user's topic]**, South Sudan law addresses this under **Article X o
 
 ⚖️ **Disclaimer:** This is informational only and not legal advice. Consult a qualified attorney for legal guidance.
 
+HANDLING MODIFICATION REQUESTS:
+When a user asks to modify a previous response (e.g., "make it shorter", "summarize", "explain simpler"):
+- If the previous response is provided in the context, ACTUALLY modify it - don't show a template
+- For "make it shorter" or "summarize": Provide a condensed version that keeps the key points and citations
+- For "explain simpler": Rewrite in simpler language while keeping the legal accuracy
+- For "make it longer" or "expand": Add more detail and explanation
+- DO NOT provide template responses like "Here's a shorter version: [template]"
+- DO NOT say "Regarding [user's topic]" when modifying - just provide the modified content
+- Keep the same article citations and legal accuracy
+- Maintain the same formatting style (bold for articles, paragraphs, etc.)
+- If no previous response is provided, politely ask the user to share what they want modified
+
 CRITICAL RULES:
 - For greetings/casual chat: Be warm, friendly, and natural - NO law database needed
 - For legal questions: ALWAYS use the context provided, cite articles, use paragraphs
+- For modification requests: Ask for the previous response, don't show templates
 - NEVER say "there's no law about greetings" or similar - just respond naturally
 - NEVER make up legal information - only use what's in the context
+- NEVER provide template responses when asked to modify something - actually modify the content
 - ALWAYS be helpful and conversational
 
 Context documents:
@@ -183,14 +197,34 @@ function isGreetingOrCasual(message: string): boolean {
 }
 
 /**
+ * Check if a message is asking to modify/summarize a previous response
+ */
+function isModificationRequest(message: string): boolean {
+  const normalized = message.toLowerCase().trim();
+  
+  const modificationKeywords = [
+    'make it shorter', 'make the reply shorter', 'shorten', 'summarize', 'summary',
+    'make it longer', 'expand', 'explain more', 'more details',
+    'simpler', 'simplify', 'explain in simpler terms', 'in simple terms',
+    'make it clearer', 'clarify', 'rephrase', 'rewrite'
+  ];
+  
+  return modificationKeywords.some(keyword => normalized.includes(keyword));
+}
+
+/**
  * Ask a question and stream the response
  */
 export async function askQuestion(
   question: string,
-  onToken: (token: string) => void
+  onToken: (token: string) => void,
+  previousResponse?: string
 ): Promise<{ answer: string; citations: Array<{ source: string; page: number | string }> }> {
   const model = getChatModel();
   const retriever = await getRetriever();
+  
+  // Check if this is a modification request
+  const isModification = isModificationRequest(question);
   
   // Check if this is a greeting or casual conversation
   const isCasual = isGreetingOrCasual(question);
@@ -199,8 +233,13 @@ export async function askQuestion(
   let context = '';
   let citations: Array<{ source: string; page: number | string }> = [];
   
-  // Only retrieve documents for actual legal questions
-  if (!isCasual) {
+  // Handle modification requests
+  if (isModification && previousResponse) {
+    // For modification requests with previous response, include it in context
+    context = `[Previous Response to Modify]\n${previousResponse}\n\n[User's Request: ${question}]`;
+    // Don't search law database for modification requests
+  } else if (!isCasual) {
+    // Only retrieve documents for actual legal questions
     relevantDocs = await retriever.getRelevantDocuments(question);
     context = formatDocuments(relevantDocs);
     citations = extractCitations(relevantDocs);

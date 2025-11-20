@@ -92,7 +92,8 @@ export class BackendService {
     message: string,
     convoId?: string,
     userId?: string | null,
-    files?: File[]
+    files?: File[],
+    previousResponse?: string
   ): AsyncGenerator<BackendStreamResponse, void, unknown> {
     try {
       // Prepare form data if files are present, otherwise use JSON
@@ -105,6 +106,7 @@ export class BackendService {
         formData.append('message', message);
         if (convoId) formData.append('convoId', convoId);
         if (userId) formData.append('userId', userId);
+        if (previousResponse) formData.append('previousResponse', previousResponse);
         
         // Add files
         files.forEach((file, index) => {
@@ -122,6 +124,7 @@ export class BackendService {
           message,
           convoId,
           userId: userId || null,
+          previousResponse: previousResponse || undefined,
         });
         headers = {
           'Content-Type': 'application/json',

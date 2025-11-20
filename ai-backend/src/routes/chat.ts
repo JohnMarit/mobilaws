@@ -76,17 +76,20 @@ router.post('/chat', verifyApiKey, upload.any(), async (req: Request, res: Respo
     let message: string;
     let convoId: string | undefined;
     let userId: string | undefined;
+    let previousResponse: string | undefined;
     
     if (req.headers['content-type']?.includes('multipart/form-data')) {
       // Multipart form data
       message = req.body.message || '';
       convoId = req.body.convoId;
       userId = req.body.userId;
+      previousResponse = req.body.previousResponse;
     } else {
       // JSON body
       message = req.body.message;
       convoId = req.body.convoId;
       userId = req.body.userId;
+      previousResponse = req.body.previousResponse;
     }
     
     if (!message || typeof message !== 'string') {
@@ -170,9 +173,10 @@ router.post('/chat', verifyApiKey, upload.any(), async (req: Request, res: Respo
     writeEvent(res, 'metadata', { convoId: convoId || null, timestamp: new Date().toISOString() });
     
     // Stream the response (use processed content which includes file analysis)
+    // Pass previousResponse if available for modification requests
     const result = await ask(processedContent, (token: string) => {
       writeEvent(res, 'token', { text: token });
-    });
+    }, previousResponse);
     
     // Send citations and done event
     writeEvent(res, 'done', { citations: result.citations });
