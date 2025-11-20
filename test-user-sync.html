@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User Sync</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .error {
+            border-left-color: #f44336 !important;
+            background: #ffebee !important;
+        }
+        .info {
+            border-left-color: #2196F3 !important;
+            background: #e3f2fd !important;
+        }
+        .log {
+            margin: 5px 0;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 User Sync Diagnostic Tool</h1>
+        <p>This tool helps diagnose why users aren't appearing in the admin panel.</p>
+        
+        <div>
+            <button onclick="testBackendHealth()">1. Test Backend Health</button>
+            <button onclick="testUserSync()" class="secondary">2. Test User Sync</button>
+            <button onclick="getAdminUsers()" class="secondary">3. Get Admin Users List</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://mobilaws-ympe.vercel.app';
+        const resultDiv = document.getElementById('result');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            if (type === 'error') {
+                logEntry.style.color = '#d32f2f';
+            } else if (type === 'success') {
+                logEntry.style.color = '#388e3c';
+            }
+            
+            resultDiv.appendChild(logEntry);
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            resultDiv.innerHTML = '';
+        }
+
+        async function testBackendHealth() {
+            clearLogs();
+            log('🔍 Testing backend health...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/healthz`);
+                const data = await response.json();
+                
+                if (data.ok) {
+                    log('✅ Backend is online and healthy', 'success');
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log('❌ Backend health check failed', 'error');
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ Backend connection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUserSync() {
+            clearLogs();
+            log('🔍 Testing user sync endpoint...', 'info');
+            
+            // Test with dummy user data
+            const testUser = {
+                id: 'test-user-' + Date.now(),
+                email: 'test@example.com',
+                name: 'Test User',
+                picture: 'https://via.placeholder.com/150'
+            };
+            
+            log(`📤 Sending test user: ${testUser.email}`, 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/users/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testUser)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    log('✅ User sync successful!', 'success');
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log('❌ User sync failed', 'error');
+                    log(`Status: ${response.status}`);
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ Sync request error: ${error.message}`, 'error');
+            }
+        }
+
+        async function getAdminUsers() {
+            clearLogs();
+            log('🔍 Fetching users from admin endpoint...', 'info');
+            log('⚠️ Note: This requires admin authentication', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/admin/users?page=1&limit=20`, {
+                    headers: {
+                        'x-admin-email': 'thuchabraham42@gmail.com',
+                        'x-admin-token': 'dummy-token-for-testing'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Successfully fetched users!', 'success');
+                    log(`Total users: ${data.users?.length || 0}`);
+                    log(`Full response: ${JSON.stringify(data, null, 2)}`);
+                    
+                    if (data.users && data.users.length > 0) {
+                        log('\n📋 User List:', 'info');
+                        data.users.forEach((user, index) => {
+                            log(`  ${index + 1}. ${user.name} (${user.email}) - Status: ${user.status}`);
+                        });
+                    } else {
+                        log('⚠️ No users found in database', 'info');
+                        log('💡 This means users are not being synced properly');
+                    }
+                } else {
+                    log('❌ Failed to fetch users', 'error');
+                    log(`Status: ${response.status}`);
+                    log(`Response: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ Request error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run health check on load
+        window.addEventListener('load', () => {
+            log('🚀 Diagnostic tool loaded', 'info');
+            log('💡 Click buttons above to run tests', 'info');
+        });
+    </script>
+</body>
+</html>
+
