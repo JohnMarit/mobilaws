@@ -231,6 +231,7 @@ export default function UserManagement() {
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
+                      <TableHead>Grant Tokens</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -274,6 +275,48 @@ export default function UserManagement() {
                               </SelectItem>
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {selectedUserId === user.id ? (
+                              <div className="flex gap-2 items-center">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="1000"
+                                  value={tokensToGrant}
+                                  onChange={(e) => setTokensToGrant(parseInt(e.target.value) || 10)}
+                                  className="w-20"
+                                  placeholder="10"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleGrantTokens(user.id)}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  <Gift className="h-4 w-4 mr-1" />
+                                  Grant
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setSelectedUserId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedUserId(user.id)}
+                                title="Grant tokens to user (for offline payments)"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Grant
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

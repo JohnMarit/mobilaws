@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useAuth } from './FirebaseAuthContext';
+import { getApiUrl } from '@/lib/api';
 
 export interface SubscriptionPlan {
   id: string;
@@ -108,7 +109,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         setIsLoading(true);
         try {
           // Fetch from backend API (this will auto-create free plan if needed)
-          const response = await fetch(`http://localhost:8000/api/subscription/${user.id}`);
+          const response = await fetch(getApiUrl(`subscription/${user.id}`));
           
           if (response.ok) {
             const result = await response.json();
@@ -236,7 +237,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     
     try {
       // Call backend API to create subscription (demo mode - no payment)
-      const response = await fetch(`http://localhost:8000/api/subscription/${user.id}`, {
+      const response = await fetch(getApiUrl(`subscription/${user.id}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -284,7 +285,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     
     try {
       // Create payment intent with Stripe
-      const response = await fetch('http://localhost:8000/api/payment/create-intent', {
+      const response = await fetch(getApiUrl('payment/create-intent'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     
     try {
       // Verify payment with backend
-      const response = await fetch('http://localhost:8000/api/payment/verify', {
+      const response = await fetch(getApiUrl('payment/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -376,7 +377,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
     try {
       // Call backend API to use token
-      const response = await fetch(`http://localhost:8000/api/subscription/${user.id}/use-token`, {
+      const response = await fetch(getApiUrl(`subscription/${user.id}/use-token`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
