@@ -5,6 +5,8 @@ import "./index.css";
 import "./lib/firebase-init";
 // Check API configuration
 import { checkApiConfiguration } from "./lib/api-check";
+// Sync helper for fixing Auth → Firestore gap
+import "./lib/sync-auth-to-firestore";
 
 // Run API configuration check
 checkApiConfiguration();
