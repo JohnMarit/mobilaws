@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { sanitizeInput, validateInput, checkRateLimit } from '@/utils/security';
+import { validateInput, checkRateLimit } from '@/utils/security';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChatInputProps {
@@ -138,14 +138,15 @@ export default function ChatInput({
       return;
     }
 
-    // Sanitize input before sending
-    const sanitizedInput = sanitizeInput(trimmedInput);
+    // Don't sanitize input - React will handle escaping when displaying
+    // We only validate for dangerous patterns (already done above)
+    // Sanitization is only needed when using dangerouslySetInnerHTML
     
     // Get files to send with message
     const filesToSend = attachedFiles.length > 0 ? [...attachedFiles] : undefined;
     
-    saveToHistory(sanitizedInput);
-    onSendMessage(sanitizedInput, filesToSend);
+    saveToHistory(trimmedInput);
+    onSendMessage(trimmedInput, filesToSend);
     setInput('');
     setAttachedFiles([]); // Clear attached files after sending
     setShowSuggestions(false);
