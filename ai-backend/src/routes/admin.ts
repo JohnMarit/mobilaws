@@ -9,43 +9,46 @@ const users = new Map<string, any>();
 const subscriptions = new Map<string, any>();
 const supportTickets = new Map<string, any>();
 
-// Prompt tracking for admin stats
+// Import Firestore-based prompt tracking
+import { trackPrompt as trackPromptFirestore, getPromptStatsForAdmin } from '../lib/prompt-storage';
+
+// Legacy in-memory tracking (fallback if Firestore fails)
 const promptStats = {
   totalAuthenticatedPrompts: 0,
   totalAnonymousPrompts: 0,
-  userPrompts: new Map<string, number>(), // userId -> prompt count
-  dailyPrompts: new Map<string, { authenticated: number; anonymous: number }>(), // date -> counts
+  userPrompts: new Map<string, number>(),
+  dailyPrompts: new Map<string, { authenticated: number; anonymous: number }>(),
 };
 
-// Track a prompt
-function trackPrompt(userId: string, isAnonymous: boolean): void {
-  const today = new Date().toISOString().split('T')[0];
-  
-  if (isAnonymous) {
-    promptStats.totalAnonymousPrompts++;
-    const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
-    dailyData.anonymous++;
-    promptStats.dailyPrompts.set(today, dailyData);
+// Track a prompt - uses Firestore for persistence
+async function trackPrompt(userId: string, isAnonymous: boolean): Promise<void> {
+  try {
+    // Try Firestore first (persistent storage)
+    await trackPromptFirestore(userId, isAnonymous);
+  } catch (error) {
+    // Fallback to in-memory if Firestore fails
+    console.warn('⚠️ Firestore tracking failed, using in-memory fallback:', error);
     
-    console.log(`📊 📊 📊 ANONYMOUS PROMPT TRACKED 📊 📊 📊`);
-    console.log(`   Total Anonymous: ${promptStats.totalAnonymousPrompts}`);
-    console.log(`   Today Anonymous: ${dailyData.anonymous}`);
-    console.log(`   Total All Prompts: ${promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts}`);
-  } else {
-    promptStats.totalAuthenticatedPrompts++;
-    const userCount = promptStats.userPrompts.get(userId) || 0;
-    promptStats.userPrompts.set(userId, userCount + 1);
+    const today = new Date().toISOString().split('T')[0];
     
-    const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
-    dailyData.authenticated++;
-    promptStats.dailyPrompts.set(today, dailyData);
-    
-    console.log(`📊 📊 📊 AUTHENTICATED PROMPT TRACKED 📊 📊 📊`);
-    console.log(`   User ID: ${userId}`);
-    console.log(`   User's Total Prompts: ${userCount + 1}`);
-    console.log(`   Total Authenticated: ${promptStats.totalAuthenticatedPrompts}`);
-    console.log(`   Today Authenticated: ${dailyData.authenticated}`);
-    console.log(`   Total All Prompts: ${promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts}`);
+    if (isAnonymous) {
+      promptStats.totalAnonymousPrompts++;
+      const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+      dailyData.anonymous++;
+      promptStats.dailyPrompts.set(today, dailyData);
+      
+      console.log(`📊 ANONYMOUS PROMPT TRACKED (in-memory fallback)`);
+    } else {
+      promptStats.totalAuthenticatedPrompts++;
+      const userCount = promptStats.userPrompts.get(userId) || 0;
+      promptStats.userPrompts.set(userId, userCount + 1);
+      
+      const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+      dailyData.authenticated++;
+      promptStats.dailyPrompts.set(today, dailyData);
+      
+      console.log(`📊 AUTHENTICATED PROMPT TRACKED (in-memory fallback)`);
+    }
   }
 }
 
@@ -298,9 +301,29 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
 
     console.log(`📊 Calculating stats: ${allUsers.length} users, ${allSubscriptions.length} subscriptions, ${allTickets.length} tickets`);
 
-    // Calculate today's prompts
-    const today = new Date().toISOString().split('T')[0];
-    const todayPrompts = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+    // Get prompt stats from Firestore (persistent storage)
+    let promptStatsData;
+    try {
+      promptStatsData = await getPromptStatsForAdmin();
+      console.log('📊 Prompt stats from Firestore:', promptStatsData);
+    } catch (error) {
+      console.warn('⚠️ Failed to get prompt stats from Firestore, using in-memory:', error);
+      // Fallback to in-memory stats
+      const today = new Date().toISOString().split('T')[0];
+      const todayPrompts = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
+      promptStatsData = {
+        total: promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts,
+        authenticated: promptStats.totalAuthenticatedPrompts,
+        anonymous: promptStats.totalAnonymousPrompts,
+        today: todayPrompts.authenticated + todayPrompts.anonymous,
+        todayAuthenticated: todayPrompts.authenticated,
+        todayAnonymous: todayPrompts.anonymous,
+        totalUsers: promptStats.userPrompts.size,
+        averagePerUser: promptStats.userPrompts.size > 0 
+          ? Math.round((promptStats.totalAuthenticatedPrompts / promptStats.userPrompts.size) * 100) / 100
+          : 0,
+      };
+    }
 
     // Calculate statistics
     const stats = {
@@ -347,19 +370,7 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
         inProgress: allTickets.filter(t => t.status === 'in_progress').length,
         resolved: allTickets.filter(t => t.status === 'resolved').length
       },
-      prompts: {
-        total: promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts,
-        authenticated: promptStats.totalAuthenticatedPrompts,
-        anonymous: promptStats.totalAnonymousPrompts,
-        today: todayPrompts.authenticated + todayPrompts.anonymous,
-        todayAuthenticated: todayPrompts.authenticated,
-        todayAnonymous: todayPrompts.anonymous,
-        // Additional breakdown
-        totalUsers: promptStats.userPrompts.size, // Number of unique users who made prompts
-        averagePerUser: promptStats.userPrompts.size > 0 
-          ? Math.round(promptStats.totalAuthenticatedPrompts / promptStats.userPrompts.size * 100) / 100
-          : 0
-      }
+      prompts: promptStatsData
     };
 
     console.log('✅ Stats calculated:', JSON.stringify(stats, null, 2));
@@ -526,8 +537,8 @@ export const adminStorage = {
   users,
   subscriptions,
   supportTickets,
-  trackPrompt,
-  promptStats
+  trackPrompt, // Now uses Firestore for persistence
+  promptStats // Legacy in-memory (fallback only)
 };
 
 export default router;

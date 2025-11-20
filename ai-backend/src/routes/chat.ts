@@ -42,15 +42,16 @@ router.post('/chat', verifyApiKey, async (req: Request, res: Response) => {
     console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}${userId ? ` (user: ${userId})` : ' (anonymous)'}: "${message.substring(0, 50)}..."`);
     
     // Track prompt for admin stats - CRITICAL: This counts all prompts continuously
+    // Uses Firestore for persistent storage (survives serverless restarts)
     try {
       if (userId) {
         // Signed-up user prompt
         console.log(`📊 Tracking authenticated user prompt for: ${userId}`);
-        adminStorage.trackPrompt(userId, false);
+        await adminStorage.trackPrompt(userId, false);
       } else {
         // Anonymous user prompt
         console.log(`📊 Tracking anonymous user prompt`);
-        adminStorage.trackPrompt('anonymous', true);
+        await adminStorage.trackPrompt('anonymous', true);
       }
     } catch (error) {
       console.error('❌ Error tracking prompt:', error);
