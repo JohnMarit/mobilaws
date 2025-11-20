@@ -23,33 +23,59 @@ export function ensureStorageDirectories(): void {
 
 /**
  * Ingest documents into the vector store
+ * Processes files one at a time to handle large files efficiently
  */
 export async function ingest(filePaths: string[]): Promise<number> {
   try {
     console.log(`\n📥 Starting ingestion of ${filePaths.length} files...`);
     
-    // Load documents
-    const documents = await loadFiles(filePaths);
+    let totalChunks = 0;
+    const BATCH_SIZE = 50; // Process chunks in batches to avoid memory issues
     
-    if (documents.length === 0) {
-      console.warn('⚠️  No documents loaded');
-      return 0;
+    // Process files one at a time to handle large files
+    for (const filePath of filePaths) {
+      console.log(`\n📄 Processing: ${filePath}`);
+      
+      try {
+        // Load single file
+        const { loadFile } = await import('./loaders');
+        const documents = await loadFile(filePath);
+        
+        if (documents.length === 0) {
+          console.warn(`⚠️  No documents loaded from ${filePath}`);
+          continue;
+        }
+        
+        // Split documents into chunks
+        const chunks = await splitDocuments(documents);
+        
+        if (chunks.length === 0) {
+          console.warn(`⚠️  No chunks created from ${filePath}`);
+          continue;
+        }
+        
+        // Upsert chunks in batches to avoid payload size limits
+        console.log(`📦 Upserting ${chunks.length} chunks in batches of ${BATCH_SIZE}...`);
+        
+        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+          const batch = chunks.slice(i, i + BATCH_SIZE);
+          const batchCount = await upsertDocuments(batch);
+          totalChunks += batchCount;
+          
+          console.log(`   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batchCount} chunks indexed`);
+        }
+        
+        console.log(`✅ Completed: ${filePath} (${chunks.length} chunks indexed)`);
+      } catch (fileError) {
+        console.error(`❌ Error processing ${filePath}:`, fileError);
+        // Continue with next file instead of failing completely
+        continue;
+      }
     }
     
-    // Split documents into chunks
-    const chunks = await splitDocuments(documents);
+    console.log(`\n✅ Ingestion complete: ${totalChunks} total chunks indexed from ${filePaths.length} files\n`);
     
-    if (chunks.length === 0) {
-      console.warn('⚠️  No chunks created');
-      return 0;
-    }
-    
-    // Upsert to vector store
-    const count = await upsertDocuments(chunks);
-    
-    console.log(`✅ Ingestion complete: ${count} chunks indexed\n`);
-    
-    return count;
+    return totalChunks;
   } catch (error) {
     console.error('❌ Ingestion failed:', error);
     throw error;
