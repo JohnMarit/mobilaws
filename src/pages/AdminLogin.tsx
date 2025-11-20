@@ -23,21 +23,49 @@ export default function AdminLogin() {
 
   // Initialize Google OAuth
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if (window.google) {
-        setGoogleReady(true);
-        initializeGoogleSignIn();
+    // Check if we're returning from Google OAuth
+    const handleOAuthRedirect = () => {
+      const hash = window.location.hash;
+      const params = new URLSearchParams(hash.substring(1));
+      const idToken = params.get('id_token');
+      const state = params.get('state');
+      
+      if (idToken && state === 'admin_login') {
+        console.log('🔐 Received ID token from Google OAuth redirect');
+        // Clear the hash from URL
+        window.history.replaceState(null, '', window.location.pathname);
+        // Process the token
+        handleGoogleCallback({ credential: idToken });
+        return true;
       }
+      return false;
     };
-    document.head.appendChild(script);
 
-    return () => {
-      document.head.removeChild(script);
-    };
+    // Check for OAuth redirect first
+    if (!handleOAuthRedirect()) {
+      // Load Google Sign-In script
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        if (window.google) {
+          setGoogleReady(true);
+          initializeGoogleSignIn();
+        }
+      };
+      script.onerror = () => {
+        console.error('❌ Failed to load Google Sign-In script');
+        setError('Failed to load Google Sign-In. Please check your internet connection.');
+      };
+      document.head.appendChild(script);
+
+      return () => {
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
+        }
+      };
+    }
   }, []);
 
   const initializeGoogleSignIn = () => {
@@ -45,21 +73,26 @@ export default function AdminLogin() {
     
     if (!clientId) {
       setError('Google OAuth is not configured. Please set VITE_GOOGLE_CLIENT_ID.');
+      console.error('❌ VITE_GOOGLE_CLIENT_ID not found');
       return;
     }
 
+    console.log('🔧 Initializing Google Sign-In with Client ID:', clientId.substring(0, 20) + '...');
+
     try {
+      // Initialize Google Identity Services
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: handleGoogleCallback,
         auto_select: false,
-        cancel_on_tap_outside: true,
+        cancel_on_tap_outside: false,
+        itp_support: true, // Improved tracking prevention support
       });
       
-      console.log('✅ Google OAuth initialized for admin login');
+      console.log('✅ Google OAuth initialized successfully');
     } catch (err) {
-      console.error('Error initializing Google Sign-In:', err);
-      setError('Failed to initialize Google Sign-In');
+      console.error('❌ Error initializing Google Sign-In:', err);
+      setError('Failed to initialize Google Sign-In. Please refresh the page.');
     }
   };
 
@@ -70,20 +103,35 @@ export default function AdminLogin() {
     }
 
     setError(''); // Clear any previous errors
+    setIsLoading(true);
     
     try {
-      console.log('🚀 Triggering Google Sign-In...');
-      // Trigger the Google One Tap prompt
-      if (window.google?.accounts?.id?.prompt) {
-        window.google.accounts.id.prompt();
-        console.log('✅ Google Sign-In prompt triggered');
-      } else {
-        console.error('❌ Google Sign-In prompt method not available');
-        setError('Google Sign-In is not available. Please refresh the page.');
-      }
+      console.log('🚀 Opening Google Sign-In popup...');
+      
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      
+      // Use OAuth2 implicit flow (most reliable)
+      const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+      const redirectUri = window.location.origin + window.location.pathname;
+      
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'id_token',
+        scope: 'openid email profile',
+        nonce: Math.random().toString(36).substring(2, 15),
+        state: 'admin_login',
+        prompt: 'select_account',
+      });
+      
+      // Redirect to Google OAuth (simpler and more reliable than popup)
+      const authUrl = `${oauth2Endpoint}?${params.toString()}`;
+      window.location.href = authUrl;
+      
     } catch (err) {
       console.error('❌ Error triggering Google Sign-In:', err);
       setError('Failed to open Google Sign-In. Please try again.');
+      setIsLoading(false);
     }
   };
 
