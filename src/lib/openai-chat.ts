@@ -21,57 +21,55 @@ export class OpenAIChatService {
   }
 
   private initializeOpenAI() {
+    // SECURITY: OpenAI API keys should NEVER be in frontend code!
+    // This service is disabled - all OpenAI calls go through the secure backend
+    // DO NOT set VITE_OPENAI_API_KEY in frontend environment variables
+    
+    console.warn('⚠️ OpenAIChatService is disabled for security. All AI requests go through the secure backend.');
+    this.isConnected = false;
+    return;
+    
+    /* SECURITY FIX: Disabled frontend OpenAI usage
+    // OpenAI API keys should only be used in backend, never in frontend
+    // If you need OpenAI, use the backend API endpoint instead
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
-    console.log('Checking for OpenAI API key...');
-    console.log('API key found:', !!apiKey);
-    console.log('API key starts with sk-:', apiKey?.startsWith('sk-'));
-    
     if (!apiKey) {
-      console.warn('OpenAI API key not found. Please add VITE_OPENAI_API_KEY to your .env file');
+      console.warn('OpenAI API key not found. Using secure backend instead.');
       return;
     }
 
-    if (!apiKey.startsWith('sk-')) {
-      console.warn('OpenAI API key format is invalid. Should start with "sk-"');
-      return;
-    }
-
-    try {
-      this.openai = new OpenAI({
-        apiKey: apiKey,
-        dangerouslyAllowBrowser: true // Required for browser usage
-      });
-      this.isConnected = true;
-      console.log('OpenAI service initialized successfully');
-    } catch (error) {
-      console.error('Failed to initialize OpenAI:', error);
-      this.isConnected = false;
-    }
+    // DO NOT USE - This would expose your API key to hackers!
+    // All OpenAI calls should go through: https://mobilaws-ympe.vercel.app/api/chat
+    */
   }
 
   async testConnection(): Promise<boolean> {
-    if (!this.isConnected || !this.openai) {
-      console.log('OpenAI not initialized or API key missing');
-      return false;
-    }
-
-    // Check if API key is valid format
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey || !apiKey.startsWith('sk-')) {
-      console.log('Invalid API key format');
-      return false;
-    }
-
-    console.log('OpenAI connection test passed');
-    return true;
+    // SECURITY: This service is disabled - use backend instead
+    console.warn('⚠️ OpenAIChatService is disabled. Use backend API for secure AI requests.');
+    return false;
+    
+    /* SECURITY FIX: Disabled for security
+    // All OpenAI calls should go through the secure backend
+    // Frontend should never have direct access to OpenAI API keys
+    */
   }
 
   async *streamChat(messages: OpenAIMessage[], lawContext?: string): AsyncGenerator<OpenAIStreamResponse, void, unknown> {
+    // SECURITY: This service is disabled - use backend instead
+    yield {
+      type: 'error',
+      error: '⚠️ This service is disabled for security. All AI requests must go through the secure backend API.'
+    };
+    return;
+    
+    /* SECURITY FIX: Disabled for security
+    // OpenAI API keys should NEVER be exposed in frontend
+    // Use backend endpoint: POST /api/chat
     if (!this.isConnected || !this.openai) {
       yield {
         type: 'error',
-        error: 'OpenAI service is not available. Please check your API key.'
+        error: 'OpenAI service is not available. Please use the secure backend API.'
       };
       return;
     }
@@ -115,6 +113,7 @@ Instructions:
 
       yield { type: 'done' };
     } catch (error) {
+      // SECURITY: This code is disabled - errors won't occur
       console.error('OpenAI stream error:', error);
       console.error('Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -140,9 +139,16 @@ Instructions:
         error: errorMessage
       };
     }
+    */
   }
 
   async sendMessage(message: string, conversationHistory: OpenAIMessage[] = [], lawContext?: string): Promise<string> {
+    // SECURITY: This service is disabled - use backend instead
+    throw new Error('⚠️ This service is disabled for security. Use the secure backend API: POST /api/chat');
+    
+    /* SECURITY FIX: Disabled for security
+    // All OpenAI calls should go through the secure backend
+    // Frontend should never have direct access to OpenAI API keys
     const messages: OpenAIMessage[] = [
       ...conversationHistory,
       { role: 'user', content: message }
@@ -161,8 +167,11 @@ Instructions:
     }
 
     return fullResponse;
+    */
   }
 }
 
-// Create singleton instance
+// SECURITY NOTE: This service is disabled to prevent API key exposure
+// All OpenAI requests should go through the secure backend: /api/chat
+// Create singleton instance (disabled for security)
 export const openaiChatService = new OpenAIChatService();

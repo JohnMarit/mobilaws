@@ -31,7 +31,7 @@ interface SubscriptionContextType {
   purchasePlan: (planId: string) => Promise<boolean>;
   initiatePayment: (planId: string) => Promise<{ success: boolean; clientSecret?: string; error?: string }>;
   verifyPayment: (paymentIntentId: string) => Promise<boolean>;
-  useToken: () => boolean;
+  useToken: () => Promise<boolean>;
   canUseToken: boolean;
   refreshSubscription: () => Promise<void>;
 }
@@ -141,6 +141,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
             if (savedSubscription) {
               try {
                 const subscription: UserSubscription = JSON.parse(savedSubscription);
+                // Validate it's actually a subscription object
+                if (!subscription || typeof subscription !== 'object' || !subscription.planId) {
+                  throw new Error('Invalid subscription data');
+                }
                 // Check if subscription is still valid
                 if (subscription.isActive && (!subscription.expiryDate || new Date(subscription.expiryDate) > new Date())) {
                   setUserSubscription(subscription);
@@ -272,6 +276,10 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   }, [isAuthenticated, user, plans]);
 
   const initiatePayment = useCallback(async (planId: string): Promise<{ success: boolean; clientSecret?: string; error?: string }> => {
+    // STRIPE COMMENTED OUT - Payment processing disabled
+    return { success: false, error: 'Payment processing is currently disabled. Please contact support.' };
+    
+    /* STRIPE COMMENTED OUT - Disabled for now
     if (!isAuthenticated || !user) {
       return { success: false, error: 'User must be authenticated to purchase a plan' };
     }
@@ -321,9 +329,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     } finally {
       setIsLoading(false);
     }
+    */
   }, [isAuthenticated, user, plans]);
 
   const verifyPayment = useCallback(async (paymentIntentId: string): Promise<boolean> => {
+    // STRIPE COMMENTED OUT - Payment processing disabled
+    console.warn('Payment verification is disabled');
+    return false;
+    
+    /* STRIPE COMMENTED OUT - Disabled for now
     if (!isAuthenticated || !user) {
       console.error('User must be authenticated to verify payment');
       return false;
@@ -364,6 +378,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     } finally {
       setIsLoading(false);
     }
+    */
   }, [isAuthenticated, user]);
 
   const useToken = useCallback(async (): Promise<boolean> => {

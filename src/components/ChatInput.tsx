@@ -111,7 +111,17 @@ export default function ChatInput({
     }
 
     // Security: Rate limiting (10 messages per minute per user)
-    const userId = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!).id : 'anonymous';
+    let userId = 'anonymous';
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        userId = user?.id || 'anonymous';
+      }
+    } catch (error) {
+      console.warn('Failed to parse user from localStorage:', error);
+      userId = 'anonymous';
+    }
     const rateLimitResult = checkRateLimit(`chat-input-${userId}`, {
       maxRequests: 10,
       windowMs: 60000, // 1 minute

@@ -18,7 +18,6 @@
       object-src 'none';
       base-uri 'self';
       form-action 'self' https://accounts.google.com;
-      frame-ancestors 'none';
       upgrade-insecure-requests;
     ">
     
@@ -28,11 +27,11 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     
     <!-- Permissions Policy -->
+    <!-- Stripe commented out - payment disabled -->
     <meta http-equiv="Permissions-Policy" content="
       geolocation=(),
       microphone=(),
       camera=(),
-      payment=(),
       usb=(),
       magnetometer=(),
       gyroscope=(),

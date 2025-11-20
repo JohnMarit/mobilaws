@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements
-} from '@stripe/react-stripe-js';
+// STRIPE COMMENTED OUT - Disabled for now
+// import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
+// import {
+//   Elements,
+//   CardElement,
+//   useStripe,
+//   useElements
+// } from '@stripe/react-stripe-js';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useAuth } from '../contexts/FirebaseAuthContext';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -15,8 +16,8 @@ import { Badge } from './ui/badge';
 import { Check, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key');
+// STRIPE COMMENTED OUT - Disabled for now
+// const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key');
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -31,8 +32,9 @@ interface PaymentFormProps {
 }
 
 function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
-  const stripe = useStripe();
-  const elements = useElements();
+  // STRIPE COMMENTED OUT - Disabled for now
+  // const stripe = useStripe();
+  // const elements = useElements();
   const { plans, initiatePayment, verifyPayment, isLoading } = useSubscription();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -40,69 +42,28 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
 
   const plan = plans.find(p => p.id === planId);
 
-  useEffect(() => {
-    if (plan && stripe && elements) {
-      // Create payment intent when component mounts
-      initiatePayment(planId).then(result => {
-        if (result.success && result.clientSecret) {
-          setClientSecret(result.clientSecret);
-        } else {
-          onError(result.error || 'Failed to initialize payment');
-        }
-      });
-    }
-  }, [plan, stripe, elements, planId, initiatePayment, onError]);
+  // STRIPE COMMENTED OUT - Disabled for now
+  // useEffect(() => {
+  //   if (plan && stripe && elements) {
+  //     // Create payment intent when component mounts
+  //     initiatePayment(planId).then(result => {
+  //       if (result.success && result.clientSecret) {
+  //         setClientSecret(result.clientSecret);
+  //       } else {
+  //         onError(result.error || 'Failed to initialize payment');
+  //       }
+  //     });
+  //   }
+  // }, [plan, stripe, elements, planId, initiatePayment, onError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    if (!stripe || !elements || !clientSecret) {
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error('Card element not found');
-      }
-
-      // Confirm payment with Stripe
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: user?.displayName || user?.email || 'Customer',
-            email: user?.email || undefined,
-          },
-        },
-      });
-
-      if (error) {
-        console.error('Payment failed:', error);
-        onError(error.message || 'Payment failed');
-        return;
-      }
-
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // Verify payment with our backend
-        const verified = await verifyPayment(paymentIntent.id);
-        if (verified) {
-          toast.success(`Successfully purchased ${plan?.name} plan!`);
-          onSuccess();
-        } else {
-          onError('Payment verification failed');
-        }
-      } else {
-        onError('Payment was not completed');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      onError(error instanceof Error ? error.message : 'An unexpected error occurred');
-    } finally {
-      setIsProcessing(false);
-    }
+    onError('Payment processing is currently disabled. Please contact support.');
+    // STRIPE COMMENTED OUT - Disabled for now
+    // if (!stripe || !elements || !clientSecret) {
+    //   return;
+    // }
+    // ... rest of Stripe payment code commented out
   };
 
   if (!plan) {
@@ -154,7 +115,13 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="p-4 border rounded-lg">
+            {/* STRIPE COMMENTED OUT - Disabled for now */}
+            <div className="p-4 border rounded-lg bg-gray-50 text-center">
+              <AlertCircle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-600">Payment processing is currently disabled.</p>
+              <p className="text-xs text-gray-500 mt-1">Please contact support for subscription options.</p>
+            </div>
+            {/* <div className="p-4 border rounded-lg">
               <CardElement
                 options={{
                   style: {
@@ -176,7 +143,7 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Check className="h-4 w-4 text-green-500" />
               <span>Secure payment powered by Stripe</span>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>
@@ -185,20 +152,11 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
       <div className="flex gap-3">
         <Button
           type="submit"
-          disabled={!stripe || !clientSecret || isProcessing || isLoading}
+          disabled={true}
           className="flex-1"
         >
-          {isProcessing ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Processing Payment...
-            </>
-          ) : (
-            <>
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pay ${plan.price}
-            </>
-          )}
+          <AlertCircle className="h-4 w-4 mr-2" />
+          Payment Disabled
         </Button>
       </div>
     </form>
@@ -237,11 +195,12 @@ export default function PaymentModal({ isOpen, onClose, planId }: PaymentModalPr
     return null;
   }
 
-  const options: StripeElementsOptions = {
-    mode: 'payment',
-    amount: plan.price * 100, // Convert to cents
-    currency: 'usd',
-  };
+  // STRIPE COMMENTED OUT - Disabled for now
+  // const options: StripeElementsOptions = {
+  //   mode: 'payment',
+  //   amount: plan.price * 100, // Convert to cents
+  //   currency: 'usd',
+  // };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -278,13 +237,14 @@ export default function PaymentModal({ isOpen, onClose, planId }: PaymentModalPr
               </div>
             )}
 
-            <Elements stripe={stripePromise} options={options}>
+            {/* STRIPE COMMENTED OUT - Disabled for now */}
+            {/* <Elements stripe={stripePromise} options={options}> */}
               <PaymentForm
                 planId={planId}
                 onSuccess={handleSuccess}
                 onError={handleError}
               />
-            </Elements>
+            {/* </Elements> */}
           </>
         )}
       </DialogContent>

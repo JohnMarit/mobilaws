@@ -56,6 +56,20 @@ export default function AdminLogin() {
         cancel_on_tap_outside: true,
       });
       
+      // Also render a button as fallback
+      if (window.google?.accounts?.id?.renderButton) {
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          {
+            type: 'standard',
+            theme: 'outline',
+            size: 'large',
+            text: 'signin_with',
+            width: '100%',
+          }
+        );
+      }
+      
       console.log('✅ Google OAuth initialized for admin login');
     } catch (err) {
       console.error('Error initializing Google Sign-In:', err);
@@ -70,8 +84,13 @@ export default function AdminLogin() {
     }
 
     try {
-      // Trigger the Google One Tap prompt
-      window.google.accounts.id.prompt();
+      // Try to trigger the Google One Tap prompt
+      if (window.google?.accounts?.id?.prompt) {
+        window.google.accounts.id.prompt();
+      } else {
+        // Fallback: Use renderButton if prompt doesn't work
+        setError('Please click the Google Sign-In button below.');
+      }
     } catch (err) {
       console.error('Error triggering Google Sign-In:', err);
       setError('Failed to open Google Sign-In. Please try again.');
@@ -90,7 +109,7 @@ export default function AdminLogin() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          credential: response.credential
+          token: response.credential  // Backend expects 'token', not 'credential'
         })
       });
 
@@ -138,6 +157,9 @@ export default function AdminLogin() {
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
+
+            {/* Google Sign-In Button Container */}
+            <div id="google-signin-button" className="w-full mb-4"></div>
 
             <Button
               onClick={handleGoogleSignIn}

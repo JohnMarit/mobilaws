@@ -93,7 +93,7 @@ interface AdminContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  setAdminFromToken: (admin: AdminUser, token: string) => void;
+  setAdminFromToken: (token: string, admin: AdminUser) => void;
   logout: () => void;
   getUsers: (page?: number, search?: string) => Promise<any>;
   getUserDetails: (userId: string) => Promise<any>;
@@ -193,7 +193,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     }
   }, []);
 
-  const setAdminFromToken = useCallback((adminData: AdminUser, token: string) => {
+  const setAdminFromToken = useCallback((token: string, adminData: AdminUser) => {
     setAdmin(adminData);
     setAdminToken(token);
     setIsAuthenticated(true);
@@ -201,7 +201,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     localStorage.setItem('admin_user', JSON.stringify(adminData));
     localStorage.setItem('admin_token', token);
     
-    console.log('✅ Admin authenticated via magic link');
+    console.log('✅ Admin authenticated via Google OAuth');
   }, []);
 
   const logout = useCallback(() => {
