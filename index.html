@@ -6,18 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     
-    <!-- Content Security Policy -->
+    <!-- Content Security Policy - Production-Ready -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://accounts.google.com https://www.gstatic.com https://apis.google.com https://js.stripe.com;
-      style-src 'self' 'unsafe-inline' https://accounts.google.com;
-      img-src 'self' data: https: blob:;
-      font-src 'self' data:;
-      connect-src 'self' https://www.google-analytics.com https://accounts.google.com https://firebase.googleapis.com https://firebaseinstallations.googleapis.com https://*.googleapis.com https://*.firebaseapp.com https://*.railway.app https://*.vercel.app https://*.herokuapp.com https://*.render.com https://api.stripe.com http://localhost:* ws://localhost:* https://*;
+      script-src 'self' 'sha256-MS6/3FCg4WjP9gwgaBGwLpRCY6fZBgwmhVCdrPrNf3E=' 'sha256-tQjf8gvb2ROOMapIxFvFAYBeUJ0v1HCbOcSmDNXGtDo=' https://www.googletagmanager.com https://accounts.google.com https://www.gstatic.com https://apis.google.com https://js.stripe.com https://*.firebaseapp.com;
+      style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com;
+      img-src 'self' data: https:;
+      font-src 'self' data: https://fonts.gstatic.com;
+      connect-src 'self' https://www.google-analytics.com https://accounts.google.com https://firebase.googleapis.com https://firebaseinstallations.googleapis.com https://*.googleapis.com https://*.firebaseapp.com https://*.railway.app https://*.vercel.app https://api.stripe.com http://localhost:* ws://localhost:*;
       frame-src 'self' https://accounts.google.com https://accounts.google.com/gsi/ https://*.firebaseapp.com https://js.stripe.com;
       object-src 'none';
       base-uri 'self';
       form-action 'self' https://accounts.google.com;
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
     ">
     
     <!-- Additional Security Headers -->

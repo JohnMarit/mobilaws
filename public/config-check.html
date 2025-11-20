@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Check - Mobilaws</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        h1 {
+            color: #60a5fa;
+            border-bottom: 2px solid #60a5fa;
+            padding-bottom: 10px;
+        }
+        .check {
+            background: #1e293b;
+            border-left: 4px solid #60a5fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background: #064e3b;
+            color: #6ee7b7;
+            border-left: 4px solid #10b981;
+        }
+        .error {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border-left: 4px solid #ef4444;
+        }
+        .warning {
+            background: #78350f;
+            color: #fcd34d;
+            border-left: 4px solid #f59e0b;
+        }
+        .code {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px 10px 0;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        #results {
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Mobilaws Configuration Checker</h1>
+    
+    <div class="check">
+        <h2>Step 1: Check Environment Variables</h2>
+        <div id="env-check"></div>
+    </div>
+    
+    <div class="check">
+        <h2>Step 2: Test Backend Connection</h2>
+        <button onclick="testBackend()">Test Backend Connection</button>
+        <div id="backend-check"></div>
+    </div>
+    
+    <div class="check">
+        <h2>Step 3: Test API Endpoint</h2>
+        <button onclick="testAPI()">Test API Endpoint</button>
+        <div id="api-check"></div>
+    </div>
+
+    <script type="module">
+        // Import the config to check what the frontend is actually using
+        import { API_BASE_URL } from '/src/lib/api.ts';
+        
+        // Check environment variables on load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkEnvironment();
+        });
+
+        function checkEnvironment() {
+            const envDiv = document.getElementById('env-check');
+            const currentURL = window.location.href;
+            
+            let html = `<div class="code">
+                <strong>Current URL:</strong> ${currentURL}<br>
+                <strong>Hostname:</strong> ${window.location.hostname}<br>
+                <strong>API_BASE_URL (actual value app uses):</strong> ${API_BASE_URL || 'NOT SET'}<br>
+            </div>`;
+            
+            if (!API_BASE_URL || API_BASE_URL.includes('undefined')) {
+                html += `<div class="status error">
+                    ❌ ERROR: API_BASE_URL is NOT set!<br><br>
+                    <strong>This means:</strong><br>
+                    1. VITE_API_URL environment variable wasn't set in Vercel, OR<br>
+                    2. You're looking at an old deployment from before you set it, OR<br>
+                    3. You're on the wrong Vercel project
+                </div>`;
+            } else if (API_BASE_URL.includes('localhost')) {
+                html += `<div class="status error">
+                    ❌ ERROR: API URL points to localhost!<br>
+                    This won't work in production.<br>
+                    <strong>Fix:</strong> Update VITE_API_URL in Vercel to:<br>
+                    <code>https://mobilaws-ympe.vercel.app/api</code><br>
+                    Then redeploy.
+                </div>`;
+            } else {
+                html += `<div class="status success">
+                    ✅ SUCCESS: API URL is configured correctly!<br>
+                    ${API_BASE_URL}
+                </div>`;
+            }
+            
+            envDiv.innerHTML = html;
+        }
+
+        async function testBackend() {
+            const div = document.getElementById('backend-check');
+            div.innerHTML = '<p>⏳ Testing backend connection...</p>';
+            
+            const backendUrl = API_BASE_URL.replace('/api', '');
+            
+            try {
+                const response = await fetch(`${backendUrl}/healthz`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(10000)
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok === true) {
+                    div.innerHTML = `<div class="status success">
+                        ✅ Backend is ONLINE and responding!<br>
+                        <div class="code">Response: ${JSON.stringify(data)}</div>
+                    </div>`;
+                } else {
+                    div.innerHTML = `<div class="status error">
+                        ❌ Backend responded but health check failed<br>
+                        <div class="code">Response: ${JSON.stringify(data)}</div>
+                    </div>`;
+                }
+            } catch (error) {
+                div.innerHTML = `<div class="status error">
+                    ❌ Cannot reach backend!<br>
+                    <strong>Error:</strong> ${error.message}<br><br>
+                    <strong>Attempted URL:</strong> ${backendUrl}/healthz<br><br>
+                    <strong>Possible causes:</strong><br>
+                    1. Backend is down<br>
+                    2. CORS is blocking the request<br>
+                    3. API URL is wrong<br>
+                    4. Network issue
+                </div>`;
+            }
+        }
+
+        async function testAPI() {
+            const div = document.getElementById('api-check');
+            div.innerHTML = '<p>⏳ Testing API endpoint...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/search?q=test&k=3`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(10000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    div.innerHTML = `<div class="status success">
+                        ✅ API is working!<br>
+                        <div class="code">Response: ${JSON.stringify(data, null, 2)}</div>
+                    </div>`;
+                } else {
+                    const text = await response.text();
+                    div.innerHTML = `<div class="status error">
+                        ❌ API returned error (${response.status})<br>
+                        <div class="code">${text}</div>
+                    </div>`;
+                }
+            } catch (error) {
+                div.innerHTML = `<div class="status error">
+                    ❌ API test failed!<br>
+                    <strong>Error:</strong> ${error.message}<br><br>
+                    <strong>Attempted URL:</strong> ${API_BASE_URL}/search?q=test&k=3
+                </div>`;
+            }
+        }
+    </script>
+</body>
+</html>
+

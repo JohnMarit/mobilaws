@@ -21,6 +21,7 @@ import {
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/FirebaseAuthContext';
+import { getApiUrl } from '@/lib/api';
 
 interface SupportDialogProps {
   open: boolean;
@@ -51,7 +52,7 @@ export default function SupportDialog({ open, onOpenChange }: SupportDialogProps
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/support/tickets', {
+      const response = await fetch(getApiUrl('support/tickets'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

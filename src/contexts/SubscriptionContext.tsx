@@ -428,7 +428,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setIsLoading(true);
     try {
       // Fetch from backend API
-      const response = await fetch(`http://localhost:8000/api/subscription/${user.id}`);
+      const response = await fetch(getApiUrl(`subscription/${user.id}`));
       
       if (response.ok) {
         const result = await response.json();

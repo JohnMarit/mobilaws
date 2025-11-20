@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { env } from '../env';
+import { requireAdmin, strictRateLimit, apiRateLimit } from '../middleware/security';
 
 const router = Router();
 
@@ -52,31 +53,8 @@ async function trackPrompt(userId: string, isAnonymous: boolean): Promise<void> 
   }
 }
 
-// Middleware to verify admin access with email whitelist
-const verifyAdmin = (req: Request, res: Response, next: Function): void => {
-  const adminEmail = req.headers['x-admin-email'] as string;
-  const adminToken = req.headers['x-admin-token'] as string;
-
-  if (!adminEmail || !adminToken) {
-    res.status(401).json({ error: 'Admin authentication required' });
-    return;
-  }
-
-  // Check if email is in admin whitelist
-  if (!env.adminEmails.includes(adminEmail.toLowerCase())) {
-    console.log(`❌ Unauthorized admin access attempt from: ${adminEmail}`);
-    res.status(403).json({ error: 'Admin access denied. Email not authorized.' });
-    return;
-  }
-
-  // In production, verify token with JWT
-  console.log(`✅ Admin access granted: ${adminEmail}`);
-  req.body.adminUser = {
-    email: adminEmail,
-    role: 'admin'
-  };
-  next();
-};
+// Use the security middleware's requireAdmin instead of custom implementation
+const verifyAdmin = requireAdmin;
 
 /**
  * Admin login (Legacy - Deprecated)
@@ -85,7 +63,7 @@ const verifyAdmin = (req: Request, res: Response, next: Function): void => {
  * Note: This endpoint is deprecated. Use Google OAuth instead.
  * See /api/auth/admin/google for the current authentication method.
  */
-router.post('/admin/login', async (req: Request, res: Response) => {
+router.post('/admin/login', strictRateLimit, async (req: Request, res: Response) => {
   try {
     res.status(410).json({ 
       error: 'Password-based admin login is deprecated. Please use Google OAuth authentication.',
@@ -101,7 +79,7 @@ router.post('/admin/login', async (req: Request, res: Response) => {
  * Get all users
  * GET /api/admin/users
  */
-router.get('/admin/users', verifyAdmin, async (req: Request, res: Response) => {
+router.get('/admin/users', apiRateLimit, verifyAdmin, async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;

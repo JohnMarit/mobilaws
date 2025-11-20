@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { RefreshCw, MessageSquare, Clock, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/FirebaseAuthContext';
+import { getApiUrl } from '@/lib/api';
 
 interface TicketResponse {
   message: string;
@@ -55,7 +56,7 @@ export default function MyTickets({ open, onOpenChange }: MyTicketsProps) {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/support/tickets/user/${user.id}`);
+      const response = await fetch(getApiUrl(`support/tickets/user/${user.id}`));
       
       if (!response.ok) {
         throw new Error('Failed to load tickets');

@@ -1,0 +1,61 @@
+# security.txt - RFC 9116
+# https://securitytxt.org/
+
+Contact: mailto:thuchabraham42@gmail.com
+Expires: 2026-11-20T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://mobilaws.vercel.app/.well-known/security.txt
+
+# Security Policy
+
+## Reporting Security Issues
+
+If you discover a security vulnerability in Mobilaws, please report it to us responsibly:
+
+1. **DO NOT** disclose the vulnerability publicly until we've had a chance to fix it
+2. Email us at: thuchabraham42@gmail.com
+3. Include detailed steps to reproduce the vulnerability
+4. Allow us 90 days to address the issue before public disclosure
+
+## Responsible Disclosure Policy
+
+We follow a responsible disclosure policy:
+- We will acknowledge receipt of your report within 48 hours
+- We will investigate and validate the vulnerability
+- We will work to fix critical vulnerabilities within 30 days
+- We will credit you for the discovery (if you wish)
+
+## Scope
+
+In scope:
+- Authentication and authorization bypasses
+- SQL injection, XSS, CSRF
+- Sensitive data exposure
+- Security misconfigurations
+- API vulnerabilities
+
+Out of scope:
+- Social engineering attacks
+- Physical security
+- DDoS attacks
+- Spam or abuse reports
+- Already known/reported vulnerabilities
+
+## Recognition
+
+We appreciate the security research community and will publicly acknowledge researchers who responsibly disclose vulnerabilities (with their permission).
+
+## Safe Harbor
+
+We support safe harbor for security researchers who:
+- Make a good faith effort to avoid privacy violations and data destruction
+- Only interact with accounts you own or with explicit permission
+- Do not exploit vulnerabilities beyond the minimum necessary to prove a point
+- Report vulnerabilities promptly
+
+We will not pursue legal action against researchers who follow these guidelines.
+
+---
+
+Thank you for helping keep Mobilaws secure!
+

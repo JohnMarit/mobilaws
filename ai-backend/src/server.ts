@@ -3,6 +3,15 @@ import cors from 'cors';
 import { env } from './env';
 import { ensureStorageDirectories } from './rag';
 
+// Import security middleware
+import {
+  securityHeaders,
+  securityLogger,
+  validateRequestBody,
+  preventSQLInjection,
+  publicRateLimit,
+} from './middleware/security';
+
 // Import routes
 import healthRouter from './routes/health';
 import uploadRouter from './routes/upload';
@@ -16,23 +25,53 @@ import authRouter from './routes/auth';
 
 const app = express();
 
-// CORS configuration
+// Trust proxy (for rate limiting and IP detection behind load balancers)
+app.set('trust proxy', 1);
+
+// Security headers (applied to all routes)
+app.use(securityHeaders);
+
+// Security event logging
+app.use(securityLogger);
+
+// CORS configuration (strict origins only)
 app.use(cors({
-  origin: env.corsOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in whitelist
+    if (env.corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In development, allow localhost with any port
+    if (env.NODE_ENV === 'development' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    console.warn(`⚠️  CORS blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Admin-Email', 'X-Admin-Token'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+  maxAge: 86400, // 24 hours
 }));
 
-// Body parsing middleware
-app.use(express.json({ limit: '20mb' }));
+// Body parsing middleware (with size limits)
+app.use(express.json({ limit: '20mb', strict: true }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Request logging middleware
-app.use((req: Request, _res: Response, next: NextFunction) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-});
+// Input validation and sanitization
+app.use(validateRequestBody);
+
+// SQL injection prevention
+app.use(preventSQLInjection);
+
+// Rate limiting (global - more specific limits are applied per route)
+app.use(publicRateLimit);
 
 // Mount routes
 app.use('/', healthRouter);

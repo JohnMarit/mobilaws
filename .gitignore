@@ -1,31 +1,129 @@
+# Dependencies
+node_modules/
+ai-backend/node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production build
+/build
+/dist
+ai-backend/dist/
+
+# Environment variables - CRITICAL: Never commit these!
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+ai-backend/.env
+ai-backend/.env.local
+*.env
+*.env.*
+
+# Security sensitive files
+firebase-adminsdk*.json
+serviceAccountKey.json
+service-account-key.json
+*-firebase-adminsdk-*.json
+
+# API Keys and Secrets
+QDRANT_CREDENTIALS.txt
+ENV_FILE_CONTENT.txt
+vercel-env-setup.txt
+VERCEL_ENV*.txt
+*.key
+*.pem
+*.p12
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 lerna-debug.log*
+.pnpm-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# OS
+Thumbs.db
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Lock files (keep package-lock.json but ignore bun lock)
+bun.lockb
+
+# Storage (local development data)
+ai-backend/storage/
+storage/
+
+# Backup files
+*.backup
+*.bak
+
+# Vercel
+.vercel
+
+# Sentry
+.sentryclirc
+
+# TypeScript
+*.tsbuildinfo
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Misc
+.cache/
+.parcel-cache/
+.next/
+out/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Python (if any scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Certificates
+*.crt
+*.cer
+*.der
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets
+secrets/
+credentials/

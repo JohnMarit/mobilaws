@@ -1,0 +1,98 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for security
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    
+    function hasValidEmail() {
+      return isAuthenticated() && 
+             request.auth.token.email_verified == true;
+    }
+    
+    // Rate limiting helper - check document size
+    function isValidDataSize() {
+      return request.resource.size() < 1048576; // 1MB limit
+    }
+    
+    // Users collection - users can only access their own data
+    match /users/{userId} {
+      // Allow read if user owns the document
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Allow create on signup (first time only)
+      allow create: if isAuthenticated() && 
+                       isOwner(userId) && 
+                       hasValidEmail() &&
+                       isValidDataSize() &&
+                       request.resource.data.keys().hasAll(['id', 'email', 'createdAt']) &&
+                       request.resource.data.email == request.auth.token.email;
+      
+      // Allow update only by owner, and cannot change email or id
+      allow update: if isOwner(userId) && 
+                       isValidDataSize() &&
+                       request.resource.data.id == resource.data.id &&
+                       request.resource.data.email == resource.data.email;
+      
+      // Prevent deletion (soft delete via status field instead)
+      allow delete: if false;
+      
+      // Subscriptions subcollection
+      match /subscriptions/{subscriptionId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isAdmin(); // Only admin can modify subscriptions
+      }
+      
+      // User prompts tracking
+      match /prompts/{promptId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isValidDataSize();
+        allow update, delete: if false;
+      }
+    }
+    
+    // Admin collection - strictly controlled
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false; // Admins can only be added via Firebase Admin SDK
+    }
+    
+    // Support tickets
+    match /tickets/{ticketId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isValidDataSize() &&
+                       request.resource.data.keys().hasAll(['userId', 'subject', 'message', 'status', 'createdAt']);
+      
+      allow update: if isAdmin(); // Only admins can update tickets
+      allow delete: if false;
+    }
+    
+    // Prompt statistics - read-only for users, write for system
+    match /stats/{statId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only server with Admin SDK can write
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
