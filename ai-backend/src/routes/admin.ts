@@ -286,6 +286,8 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
     const allSubscriptions = Array.from(subscriptions.values());
     const allTickets = Array.from(supportTickets.values());
 
+    console.log(`📊 Calculating stats: ${allUsers.length} users, ${allSubscriptions.length} subscriptions, ${allTickets.length} tickets`);
+
     // Calculate today's prompts
     const today = new Date().toISOString().split('T')[0];
     const todayPrompts = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
@@ -294,13 +296,19 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
     const stats = {
       users: {
         total: allUsers.length,
-        active: allUsers.filter(u => u.status === 'active').length,
+        active: allUsers.filter(u => u.status === 'active' || !u.status).length, // Default to active if no status
         suspended: allUsers.filter(u => u.status === 'suspended').length,
+        banned: allUsers.filter(u => u.status === 'banned').length,
         new30Days: allUsers.filter(u => {
-          const createdAt = new Date(u.createdAt);
-          const now = new Date();
-          const diff = now.getTime() - createdAt.getTime();
-          return diff < 30 * 24 * 60 * 60 * 1000;
+          if (!u.createdAt) return false;
+          try {
+            const createdAt = new Date(u.createdAt);
+            const now = new Date();
+            const diff = now.getTime() - createdAt.getTime();
+            return diff < 30 * 24 * 60 * 60 * 1000;
+          } catch (e) {
+            return false;
+          }
         }).length
       },
       subscriptions: {
@@ -309,7 +317,8 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
         expired: allSubscriptions.filter(s => !s.isActive).length,
         basic: allSubscriptions.filter(s => s.planId === 'basic').length,
         standard: allSubscriptions.filter(s => s.planId === 'standard').length,
-        premium: allSubscriptions.filter(s => s.planId === 'premium').length
+        premium: allSubscriptions.filter(s => s.planId === 'premium').length,
+        free: allSubscriptions.filter(s => s.planId === 'free').length
       },
       revenue: {
         total: allSubscriptions.reduce((sum, s) => sum + (s.price || 0), 0),
@@ -338,6 +347,7 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
       }
     };
 
+    console.log('✅ Stats calculated:', JSON.stringify(stats, null, 2));
     res.json({ stats });
   } catch (error) {
     console.error('❌ Error fetching stats:', error);

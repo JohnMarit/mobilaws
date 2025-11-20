@@ -38,10 +38,34 @@ export default function AdminDashboard() {
 
   const loadStats = async () => {
     setIsLoading(true);
-    const data = await getStats();
-    setStats(data);
-    setIsLoading(false);
+    try {
+      const data = await getStats();
+      console.log('📊 Admin stats loaded:', data);
+      setStats(data);
+    } catch (error) {
+      console.error('❌ Error loading stats:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Refresh stats when switching to overview tab
+  useEffect(() => {
+    if (activeTab === 'overview' && isAuthenticated) {
+      loadStats();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  // Listen for user sync events to refresh stats
+  useEffect(() => {
+    const handleUsersSynced = () => {
+      console.log('🔄 Users synced, refreshing stats...');
+      loadStats();
+    };
+
+    window.addEventListener('users-synced', handleUsersSynced);
+    return () => window.removeEventListener('users-synced', handleUsersSynced);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -252,6 +276,10 @@ export default function AdminDashboard() {
                     <span className="font-semibold text-yellow-600">{stats?.users.suspended || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Banned Users</span>
+                    <span className="font-semibold text-red-600">{stats?.users.banned || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">New (Last 30 Days)</span>
                     <span className="font-semibold text-blue-600">{stats?.users.new30Days || 0}</span>
                   </div>
@@ -277,6 +305,10 @@ export default function AdminDashboard() {
                     <span className="text-sm text-gray-600">Premium Plan</span>
                     <span className="font-semibold">{stats?.subscriptions.premium || 0}</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Free Plan</span>
+                    <span className="font-semibold text-gray-600">{stats?.subscriptions.free || 0}</span>
+                  </div>
                   <div className="flex justify-between items-center pt-2 border-t">
                     <span className="text-sm text-gray-600">Expired</span>
                     <span className="font-semibold text-red-600">{stats?.subscriptions.expired || 0}</span>
@@ -291,7 +323,15 @@ export default function AdminDashboard() {
                 <CardTitle>Quick Actions</CardTitle>
                 <CardDescription>Common administrative tasks</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={loadStats}
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Refresh Stats
+                </Button>
                 <Button 
                   variant="outline" 
                   className="w-full justify-start"

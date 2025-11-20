@@ -54,6 +54,7 @@ export interface AdminStats {
     total: number;
     active: number;
     suspended: number;
+    banned: number;
     new30Days: number;
   };
   subscriptions: {
@@ -63,6 +64,7 @@ export interface AdminStats {
     basic: number;
     standard: number;
     premium: number;
+    free: number;
   };
   revenue: {
     total: number;

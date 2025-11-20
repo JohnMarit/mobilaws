@@ -108,6 +108,10 @@ export default function UserManagement() {
       if (result.success) {
         toast.success(`🎉 Successfully synced ${result.synced} users from Firebase Auth!`);
         await loadUsers(); // Reload the user list
+        
+        // Trigger stats refresh in parent component
+        // The parent AdminDashboard will auto-refresh when switching tabs
+        window.dispatchEvent(new CustomEvent('users-synced'));
       } else {
         toast.error(result.message || 'Failed to sync users');
       }
