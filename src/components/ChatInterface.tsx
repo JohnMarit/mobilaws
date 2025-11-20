@@ -280,7 +280,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           // Finalize the message after streaming completes
           if (streamComplete && aiResponse) {
             const citationsText = citations.length > 0
-              ? `\n\n**Sources:**\n${citations.map(c => `- ${c.source} (Page ${c.page})`).join('\n')}`
+              ? `\n\n**Source:** South Sudan Law`
               : '';
             
             // Replace streaming message with final message (new ID to force re-render)
