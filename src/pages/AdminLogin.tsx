@@ -69,23 +69,32 @@ export default function AdminLogin() {
       return;
     }
 
+    setError(''); // Clear any previous errors
+    
     try {
+      console.log('🚀 Triggering Google Sign-In...');
       // Trigger the Google One Tap prompt
       if (window.google?.accounts?.id?.prompt) {
         window.google.accounts.id.prompt();
+        console.log('✅ Google Sign-In prompt triggered');
+      } else {
+        console.error('❌ Google Sign-In prompt method not available');
+        setError('Google Sign-In is not available. Please refresh the page.');
       }
     } catch (err) {
-      console.error('Error triggering Google Sign-In:', err);
+      console.error('❌ Error triggering Google Sign-In:', err);
       setError('Failed to open Google Sign-In. Please try again.');
     }
   };
 
 
   const handleGoogleCallback = useCallback(async (response: any) => {
+    console.log('🔐 Google callback received');
     setIsLoading(true);
     setError('');
 
     try {
+      console.log('📤 Sending token to backend for verification...');
       // Send the credential to backend for verification
       const result = await fetch(getApiUrl('auth/admin/google'), {
         method: 'POST',
@@ -93,24 +102,29 @@ export default function AdminLogin() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          token: response.credential  // Backend expects 'token', not 'credential'
+          token: response.credential
         })
       });
 
       const data = await result.json();
+      console.log('📥 Backend response:', data);
 
       if (!result.ok) {
-        throw new Error(data.error || 'Authentication failed');
+        console.error('❌ Backend returned error:', data);
+        throw new Error(data.message || data.error || 'Authentication failed');
       }
 
       if (data.success && data.admin && data.token) {
-        setAdminFromToken(data.admin, data.token);
-        toast.success('Welcome to Admin Dashboard!');
+        console.log('✅ Admin authentication successful:', data.admin.email);
+        setAdminFromToken(data.token, data.admin);
+        toast.success(`Welcome, ${data.admin.name || data.admin.email}!`);
         navigate('/admin/dashboard');
       } else {
+        console.error('❌ Invalid response structure:', data);
         throw new Error('Invalid response from server');
       }
     } catch (err) {
+      console.error('❌ Admin login error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
       setError(errorMessage);
       toast.error(errorMessage);
