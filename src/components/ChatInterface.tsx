@@ -247,7 +247,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           
           // Pass userId for admin prompt tracking, and files if present
           // Check if this is a modification request (make shorter, summarize, etc.)
-          const isModificationRequest = /make\s+(it|the\s+reply)\s+shorter|shorten|summarize|summary|make\s+it\s+longer|expand|simpler|simplify|clarify|rephrase|rewrite/i.test(userMessage);
+          // Include both American and British spellings
+          const isModificationRequest = /make\s+(it|the\s+reply)\s+shorter|shorten|summari[sz]e|summary|make\s+it\s+longer|expand|simpler|simplify|clarify|rephrase|rewrite|condense|brief/i.test(userMessage);
           
           // Get the last assistant message if this is a modification request
           let previousResponse: string | undefined;
