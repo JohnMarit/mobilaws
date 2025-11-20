@@ -100,6 +100,7 @@ interface AdminContextType {
   updateUserStatus: (userId: string, status: string) => Promise<boolean>;
   getSubscriptions: (page?: number, filters?: any) => Promise<any>;
   updateSubscription: (userId: string, updates: any) => Promise<boolean>;
+  grantTokens: (userId: string, tokens: number) => Promise<boolean>;
   getTickets: (page?: number, status?: string) => Promise<any>;
   updateTicket: (ticketId: string, updates: any) => Promise<boolean>;
   getStats: () => Promise<AdminStats | null>;
@@ -330,6 +331,30 @@ export function AdminProvider({ children }: AdminProviderProps) {
     }
   }, [getHeaders]);
 
+  const grantTokens = useCallback(async (userId: string, tokens: number): Promise<boolean> => {
+    try {
+      console.log(`📤 Admin granting ${tokens} tokens to user ${userId}`);
+      const response = await fetch(getApiUrl(`admin/grant-tokens`), {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId, tokens })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to grant tokens:', errorText);
+        throw new Error('Failed to grant tokens');
+      }
+
+      const result = await response.json();
+      console.log('✅ Tokens granted successfully:', result);
+      return result.success;
+    } catch (error) {
+      console.error('Error granting tokens:', error);
+      return false;
+    }
+  }, [getHeaders]);
+
   const getTickets = useCallback(async (page = 1, status = '') => {
     try {
       const params = new URLSearchParams({ 
@@ -471,6 +496,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     updateUserStatus,
     getSubscriptions,
     updateSubscription,
+    grantTokens,
     getTickets,
     updateTicket,
     getStats,

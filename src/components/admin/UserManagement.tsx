@@ -19,17 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Search, RefreshCw, UserCheck, UserX, Ban, Download, Zap } from 'lucide-react';
+import { Search, RefreshCw, UserCheck, UserX, Ban, Download, Zap, Plus, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UserManagement() {
-  const { getUsers, updateUserStatus, syncAllUsersFromFirestore } = useAdmin();
+  const { getUsers, updateUserStatus, syncAllUsersFromFirestore, grantTokens } = useAdmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [tokensToGrant, setTokensToGrant] = useState<number>(10);
 
   useEffect(() => {
     loadUsers();
@@ -120,6 +122,24 @@ export default function UserManagement() {
       toast.error('Failed to sync users from Firebase Authentication');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleGrantTokens = async (userId: string) => {
+    try {
+      toast.info(`Granting ${tokensToGrant} tokens to user...`);
+      const success = await grantTokens(userId, tokensToGrant);
+      
+      if (success) {
+        toast.success(`✅ Successfully granted ${tokensToGrant} tokens to user!`);
+        setSelectedUserId(null);
+        await loadUsers();
+      } else {
+        toast.error('Failed to grant tokens');
+      }
+    } catch (error) {
+      console.error('Error granting tokens:', error);
+      toast.error('Failed to grant tokens');
     }
   };
 

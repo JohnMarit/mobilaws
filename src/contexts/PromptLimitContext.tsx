@@ -39,19 +39,38 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const [tokensResetDate, setTokensResetDate] = useState('');
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { userSubscription, useToken, canUseToken, isLoading: subscriptionLoading } = useSubscription();
-  const maxPrompts = 3; // Anonymous users limit
+  const maxPrompts = 3; // Daily limit for all users (anonymous and signed-up without subscription)
   const maxDailyTokens = 5; // Free plan users limit
 
   // Load prompt count and daily tokens from localStorage on mount
+  // Check if 24 hours have passed and reset if needed
   useEffect(() => {
     const savedCount = localStorage.getItem('promptCount');
-    if (savedCount) {
+    const savedDate = localStorage.getItem('promptCountDate');
+    const today = new Date().toDateString();
+    
+    if (savedCount && savedDate) {
       try {
-        setPromptCount(parseInt(savedCount, 10));
+        // Check if 24 hours have passed (new day)
+        if (savedDate !== today) {
+          // Reset prompts for new day
+          console.log('🔄 New day detected, resetting prompt count to 0');
+          setPromptCount(0);
+          localStorage.setItem('promptCount', '0');
+          localStorage.setItem('promptCountDate', today);
+        } else {
+          // Same day, load saved count
+          setPromptCount(parseInt(savedCount, 10));
+        }
       } catch (error) {
         console.error('Error parsing saved prompt count:', error);
         setPromptCount(0);
+        localStorage.setItem('promptCountDate', today);
       }
+    } else {
+      // First time, initialize
+      setPromptCount(0);
+      localStorage.setItem('promptCountDate', today);
     }
 
     // Load daily tokens data
@@ -92,6 +111,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   // Save prompt count to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('promptCount', promptCount.toString());
+    localStorage.setItem('promptCountDate', new Date().toDateString());
   }, [promptCount]);
 
   // Save daily tokens to localStorage whenever it changes

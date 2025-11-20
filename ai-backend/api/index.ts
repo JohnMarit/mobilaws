@@ -17,6 +17,7 @@ import adminRouter from '../src/routes/admin';
 import usersRouter from '../src/routes/users';
 import authRouter from '../src/routes/auth';
 import firebaseSyncRouter from '../src/routes/firebase-sync';
+import adminGrantRouter from '../src/routes/admin-grant';
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api', adminRouter);
 app.use('/api', usersRouter);
 app.use('/api', authRouter);
 app.use('/api', firebaseSyncRouter);
+app.use('/api', adminGrantRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -76,6 +78,7 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'GET', path: '/api/admin/stats', description: 'Get admin statistics' },
       { method: 'POST', path: '/api/auth/admin/google', description: 'Admin Google OAuth' },
       { method: 'GET', path: '/api/firebase-sync/users', description: 'Sync all Firebase Auth users to backend' },
+      { method: 'POST', path: '/api/admin/grant-tokens', description: 'Admin grant tokens to users' },
     ],
   });
 });
