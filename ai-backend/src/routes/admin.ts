@@ -26,6 +26,11 @@ function trackPrompt(userId: string, isAnonymous: boolean): void {
     const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
     dailyData.anonymous++;
     promptStats.dailyPrompts.set(today, dailyData);
+    
+    console.log(`📊 📊 📊 ANONYMOUS PROMPT TRACKED 📊 📊 📊`);
+    console.log(`   Total Anonymous: ${promptStats.totalAnonymousPrompts}`);
+    console.log(`   Today Anonymous: ${dailyData.anonymous}`);
+    console.log(`   Total All Prompts: ${promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts}`);
   } else {
     promptStats.totalAuthenticatedPrompts++;
     const userCount = promptStats.userPrompts.get(userId) || 0;
@@ -34,9 +39,14 @@ function trackPrompt(userId: string, isAnonymous: boolean): void {
     const dailyData = promptStats.dailyPrompts.get(today) || { authenticated: 0, anonymous: 0 };
     dailyData.authenticated++;
     promptStats.dailyPrompts.set(today, dailyData);
+    
+    console.log(`📊 📊 📊 AUTHENTICATED PROMPT TRACKED 📊 📊 📊`);
+    console.log(`   User ID: ${userId}`);
+    console.log(`   User's Total Prompts: ${userCount + 1}`);
+    console.log(`   Total Authenticated: ${promptStats.totalAuthenticatedPrompts}`);
+    console.log(`   Today Authenticated: ${dailyData.authenticated}`);
+    console.log(`   Total All Prompts: ${promptStats.totalAuthenticatedPrompts + promptStats.totalAnonymousPrompts}`);
   }
-  
-  console.log(`📊 Prompt tracked: ${isAnonymous ? 'Anonymous' : `User ${userId}`} | Total Auth: ${promptStats.totalAuthenticatedPrompts}, Total Anon: ${promptStats.totalAnonymousPrompts}`);
 }
 
 // Middleware to verify admin access with email whitelist
@@ -343,7 +353,12 @@ router.get('/admin/stats', verifyAdmin, async (req: Request, res: Response) => {
         anonymous: promptStats.totalAnonymousPrompts,
         today: todayPrompts.authenticated + todayPrompts.anonymous,
         todayAuthenticated: todayPrompts.authenticated,
-        todayAnonymous: todayPrompts.anonymous
+        todayAnonymous: todayPrompts.anonymous,
+        // Additional breakdown
+        totalUsers: promptStats.userPrompts.size, // Number of unique users who made prompts
+        averagePerUser: promptStats.userPrompts.size > 0 
+          ? Math.round(promptStats.totalAuthenticatedPrompts / promptStats.userPrompts.size * 100) / 100
+          : 0
       }
     };
 

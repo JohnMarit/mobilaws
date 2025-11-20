@@ -217,6 +217,7 @@ export default function AdminDashboard() {
                   <div className="text-2xl font-bold text-purple-600">{stats?.prompts.total || 0}</div>
                   <p className="text-xs text-gray-600 mt-1">
                     {stats?.prompts.today || 0} today
+                    {stats?.prompts.totalUsers ? ` • ${stats.prompts.totalUsers} users` : ''}
                   </p>
                 </CardContent>
               </Card>

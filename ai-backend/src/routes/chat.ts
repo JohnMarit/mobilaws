@@ -41,13 +41,20 @@ router.post('/chat', verifyApiKey, async (req: Request, res: Response) => {
     
     console.log(`💬 Chat request${convoId ? ` (convo: ${convoId})` : ''}${userId ? ` (user: ${userId})` : ' (anonymous)'}: "${message.substring(0, 50)}..."`);
     
-    // Track prompt for admin stats
-    if (userId) {
-      // Signed-up user prompt
-      adminStorage.trackPrompt(userId, false);
-    } else {
-      // Anonymous user prompt
-      adminStorage.trackPrompt('anonymous', true);
+    // Track prompt for admin stats - CRITICAL: This counts all prompts continuously
+    try {
+      if (userId) {
+        // Signed-up user prompt
+        console.log(`📊 Tracking authenticated user prompt for: ${userId}`);
+        adminStorage.trackPrompt(userId, false);
+      } else {
+        // Anonymous user prompt
+        console.log(`📊 Tracking anonymous user prompt`);
+        adminStorage.trackPrompt('anonymous', true);
+      }
+    } catch (error) {
+      console.error('❌ Error tracking prompt:', error);
+      // Don't fail the request if tracking fails
     }
     
     // Initialize SSE

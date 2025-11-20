@@ -83,6 +83,8 @@ export interface AdminStats {
     today: number;
     todayAuthenticated: number;
     todayAnonymous: number;
+    totalUsers?: number;
+    averagePerUser?: number;
   };
 }
 
