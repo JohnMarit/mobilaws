@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Search, RefreshCw, UserCheck, UserX, Ban, Download } from 'lucide-react';
+import { Search, RefreshCw, UserCheck, UserX, Ban, Download, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UserManagement() {
@@ -90,6 +90,35 @@ export default function UserManagement() {
     }
   };
 
+  const handleFirebaseAuthSync = async () => {
+    setIsSyncing(true);
+    try {
+      toast.info('🔥 Syncing all users from Firebase Authentication...');
+      
+      const response = await fetch('https://mobilaws-ympe.vercel.app/api/firebase-sync/users', {
+        method: 'GET',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`🎉 Successfully synced ${result.synced} users from Firebase Auth!`);
+        await loadUsers(); // Reload the user list
+      } else {
+        toast.error(result.message || 'Failed to sync users');
+      }
+    } catch (error) {
+      console.error('Error syncing from Firebase Auth:', error);
+      toast.error('Failed to sync users from Firebase Authentication');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -127,15 +156,24 @@ export default function UserManagement() {
                 className="pl-10"
               />
             </div>
-            <Button 
-              variant="default"
-              onClick={handleBulkSync}
-              disabled={isSyncing || isLoading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Download className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-bounce' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync from Firestore'}
-            </Button>
+          <Button
+            variant="default"
+            onClick={handleFirebaseAuthSync}
+            disabled={isSyncing || isLoading}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            <Zap className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync from Firebase Auth'}
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={handleBulkSync}
+            disabled={isSyncing || isLoading}
+          >
+            <Download className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-bounce' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync from Firestore'}
+          </Button>
             <Button 
               variant="outline" 
               onClick={loadUsers}
