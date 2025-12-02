@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useAuth } from './FirebaseAuthContext';
 import { useSubscription } from './SubscriptionContext';
+import { getAnonymousUserId } from '@/lib/browser-fingerprint';
 
 interface PromptLimitContextType {
   promptCount: number;
@@ -45,10 +46,15 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   // Load prompt count and daily tokens from localStorage on mount
   // Check if 24 hours have passed and reset if needed
   useEffect(() => {
-    const savedCount = localStorage.getItem('promptCount');
-    const savedDate = localStorage.getItem('promptCountDate');
+    // Get anonymous user ID for consistent storage
+    const anonymousId = getAnonymousUserId();
+    const promptCountKey = `promptCount_${anonymousId}`;
+    const promptDateKey = `promptCountDate_${anonymousId}`;
+
+    const savedCount = localStorage.getItem(promptCountKey);
+    const savedDate = localStorage.getItem(promptDateKey);
     const today = new Date().toDateString();
-    
+
     if (savedCount && savedDate) {
       try {
         // Check if 24 hours have passed (new day)
@@ -56,8 +62,8 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
           // Reset prompts for new day
           console.log('🔄 New day detected, resetting prompt count to 0');
           setPromptCount(0);
-          localStorage.setItem('promptCount', '0');
-          localStorage.setItem('promptCountDate', today);
+          localStorage.setItem(promptCountKey, '0');
+          localStorage.setItem(promptDateKey, today);
         } else {
           // Same day, load saved count
           setPromptCount(parseInt(savedCount, 10));
@@ -65,24 +71,24 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
       } catch (error) {
         console.error('Error parsing saved prompt count:', error);
         setPromptCount(0);
-        localStorage.setItem('promptCountDate', today);
+        localStorage.setItem(promptDateKey, today);
       }
     } else {
       // First time, initialize
       setPromptCount(0);
-      localStorage.setItem('promptCountDate', today);
+      localStorage.setItem(promptDateKey, today);
     }
 
     // Load daily tokens data
     const savedTokens = localStorage.getItem('dailyTokens');
     const savedResetDate = localStorage.getItem('tokensResetDate');
-    
+
     if (savedTokens && savedResetDate) {
       try {
         const tokensData = JSON.parse(savedTokens);
         const resetDate = savedResetDate;
         const today = new Date().toDateString();
-        
+
         // Check if we need to reset tokens (new day)
         if (resetDate !== today) {
           setDailyTokensUsed(0);
@@ -110,8 +116,9 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   // Save prompt count to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('promptCount', promptCount.toString());
-    localStorage.setItem('promptCountDate', new Date().toDateString());
+    const anonymousId = getAnonymousUserId();
+    localStorage.setItem(`promptCount_${anonymousId}`, promptCount.toString());
+    localStorage.setItem(`promptCountDate_${anonymousId}`, new Date().toDateString());
   }, [promptCount]);
 
   // Save daily tokens to localStorage whenever it changes
@@ -126,7 +133,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   useEffect(() => {
     // Don't do anything while auth is still loading
     if (authLoading) return;
-    
+
     if (isAuthenticated) {
       setPromptCount(0);
       setShowLoginModal(false);
@@ -160,7 +167,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   }, []);
 
   // Check if user can send prompt based on their authentication status and subscription
-  const canSendPrompt = isAuthenticated 
+  const canSendPrompt = isAuthenticated
     ? (!subscriptionLoading && userSubscription && userSubscription.isActive && canUseToken)  // Authenticated users with active subscription (including free plan) and available tokens
     : promptCount < maxPrompts;  // Anonymous users: 3 prompts total
 

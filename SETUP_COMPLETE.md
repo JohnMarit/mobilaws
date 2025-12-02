@@ -1,180 +1,100 @@
-# ✅ Firebase Google Sign-In Setup Complete!
+# ✅ Android CLI Setup Complete!
 
-## 🎉 What's Been Done
+Your project is now configured to build Android apps **entirely from the command line** - no Android Studio required!
 
-Your Mobilaws app has been configured to use **Firebase Authentication** with Google Sign-In!
+## 🎉 What's Been Added
 
-### Changes Made:
+### Helper Scripts
 
-1. ✅ **Updated App.tsx** - Now uses Firebase Auth Context
-2. ✅ **Enhanced firebase.ts** - Added Analytics support
-3. ✅ **Created setup-firebase.ps1** - Easy setup script
-4. ✅ **Created test-firebase-auth.html** - Test your configuration
-5. ✅ **Created FIREBASE_GOOGLE_SIGNIN_SETUP.md** - Comprehensive guide
+1. **`setup-android-cli.ps1`** - Checks if Java, Android SDK, and Gradle are installed
+2. **`build-android.ps1`** - Builds your app and installs on connected device
+3. **`build-aab.ps1`** - Builds Android App Bundle for Play Store
+4. **`test-build.ps1`** - Quick test to verify your setup works
 
-## 🚀 Quick Start (3 Steps)
+### Documentation
 
-### Step 1: Create .env File
+- **`ANDROID_CLI_SETUP.md`** - Complete guide for command-line development
+- Updated **`ANDROID_QUICK_START.md`** - Now includes CLI options
+- Updated **`README.md`** - Added CLI setup information
 
-Run this PowerShell script:
+## 🚀 Next Steps
+
+### 1. Install Required Tools
+
+You need to install:
+
+1. **Java JDK 17+**
+   - Download: https://adoptium.net/
+   - Install and set JAVA_HOME
+
+2. **Android SDK Command-Line Tools**
+   - Download: https://developer.android.com/studio#command-tools
+   - Extract and set ANDROID_HOME
+   - See `ANDROID_CLI_SETUP.md` for detailed instructions
+
+### 2. Verify Setup
+
+Run the setup check:
 ```powershell
-.\setup-firebase.ps1
+.\setup-android-cli.ps1
 ```
 
-**OR manually create** a `.env` file in the project root with:
-```env
-VITE_FIREBASE_API_KEY=AIzaSyDvGE_on74GR18QQrDyx8OdrKEEneD7DpI
-VITE_FIREBASE_AUTH_DOMAIN=mobilaws-46056.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=mobilaws-46056
-VITE_FIREBASE_STORAGE_BUCKET=mobilaws-46056.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=843281701937
-VITE_FIREBASE_APP_ID=1:843281701937:web:9b1227398de4a9384ec910
-VITE_FIREBASE_MEASUREMENT_ID=G-SEE513K6TJ
+This will tell you what's missing and how to install it.
+
+### 3. Test Build
+
+Once everything is installed:
+```powershell
+.\test-build.ps1
 ```
 
-### Step 2: Enable Google Sign-In in Firebase
+### 4. Build and Install
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select project: **mobilaws-46056**
-3. Go to **Authentication** → **Sign-in method**
-4. Enable **Google** provider
-5. Add support email and save
-
-### Step 3: Start Your App
-
-```bash
-npm run dev
+Connect your Android phone (with USB debugging enabled) and:
+```powershell
+.\build-android.ps1
 ```
 
-Open http://localhost:8080 and test the sign-in!
+## 📱 Quick Commands Reference
 
-## 🧪 Test Your Setup
+```powershell
+# Check setup
+.\setup-android-cli.ps1
 
-### Option 1: Test with the Test Page
-```bash
-# Open test-firebase-auth.html in your browser
-# Click "Sign In with Google"
-# Check if authentication works
+# Test build
+.\test-build.ps1
+
+# Build and install (debug)
+.\build-android.ps1
+
+# Build and install (release)
+.\build-android.ps1 -BuildType release
+
+# Build for Play Store
+.\build-aab.ps1
 ```
 
-### Option 2: Test in Your App
-1. Open http://localhost:8080
-2. Send 3 messages (as anonymous user)
-3. On the 4th message, login modal appears
-4. Click "Continue with Google"
-5. Sign in with your Google account
-6. You should see your profile in the top-right!
+## 📚 Documentation
 
-## ✅ What Should Work Now
+- **`ANDROID_CLI_SETUP.md`** - Complete CLI setup guide
+- **`ANDROID_QUICK_START.md`** - Quick start guide
+- **`ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md`** - Play Store publishing
+- **`PLAY_STORE_CHECKLIST.md`** - Publishing checklist
 
-After setup, your app will have:
+## 💡 What You Can Do Now
 
-- ✅ **Firebase Authentication** - Secure Google sign-in
-- ✅ **User Data Storage** - Saves user info to Firestore
-- ✅ **Session Persistence** - Stay logged in across refreshes
-- ✅ **Token Management** - 20 tokens per day for signed-in users
-- ✅ **Analytics** - Track user behavior (optional)
-- ✅ **Profile Management** - User profile with photo
+✅ Build APK files from command line
+✅ Install on your Android phone
+✅ Test the app without Android Studio
+✅ Build AAB for Play Store
+✅ Everything from your terminal!
 
-## 📊 Expected Console Output
+## 🆘 Need Help?
 
-When you start your app, you should see:
+1. Run `.\setup-android-cli.ps1` to check what's missing
+2. See `ANDROID_CLI_SETUP.md` for detailed setup instructions
+3. Check troubleshooting section in the guides
 
-```
-✅ Firebase available - using Firebase Auth
-✅ Firebase initialized successfully (Auth + Firestore + Analytics)
-```
+---
 
-When you sign in:
-
-```
-✅ Firebase Google login successful
-✅ User authenticated: [Your Name]
-```
-
-## 🔧 Troubleshooting
-
-### Issue: "Firebase initialization failed"
-- **Check:** Does `.env` file exist in project root?
-- **Fix:** Run `.\setup-firebase.ps1` or create it manually
-
-### Issue: "Google sign-in not enabled"
-- **Check:** Is Google provider enabled in Firebase Console?
-- **Fix:** 
-  1. Go to Firebase Console → Authentication → Sign-in method
-  2. Click on Google
-  3. Toggle "Enable"
-  4. Save
-
-### Issue: "Popup blocked"
-- **Fix:** Allow popups for localhost:8080 in browser settings
-
-### Issue: Still not working?
-1. Open browser console (F12)
-2. Look for error messages
-3. Check FIREBASE_GOOGLE_SIGNIN_SETUP.md for detailed troubleshooting
-
-## 📱 How It Works
-
-```
-┌─────────────────────────────────────────────┐
-│  User clicks "Continue with Google"         │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  Firebase Auth opens Google sign-in popup   │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  User selects Google account                │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  Firebase authenticates user                │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  App receives user data (name, email, pic)  │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  User data saved to Firestore               │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│  User is logged in with 20 tokens/day       │
-└─────────────────────────────────────────────┘
-```
-
-## 🔒 Security
-
-Your Firebase configuration is **safe to commit** to Git (it's meant to be public).
-
-However, make sure to:
-1. ✅ Configure Firestore security rules
-2. ✅ Enable Firebase App Check (for production)
-3. ✅ Monitor usage in Firebase Console
-
-## 📚 Additional Resources
-
-- **FIREBASE_GOOGLE_SIGNIN_SETUP.md** - Detailed setup guide
-- **test-firebase-auth.html** - Standalone test page
-- **setup-firebase.ps1** - Automated setup script
-
-## 🎊 You're All Set!
-
-Your app is now configured with Firebase Google Sign-In. Just:
-
-1. Run `.\setup-firebase.ps1` (if you haven't)
-2. Enable Google in Firebase Console
-3. Run `npm run dev`
-4. Test the sign-in flow
-
-Happy coding! 🚀
-
+**You're all set!** Install Java and Android SDK, then you can build your app entirely from here! 🎉

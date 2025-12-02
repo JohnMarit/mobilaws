@@ -2,6 +2,14 @@
 
 An AI-powered legal assistant for searching and understanding South Sudan laws, including the Constitution and Penal Code.
 
+## 📱 Now Available as Android App!
+
+Mobilaws is now available as a native Android application! You can package and publish this app to the Google Play Store.
+
+**Quick Start:**
+- See [ANDROID_QUICK_START.md](./ANDROID_QUICK_START.md) for development
+- See [ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md](./ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md) for Play Store publishing
+
 ## Features
 
 - 🤖 **AI-Powered Chat**: Natural language conversations about South Sudan laws (powered by Fastbots)
@@ -10,7 +18,7 @@ An AI-powered legal assistant for searching and understanding South Sudan laws, 
 - 💬 **Conversational Interface**: Ask questions in plain language and get detailed legal answers
 - 🔐 **Google Authentication**: Secure login with Google OAuth for daily token access
 - 📊 **Token System**: 3 free prompts for anonymous users, 20 tokens per day for authenticated users
-- 📱 **Mobile-First**: Responsive design that works on all devices
+- 📱 **Mobile-First**: Responsive design that works on all devices + Native Android app
 - 🔗 **Deep Linking**: Share direct links to specific articles with search terms
 - ⚡ **Fast Performance**: Client-side search with <200ms response times
 - 🎯 **Smart Context**: AI remembers conversation history for follow-up questions
@@ -20,6 +28,7 @@ An AI-powered legal assistant for searching and understanding South Sudan laws, 
 ## Tech Stack
 
 - **Framework**: Vite + React + TypeScript
+- **Mobile**: Capacitor (for Android native app)
 - **AI Backend**: Fastbots AI
 - **Styling**: Tailwind CSS with custom design system
 - **Search**: Fuse.js for fuzzy full-text search
@@ -29,17 +38,19 @@ An AI-powered legal assistant for searching and understanding South Sudan laws, 
 
 ## Getting Started
 
-### Prerequisites
+### Web App
+
+#### Prerequisites
 
 - Node.js 18+ and npm
 - Google Cloud Platform account (for OAuth setup)
 
-### Installation
+#### Installation
 
 ```bash
 # Clone the repository
 git clone [your-repo-url]
-cd constitution-search
+cd Mobilaws
 
 # Install dependencies
 npm install
@@ -52,13 +63,58 @@ cp .env.example .env
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`
+The app will be available at `http://localhost:8080`
 
-### Google OAuth Setup
+#### Google OAuth Setup
 
 1. Follow the [Google Auth Setup Guide](./GOOGLE_AUTH_SETUP.md) to configure OAuth
 2. Add your Google Client ID to the `.env` file
 3. Test the authentication flow
+
+### Android App
+
+#### Prerequisites
+
+- All web app prerequisites above
+- Java JDK 17+
+- Android SDK (command-line tools) - **Android Studio NOT required!**
+
+#### Quick Start (Command Line - Recommended)
+
+```powershell
+# Check your setup
+.\setup-android-cli.ps1
+
+# Build and install on device
+.\build-android.ps1
+
+# Or build for Play Store
+.\build-aab.ps1
+```
+
+#### Alternative: Using Android Studio
+
+```bash
+# Build web assets
+npm run build
+
+# Sync to Android
+npm run android:sync
+
+# Open in Android Studio
+npm run android:open
+
+# Run on device/emulator
+npm run android:run
+```
+
+**Full Android Documentation:**
+- [Ready to Publish?](./READY_TO_PUBLISH.md) ⭐ - Check what you need before publishing
+- [CLI Setup Guide](./ANDROID_CLI_SETUP.md) - Build without Android Studio
+- [Quick Start Guide](./ANDROID_QUICK_START.md) - Get up and running in 5 minutes
+- [Publish to Play Store](./PUBLISH_TO_PLAYSTORE.md) - Quick publishing guide
+- [Play Store Deployment Guide](./ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md) - Complete publishing walkthrough
+- [App Icons Guide](./ANDROID_APP_ICONS_GUIDE.md) - Customize your app icon
 
 ## Fastbots Integration
 
@@ -241,12 +297,26 @@ For issues or questions:
 
 ## Related Documentation
 
+### Core Functionality
 - [Google Auth Setup Guide](./GOOGLE_AUTH_SETUP.md) - Google OAuth configuration and setup
 - [Fastbots Integration Guide](./FASTBOTS_INTEGRATION.md) - Detailed Fastbots setup and configuration
 - [Law Search README](./LAW_SEARCH_README.md) - Search functionality documentation
 - [Server Setup](./SERVER_SETUP.md) - Server configuration (legacy)
 
+### Android App
+- [Android Quick Start](./ANDROID_QUICK_START.md) - Get your Android app running in 5 minutes
+- [Play Store Deployment Guide](./ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md) - Complete guide to publish on Google Play Store
+- [App Icons Guide](./ANDROID_APP_ICONS_GUIDE.md) - Customize your app icon and splash screen
+
 ## Changelog
+
+### v2.2 - Android App Support (November 2025)
+- ✅ Added Capacitor for native Android support
+- ✅ Complete Android project setup
+- ✅ Play Store deployment documentation
+- ✅ Android app icons and configuration
+- ✅ Build scripts for Android development
+- ✅ Comprehensive deployment guides
 
 ### v2.1 - Google Authentication & Token System (December 2024)
 - ✅ Added Google OAuth authentication system
@@ -273,4 +343,10 @@ For issues or questions:
 
 ---
 
-**Current Status**: Production-ready with Fastbots AI integration and Google OAuth authentication. Custom UI powered by Fastbots backend with token-based access control (3 prompts for anonymous users, 20 tokens/day for authenticated users).
+**Current Status**: Production-ready with Fastbots AI integration, Google OAuth authentication, and Android app support. Available as both a web application and native Android app. Custom UI powered by Fastbots backend with token-based access control (3 prompts for anonymous users, 20 tokens/day for authenticated users).
+
+## 🚀 Ready to Deploy?
+
+- **Web**: See deployment section above for Vercel, Netlify, or other static hosts
+- **Android**: Follow [ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md](./ANDROID_PLAYSTORE_DEPLOYMENT_GUIDE.md) to publish to Play Store
+- **iOS**: Coming soon (Capacitor supports iOS with minimal changes!)

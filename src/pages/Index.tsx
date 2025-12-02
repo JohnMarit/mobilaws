@@ -16,13 +16,13 @@ const Index = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { toast } = useToast();
-  const { 
-    chatHistory, 
-    currentChatId, 
-    addChat, 
-    selectChat, 
-    deleteChat, 
-    renameChat 
+  const {
+    chatHistory,
+    currentChatId,
+    addChat,
+    selectChat,
+    deleteChat,
+    renameChat
   } = useChatContext();
   const { setShowSubscriptionModal } = usePromptLimit();
 
@@ -102,11 +102,11 @@ const Index = () => {
         onMobileClose={() => setIsMobileSidebarOpen(false)}
         onManageSubscription={() => setShowSubscriptionModal(true)}
       />
-      
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative h-screen md:h-auto overflow-hidden">
-        {/* Mobile Header - Only visible on mobile */}
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm flex-shrink-0">
+      <div className="flex-1 flex flex-col relative h-screen lg:h-auto overflow-hidden">
+        {/* Mobile Header - Only visible on mobile and tablet */}
+        <div className="lg:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm flex-shrink-0">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -120,7 +120,7 @@ const Index = () => {
             <CountrySelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
-            <UserProfileNav 
+            <UserProfileNav
               onManageSubscription={() => setShowSubscriptionModal(true)}
               compact={true}
             />
@@ -142,7 +142,7 @@ const Index = () => {
             </Button>
           </div>
         </div>
-        <ChatInterface 
+        <ChatInterface
           onShowHelp={handleMobileShowHelp}
           onClearChat={handleMobileClearChat}
         />

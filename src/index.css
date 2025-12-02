@@ -267,8 +267,15 @@
     padding-bottom: env(safe-area-inset-bottom, 1rem);
   }
 
-  /* Mobile-specific optimizations */
-  @media (max-width: 640px) {
+  /* ===================================
+     RESPONSIVE DESIGN - ChatGPT Standards
+     Mobile: 0-768px
+     Tablet: 768px-1024px
+     Desktop: 1024px+
+     =================================== */
+
+  /* Mobile Devices (0-768px) */
+  @media (max-width: 768px) {
     /* Ensure search input is easily tappable on mobile */
     .search-input-mobile {
       font-size: 16px; /* Prevents zoom on iOS */
@@ -297,14 +304,54 @@
     .text-mobile-safe {
       font-size: clamp(0.875rem, 2.5vw, 1rem);
     }
-  }
-  
-  /* Extra small screens (phones in portrait) */
-  @media (max-width: 480px) {
-    /* Further reduce spacing for very small screens */
+
+    /* Mobile-specific container padding */
     .container {
       padding-left: 1rem;
       padding-right: 1rem;
+    }
+
+    /* Touch-friendly buttons */
+    button, .btn, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Mobile typography */
+    h1 {
+      font-size: 1.75rem;
+      line-height: 1.3;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      line-height: 1.3;
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      line-height: 1.4;
+    }
+
+    /* Mobile chat interface */
+    .chat-message {
+      padding: 0.75rem;
+      font-size: 0.9375rem;
+    }
+
+    /* Mobile sidebar */
+    .sidebar-mobile {
+      width: 100%;
+      max-width: 280px;
+    }
+  }
+  
+  /* Extra small screens (phones in portrait, 0-480px) */
+  @media (max-width: 480px) {
+    /* Further reduce spacing for very small screens */
+    .container {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
     }
     
     /* Make search bar more compact */
@@ -322,6 +369,98 @@
     .hero-subtitle-mobile {
       font-size: 0.875rem;
       line-height: 1.4;
+    }
+
+    /* Smaller chat messages */
+    .chat-message {
+      padding: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    /* Compact buttons */
+    .btn-compact {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+  }
+
+  /* Tablet Devices (768px-1024px) */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    /* Tablet-specific container */
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+
+    /* Tablet typography */
+    h1 {
+      font-size: 2rem;
+      line-height: 1.2;
+    }
+
+    h2 {
+      font-size: 1.75rem;
+      line-height: 1.3;
+    }
+
+    /* Tablet sidebar */
+    .sidebar-tablet {
+      width: 240px;
+    }
+
+    /* Tablet chat interface */
+    .chat-message {
+      padding: 1rem;
+      font-size: 1rem;
+    }
+
+    /* Two-column layouts on tablet */
+    .grid-tablet-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* Desktop Devices (1024px+) */
+  @media (min-width: 1024px) {
+    /* Desktop container */
+    .container {
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Desktop sidebar */
+    .sidebar-desktop {
+      width: 260px;
+    }
+
+    /* Desktop chat interface */
+    .chat-container {
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Three-column layouts on desktop */
+    .grid-desktop-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* Hover effects only on desktop */
+    .hover-desktop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  /* Large Desktop (1440px+) */
+  @media (min-width: 1440px) {
+    .container {
+      max-width: 1400px;
+    }
+
+    .chat-container {
+      max-width: 900px;
     }
   }
 
@@ -353,3 +492,4 @@
     animation: fade-in 0.5s ease-out;
   }
 }
+

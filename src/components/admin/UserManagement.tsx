@@ -43,7 +43,7 @@ export default function UserManagement() {
       console.log('🔄 Loading users...', { currentPage, searchTerm });
       const result = await getUsers(currentPage, searchTerm);
       console.log('✅ Users loaded:', result);
-      
+
       if (result) {
         setUsers(result.users || []);
         setTotalPages(result.pagination?.totalPages || 1);
@@ -75,13 +75,13 @@ export default function UserManagement() {
     try {
       toast.info('Starting bulk user sync from Firestore...');
       const result = await syncAllUsersFromFirestore();
-      
+
       if (result.success) {
         toast.success(`Successfully synced ${result.count} users from Firestore!`);
       } else {
         toast.warning(`Synced ${result.count} users with ${result.errors} errors`);
       }
-      
+
       // Reload users to show the newly synced ones
       await loadUsers();
     } catch (error) {
@@ -96,21 +96,21 @@ export default function UserManagement() {
     setIsSyncing(true);
     try {
       toast.info('🔥 Syncing all users from Firebase Authentication...');
-      
+
       const response = await fetch('https://mobilaws-ympe.vercel.app/api/firebase-sync/users', {
         method: 'GET',
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         toast.success(`🎉 Successfully synced ${result.synced} users from Firebase Auth!`);
         await loadUsers(); // Reload the user list
-        
+
         // Trigger stats refresh in parent component
         // The parent AdminDashboard will auto-refresh when switching tabs
         window.dispatchEvent(new CustomEvent('users-synced'));
@@ -129,7 +129,7 @@ export default function UserManagement() {
     try {
       toast.info(`Granting ${tokensToGrant} tokens to user...`);
       const success = await grantTokens(userId, tokensToGrant);
-      
+
       if (success) {
         toast.success(`✅ Successfully granted ${tokensToGrant} tokens to user!`);
         setSelectedUserId(null);
@@ -167,7 +167,7 @@ export default function UserManagement() {
         </CardHeader>
         <CardContent>
           {/* Search and Filter */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -180,32 +180,26 @@ export default function UserManagement() {
                 className="pl-10"
               />
             </div>
-          <Button
-            variant="default"
-            onClick={handleFirebaseAuthSync}
-            disabled={isSyncing || isLoading}
-            className="bg-orange-600 hover:bg-orange-700"
-          >
-            <Zap className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync from Firebase Auth'}
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={handleBulkSync}
-            disabled={isSyncing || isLoading}
-          >
-            <Download className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-bounce' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync from Firestore'}
-          </Button>
-            <Button 
-              variant="outline" 
-              onClick={loadUsers}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="default"
+                onClick={handleFirebaseAuthSync}
+                disabled={isSyncing || isLoading}
+                className="bg-orange-600 hover:bg-orange-700 flex-1 sm:flex-none"
+              >
+                <Zap className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync from Firebase Auth'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={loadUsers}
+                disabled={isLoading}
+                className="flex-1 sm:flex-none"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Users Table */}
@@ -221,7 +215,7 @@ export default function UserManagement() {
             </div>
           ) : (
             <>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
