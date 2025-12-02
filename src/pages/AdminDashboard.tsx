@@ -90,20 +90,20 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Shield className="h-8 w-8 text-primary" />
+              <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Mobilaws Management Console</p>
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Mobilaws Management Console</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="text-right hidden md:block">
                 <p className="text-sm font-medium text-gray-900">{admin?.name}</p>
                 <p className="text-xs text-gray-600">{admin?.email}</p>
               </div>
-              <Button variant="outline" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+              <Button variant="outline" onClick={handleLogout} size="sm">
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -113,22 +113,22 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto mb-8">
-            <TabsTrigger value="overview">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Overview
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:w-auto mb-8">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">
+              <TrendingUp className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Overview</span>
             </TabsTrigger>
-            <TabsTrigger value="users">
-              <Users className="h-4 w-4 mr-2" />
-              Users
+            <TabsTrigger value="users" className="text-xs sm:text-sm">
+              <Users className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Users</span>
             </TabsTrigger>
-            <TabsTrigger value="subscriptions">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Subscriptions
+            <TabsTrigger value="subscriptions" className="text-xs sm:text-sm">
+              <CreditCard className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Subscriptions</span>
             </TabsTrigger>
-            <TabsTrigger value="support">
-              <LifeBuoy className="h-4 w-4 mr-2" />
-              Support
+            <TabsTrigger value="support" className="text-xs sm:text-sm">
+              <LifeBuoy className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Support</span>
             </TabsTrigger>
           </TabsList>
 
@@ -325,32 +325,32 @@ export default function AdminDashboard() {
                 <CardDescription>Common administrative tasks</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={loadStats}
                 >
                   <Activity className="h-4 w-4 mr-2" />
                   Refresh Stats
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => setActiveTab('users')}
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Manage Users
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => setActiveTab('subscriptions')}
                 >
                   <CreditCard className="h-4 w-4 mr-2" />
                   View Subscriptions
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
                   onClick={() => setActiveTab('support')}
                 >
