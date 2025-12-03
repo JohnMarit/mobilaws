@@ -59,6 +59,8 @@ export default function Sidebar({
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<ChatHistory | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [contextMenuChatId, setContextMenuChatId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleRenameStart = (chat: ChatHistory) => {
@@ -93,6 +95,32 @@ export default function Sidebar({
       });
       setChatToDelete(null);
     }
+  };
+
+  // Long press handlers for mobile
+  const handleTouchStart = (chat: ChatHistory, e: React.TouchEvent) => {
+    const timer = setTimeout(() => {
+      // Long press detected - open context menu
+      setContextMenuChatId(chat.id);
+      // Trigger vibration if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  // Right-click context menu for desktop
+  const handleContextMenu = (chat: ChatHistory, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenuChatId(chat.id);
   };
 
   const formatDate = (date: Date) => {
@@ -171,6 +199,10 @@ export default function Sidebar({
                   : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 onClick={() => onSelectChat(chat.id)}
+                onTouchStart={(e) => handleTouchStart(chat, e)}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
+                onContextMenu={(e) => handleContextMenu(chat, e)}
               >
                 {editingChatId === chat.id ? (
                   <div className="flex items-center gap-2">
@@ -207,7 +239,12 @@ export default function Sidebar({
                     </div>
 
                     {/* Dropdown menu - LARGE and VISIBLE for real mobile devices */}
-                    <DropdownMenu>
+                    <DropdownMenu
+                      open={contextMenuChatId === chat.id}
+                      onOpenChange={(open) => {
+                        if (!open) setContextMenuChatId(null);
+                      }}
+                    >
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
@@ -215,16 +252,19 @@ export default function Sidebar({
                           className={`
                             h-10 w-10 min-w-[44px] min-h-[44px] p-2
                             md:h-8 md:w-8 md:min-w-0 md:min-h-0 md:p-1.5
-                            opacity-100 
+                            opacity-100
                             bg-gray-600 hover:bg-gray-500
-                            transition-colors 
+                            transition-colors
                             rounded-lg
                             flex items-center justify-center
                             shadow-md
                             z-10
                             ${isCollapsed ? 'ml-0' : 'ml-2'}
                           `}
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setContextMenuChatId(chat.id);
+                          }}
                         >
                           <MoreHorizontal className="h-5 w-5 md:h-4 md:w-4 text-white font-bold" />
                         </Button>
