@@ -206,17 +206,17 @@ export default function Sidebar({
                       )}
                     </div>
 
-                    {/* Dropdown menu - now always visible, even on collapsed sidebar and mobile */}
+                    {/* Dropdown menu - always visible with larger touch target for mobile */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`h-6 w-6 p-0 opacity-100 hover:bg-gray-700 transition-colors ${isCollapsed ? 'ml-0' : 'ml-2'
+                          className={`h-8 w-8 p-1.5 opacity-100 bg-gray-700/50 hover:bg-gray-600 transition-colors rounded-md ${isCollapsed ? 'ml-0' : 'ml-2'
                             }`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <MoreHorizontal className="h-3 w-3" />
+                          <MoreHorizontal className="h-4 w-4 text-gray-300" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
