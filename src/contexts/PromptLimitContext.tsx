@@ -85,9 +85,10 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
           }
         }
       }
+    }
 
-      loadTokens();
-    }, [isAuthenticated]);
+    loadTokens();
+  }, [isAuthenticated]);
 
   // Reset prompt count and close modal when user authenticates
   useEffect(() => {
