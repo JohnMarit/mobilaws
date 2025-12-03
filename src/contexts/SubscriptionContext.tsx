@@ -110,7 +110,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         try {
           // Fetch from backend API (this will auto-create free plan if needed)
           const response = await fetch(getApiUrl(`subscription/${user.id}`));
-          
+
           if (response.ok) {
             const result = await response.json();
             if (result.subscription) {
@@ -118,21 +118,72 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
               localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
               console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
             } else {
-              // Backend responded but no subscription - create local free plan
-              console.warn('⚠️ No subscription from backend - creating local free plan');
-              const localFreePlan: UserSubscription = {
-                planId: 'free',
-                tokensRemaining: 5,
-                tokensUsed: 0,
-                totalTokens: 5,
-                purchaseDate: new Date().toISOString(),
-                lastResetDate: new Date().toISOString(),
-                isActive: true,
-                isFree: true
-              };
-              setUserSubscription(localFreePlan);
-              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-              console.log(`✅ Local free plan created: 5 daily tokens`);
+              // Backend responded but no subscription - check localStorage first
+              const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
+              if (savedSubscription) {
+                try {
+                  const subscription: UserSubscription = JSON.parse(savedSubscription);
+                  // Check if it's a valid free plan and same day
+                  if (subscription.planId === 'free' && subscription.isFree) {
+                    // Check if we need to reset tokens (new day)
+                    const lastReset = subscription.lastResetDate ? new Date(subscription.lastResetDate).toDateString() : null;
+                    const today = new Date().toDateString();
+
+                    if (lastReset !== today) {
+                      // New day - reset tokens
+                      console.log('🔄 New day detected, resetting free plan tokens to 5');
+                      const resetSubscription: UserSubscription = {
+                        ...subscription,
+                        tokensRemaining: 5,
+                        tokensUsed: 0,
+                        lastResetDate: new Date().toISOString()
+                      };
+                      setUserSubscription(resetSubscription);
+                      localStorage.setItem(`subscription_${user.id}`, JSON.stringify(resetSubscription));
+                    } else {
+                      // Same day - use existing token count
+                      setUserSubscription(subscription);
+                      console.log(`✅ Loaded existing free plan from localStorage: ${subscription.tokensUsed}/${subscription.totalTokens} tokens used`);
+                    }
+                  } else {
+                    // Not a free plan or invalid - use it as is
+                    setUserSubscription(subscription);
+                    console.log(`✅ Loaded existing subscription from localStorage`);
+                  }
+                } catch (error) {
+                  console.error('Error parsing saved subscription:', error);
+                  // Create new local free plan only if parsing fails
+                  const localFreePlan: UserSubscription = {
+                    planId: 'free',
+                    tokensRemaining: 5,
+                    tokensUsed: 0,
+                    totalTokens: 5,
+                    purchaseDate: new Date().toISOString(),
+                    lastResetDate: new Date().toISOString(),
+                    isActive: true,
+                    isFree: true
+                  };
+                  setUserSubscription(localFreePlan);
+                  localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+                  console.log(`✅ Created new local free plan after parsing error`);
+                }
+              } else {
+                // No localStorage data - create fresh free plan
+                console.warn('⚠️ No subscription from backend or localStorage - creating new free plan');
+                const localFreePlan: UserSubscription = {
+                  planId: 'free',
+                  tokensRemaining: 5,
+                  tokensUsed: 0,
+                  totalTokens: 5,
+                  purchaseDate: new Date().toISOString(),
+                  lastResetDate: new Date().toISOString(),
+                  isActive: true,
+                  isFree: true
+                };
+                setUserSubscription(localFreePlan);
+                localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
+                console.log(`✅ Created new local free plan: 5 daily tokens`);
+              }
             }
           } else {
             // Fallback to localStorage if backend returns error
@@ -238,7 +289,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
 
     setIsLoading(true);
-    
+
     try {
       // Call backend API to create subscription (demo mode - no payment)
       const response = await fetch(getApiUrl(`subscription/${user.id}`), {
@@ -258,7 +309,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setUserSubscription(result.subscription);
         localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
@@ -278,7 +329,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const initiatePayment = useCallback(async (planId: string): Promise<{ success: boolean; clientSecret?: string; error?: string }> => {
     // STRIPE COMMENTED OUT - Payment processing disabled
     return { success: false, error: 'Payment processing is currently disabled. Please contact support.' };
-    
+
     /* STRIPE COMMENTED OUT - Disabled for now
     if (!isAuthenticated || !user) {
       return { success: false, error: 'User must be authenticated to purchase a plan' };
@@ -336,7 +387,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     // STRIPE COMMENTED OUT - Payment processing disabled
     console.warn('Payment verification is disabled');
     return false;
-    
+
     /* STRIPE COMMENTED OUT - Disabled for now
     if (!isAuthenticated || !user) {
       console.error('User must be authenticated to verify payment');
@@ -404,7 +455,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         const updatedSubscription = {
           ...userSubscription,
@@ -423,7 +474,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       console.error('Error using token via backend:', error);
       // Fallback to local token management
       console.warn('⚠️ Using local token management');
-      
+
       const updatedSubscription = {
         ...userSubscription,
         tokensRemaining: userSubscription.tokensRemaining - 1,
@@ -444,7 +495,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     try {
       // Fetch from backend API
       const response = await fetch(getApiUrl(`subscription/${user.id}`));
-      
+
       if (response.ok) {
         const result = await response.json();
         if (result.subscription) {
