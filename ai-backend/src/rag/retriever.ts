@@ -18,6 +18,15 @@ You are having a natural conversation with a human. Understand context and respo
 - For legal questions: Use the law database and provide detailed, cited answers
 - For follow-up questions: Remember the previous context and respond accordingly
 
+CRITICAL - HANDLING FOLLOW-UP QUESTIONS WITH REFERENCES:
+When the user asks a follow-up question that references previous conversation:
+- Pronouns like "those", "that", "it", "them", "these" refer to content in the conversation history
+- Questions like "is there any other article apart from those" mean: search for MORE articles about the SAME TOPIC from conversation history
+- Questions like "explain that further" mean: elaborate on what was JUST discussed
+- Questions like "what does it mean" mean: clarify the PREVIOUS response
+- ALWAYS check conversation history to understand what the user is referring to
+- Extract the topic/subject from conversation history before answering
+
 EXAMPLES OF GOOD RESPONSES:
 
 Greeting Example:
@@ -120,24 +129,24 @@ function formatDocuments(docs: Document[]): string {
  */
 function extractCitations(docs: Document[]): Array<{ source: string; page: number | string }> {
   const citationsMap = new Map<string, { source: string; page: number | string }>();
-  
+
   docs.forEach(doc => {
     const originalSource = doc.metadata.source || 'Unknown';
     const page = doc.metadata.page || 'N/A';
-    
+
     // Simplify source name
     let simplifiedSource = 'South Sudan Law';
     if (originalSource.toLowerCase().includes('penal')) {
       simplifiedSource = 'Penal Code';
     }
-    
+
     const key = simplifiedSource;
-    
+
     if (!citationsMap.has(key)) {
       citationsMap.set(key, { source: simplifiedSource, page: '' });
     }
   });
-  
+
   return Array.from(citationsMap.values());
 }
 
@@ -147,9 +156,9 @@ function extractCitations(docs: Document[]): Array<{ source: string; page: numbe
 export async function createRAGChain() {
   const model = getChatModel();
   const retriever = await getRetriever();
-  
+
   const prompt = ChatPromptTemplate.fromTemplate(SYSTEM_PROMPT);
-  
+
   const chain = RunnableSequence.from([
     {
       context: async (input: { question: string }) => {
@@ -162,7 +171,7 @@ export async function createRAGChain() {
     model,
     new StringOutputParser(),
   ]);
-  
+
   return chain;
 }
 
@@ -171,35 +180,35 @@ export async function createRAGChain() {
  */
 function isGreetingOrCasual(message: string): boolean {
   const normalized = message.toLowerCase().trim();
-  
+
   // Common greetings
   const greetings = [
     'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
     'greetings', 'howdy', 'what\'s up', 'sup', 'yo', 'hola', 'bonjour'
   ];
-  
+
   // Casual conversation starters
   const casual = [
     'how are you', 'how are things', 'how\'s it going', 'what\'s going on',
     'how do you do', 'nice to meet you', 'pleased to meet you',
     'thanks', 'thank you', 'thank you very much', 'appreciate it'
   ];
-  
+
   // Check if message is just a greeting or casual chat
   if (greetings.some(g => normalized === g || normalized.startsWith(g + ' '))) {
     return true;
   }
-  
+
   if (casual.some(c => normalized.includes(c))) {
     // Only treat as casual if it's short and doesn't contain legal keywords
     const legalKeywords = ['law', 'legal', 'right', 'constitution', 'article', 'code', 'court', 'judge', 'crime', 'citizen', 'government'];
     const hasLegalKeywords = legalKeywords.some(keyword => normalized.includes(keyword));
-    
+
     if (!hasLegalKeywords && normalized.length < 100) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -208,7 +217,7 @@ function isGreetingOrCasual(message: string): boolean {
  */
 function isModificationRequest(message: string): boolean {
   const normalized = message.toLowerCase().trim();
-  
+
   const modificationKeywords = [
     'make it shorter', 'make the reply shorter', 'shorten', 'shorter',
     'summarize', 'summarise', 'summary', 'brief', 'condense',
@@ -216,36 +225,52 @@ function isModificationRequest(message: string): boolean {
     'simpler', 'simplify', 'explain in simpler terms', 'in simple terms', 'simple',
     'make it clearer', 'clarify', 'rephrase', 'rewrite', 'explain differently'
   ];
-  
+
   // Also check if the message is JUST one of these words (common pattern)
   if (modificationKeywords.includes(normalized)) {
     return true;
   }
-  
+
   return modificationKeywords.some(keyword => normalized.includes(keyword));
 }
 
 /**
  * Ask a question and stream the response
+ * @param question The user's question
+ * @param onToken Callback for streaming tokens
+ * @param previousResponse Previous assistant response (for modification requests)
+ * @param conversationHistory Recent conversation messages for context
  */
 export async function askQuestion(
   question: string,
   onToken: (token: string) => void,
-  previousResponse?: string
+  previousResponse?: string,
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
 ): Promise<{ answer: string; citations: Array<{ source: string; page: number | string }> }> {
   const model = getChatModel();
   const retriever = await getRetriever();
-  
+
   // Check if this is a modification request
   const isModification = isModificationRequest(question);
-  
+
   // Check if this is a greeting or casual conversation
   const isCasual = isGreetingOrCasual(question);
-  
+
   let relevantDocs: Document[] = [];
   let context = '';
   let citations: Array<{ source: string; page: number | string }> = [];
-  
+
+  // Build conversation history context if provided
+  let conversationHistoryText = '';
+  if (conversationHistory && conversationHistory.length > 0) {
+    conversationHistoryText = '\n\n[Recent Conversation History]\n';
+    conversationHistory.forEach((msg, idx) => {
+      conversationHistoryText += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n\n`;
+    });
+    conversationHistoryText += '[End of Conversation History - Use this to understand references like "those", "it", "that", etc.]\n\n';
+    console.log(`📜 Using conversation history with ${conversationHistory.length} messages for context`);
+  }
+
   // Handle modification requests
   if (isModification && previousResponse) {
     // For modification requests with previous response, include it in context
@@ -257,29 +282,50 @@ export async function askQuestion(
     context = '[No previous response available to modify]';
     console.log('⚠️ Modification request but no previous response available');
   } else if (!isCasual) {
-    // Only retrieve documents for actual legal questions
-    relevantDocs = await retriever.getRelevantDocuments(question);
+    // For legal questions, check if this is a follow-up that needs broader search
+    const isFollowUpQuestion = /is there (any )?(other|more)|apart from (those|that)|what (else|about)|tell me more|any (other|more)|besides (those|that|these)/i.test(question);
+
+    if (isFollowUpQuestion && conversationHistory && conversationHistory.length > 0) {
+      // Extract topic from conversation history for broader search
+      const lastAssistantMessage = [...conversationHistory].reverse().find(msg => msg.role === 'assistant');
+      const lastUserMessage = [...conversationHistory].reverse().find(msg => msg.role === 'user');
+
+      // Create an expanded query combining current question with historical context
+      const expandedQuery = lastUserMessage
+        ? `${lastUserMessage.content} ${question}`
+        : question;
+
+      console.log(`🔍 Follow-up question detected, expanding search with context: "${expandedQuery.substring(0, 100)}..."`);
+      relevantDocs = await retriever.getRelevantDocuments(expandedQuery);
+    } else {
+      // Regular legal question
+      relevantDocs = await retriever.getRelevantDocuments(question);
+    }
+
     context = formatDocuments(relevantDocs);
     citations = extractCitations(relevantDocs);
   } else {
     // For casual conversation, use empty context
     context = '[No legal documents needed - this is a casual conversation or greeting]';
   }
-  
+
+  // Prepend conversation history to context
+  context = conversationHistoryText + context;
+
   // Create prompt
   const prompt = ChatPromptTemplate.fromTemplate(SYSTEM_PROMPT);
   const formattedPrompt = await prompt.format({ context, question });
-  
+
   // Stream the response
   let fullAnswer = '';
   const stream = await model.stream(formattedPrompt);
-  
+
   for await (const chunk of stream) {
     const content = chunk.content.toString();
     fullAnswer += content;
     onToken(content);
   }
-  
+
   return {
     answer: fullAnswer,
     citations,

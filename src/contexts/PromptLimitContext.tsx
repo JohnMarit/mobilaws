@@ -117,9 +117,18 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   // Save prompt count to localStorage whenever it changes
   useEffect(() => {
     const anonymousId = getAnonymousUserId();
-    localStorage.setItem(`promptCount_${anonymousId}`, promptCount.toString());
-    localStorage.setItem(`promptCountDate_${anonymousId}`, new Date().toDateString());
-  }, [promptCount]);
+    const promptCountKey = `promptCount_${anonymousId}`;
+    const promptDateKey = `promptCountDate_${anonymousId}`;
+
+    // Only save if promptCount is valid (not negative or NaN)
+    if (typeof promptCount === 'number' && promptCount >= 0 && !isNaN(promptCount)) {
+      localStorage.setItem(promptCountKey, promptCount.toString());
+      localStorage.setItem(promptDateKey, new Date().toDateString());
+      console.log(`📊 Token count saved: ${promptCount}/${maxPrompts}`);
+    } else {
+      console.error('⚠️ Invalid promptCount detected, not saving:', promptCount);
+    }
+  }, [promptCount, maxPrompts]);
 
   // Save daily tokens to localStorage whenever it changes
   useEffect(() => {
@@ -147,6 +156,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
       if (userSubscription && userSubscription.isActive) {
         const tokenUsed = await useToken();
         if (tokenUsed) {
+          console.log(`✅ Token used for authenticated user. Remaining: ${userSubscription.tokensRemaining - 1}`);
           // If it's a free plan, update the daily tokens used counter for display
           if (userSubscription.isFree) {
             setDailyTokensUsed(userSubscription.tokensUsed + 1);
@@ -157,10 +167,14 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
       return false;
     } else {
       // For anonymous users, increment prompt count
-      setPromptCount(prev => prev + 1);
+      setPromptCount(prev => {
+        const newCount = prev + 1;
+        console.log(`✅ Token used for anonymous user: ${newCount}/${maxPrompts}`);
+        return newCount;
+      });
       return true;
     }
-  }, [isAuthenticated, userSubscription, useToken]);
+  }, [isAuthenticated, userSubscription, useToken, maxPrompts]);
 
   const resetPromptCount = useCallback(() => {
     setPromptCount(0);

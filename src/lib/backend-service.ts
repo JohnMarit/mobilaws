@@ -46,12 +46,12 @@ export class BackendService {
       // Health check is at root /healthz, not /api/healthz
       const healthUrl = this.baseUrl.replace('/api', '') + '/healthz';
       console.log('🔍 Checking backend connection:', healthUrl);
-      
+
       const response = await fetch(healthUrl, {
         method: 'GET',
         signal: AbortSignal.timeout(10000), // 10 second timeout
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         this.isConnected = data.ok === true;
@@ -93,13 +93,14 @@ export class BackendService {
     convoId?: string,
     userId?: string | null,
     files?: File[],
-    previousResponse?: string
+    previousResponse?: string,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): AsyncGenerator<BackendStreamResponse, void, unknown> {
     try {
       // Prepare form data if files are present, otherwise use JSON
       let body: FormData | string;
       let headers: HeadersInit;
-      
+
       if (files && files.length > 0) {
         // Use FormData for file uploads
         const formData = new FormData();
@@ -107,12 +108,13 @@ export class BackendService {
         if (convoId) formData.append('convoId', convoId);
         if (userId) formData.append('userId', userId);
         if (previousResponse) formData.append('previousResponse', previousResponse);
-        
+        if (conversationHistory) formData.append('conversationHistory', JSON.stringify(conversationHistory));
+
         // Add files
         files.forEach((file, index) => {
           formData.append(`file${index}`, file);
         });
-        
+
         body = formData;
         headers = {
           'Accept': 'text/event-stream',
@@ -125,6 +127,7 @@ export class BackendService {
           convoId,
           userId: userId || null,
           previousResponse: previousResponse || undefined,
+          conversationHistory: conversationHistory || undefined,
         });
         headers = {
           'Content-Type': 'application/json',
@@ -153,14 +156,14 @@ export class BackendService {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           break;
         }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        
+
         // Keep the last incomplete line in the buffer
         buffer = lines.pop() || '';
 
@@ -173,7 +176,7 @@ export class BackendService {
           if (line.startsWith('data:')) {
             try {
               const data = JSON.parse(line.slice(5).trim());
-              
+
               // Handle different event types
               if (data.text !== undefined) {
                 yield {
@@ -211,7 +214,7 @@ export class BackendService {
       }
     } catch (error) {
       console.error('Backend stream error:', error);
-      
+
       let errorMessage = 'Failed to connect to backend';
       if (error instanceof Error) {
         if (error.message.includes('Failed to fetch')) {
@@ -220,7 +223,7 @@ export class BackendService {
           errorMessage = error.message;
         }
       }
-      
+
       yield {
         type: 'error',
         error: errorMessage,
@@ -261,7 +264,7 @@ export class BackendService {
   async uploadDocuments(files: File[]): Promise<UploadResult> {
     try {
       const formData = new FormData();
-      
+
       files.forEach(file => {
         formData.append('files', file);
       });

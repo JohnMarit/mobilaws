@@ -42,12 +42,12 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
   const { selectedName } = useCounselName();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
-  const { 
-    promptCount, 
-    maxPrompts, 
-    canSendPrompt, 
-    incrementPromptCount, 
-    showLoginModal, 
+  const {
+    promptCount,
+    maxPrompts,
+    canSendPrompt,
+    incrementPromptCount,
+    showLoginModal,
     setShowLoginModal,
     showSubscriptionModal,
     setShowSubscriptionModal,
@@ -88,7 +88,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   useEffect(() => {
     if (currentChatId) {
       const storedChat = loadChat(currentChatId);
-      
+
       if (storedChat && storedChat.messages && storedChat.messages.length > 0) {
         // Load existing chat with messages
         setMessages(storedChat.messages);
@@ -99,14 +99,14 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         // New chat - reset everything immediately
         setMessages([]);
         setShowAnimatedIntro(true);
-        
+
         // Reset conversation context
         setConversationContext({
           previousQueries: [],
           mentionedArticles: [],
         });
         conversationalLawSearch.clearConversationContext();
-        
+
         // Reset expanded articles
         setExpandedArticles(new Set());
       }
@@ -157,7 +157,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         console.log('⏳ Auth still loading, waiting before showing modal...');
         return;
       }
-      
+
       if (isAuthenticated && (!userSubscription || !userSubscription.isActive)) {
         // Authenticated user without active subscription - show subscription modal
         setShowSubscriptionModal(true);
@@ -180,8 +180,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         setShowSubscriptionModal(true);
         toast({
           title: "No tokens remaining",
-          description: userSubscription?.isFree 
-            ? "You've used all your free daily tokens. Upgrade to get more!" 
+          description: userSubscription?.isFree
+            ? "You've used all your free daily tokens. Upgrade to get more!"
             : "Purchase a plan to continue using the chatbot.",
           variant: "default",
         });
@@ -202,7 +202,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
       const fileNames = files.map(f => f.name).join(', ');
       messageContent = userMessage ? `${userMessage}\n\n[Attached: ${fileNames}]` : `[Attached: ${fileNames}]`;
     }
-    
+
     const userMsg: ChatMessageType = {
       id: `user-${Date.now()}`,
       type: 'user',
@@ -232,7 +232,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
         // Use secure backend for AI responses (RAG-powered with citations)
         let aiResponse = '';
         let citations: Array<{ source: string; page: number | string }> = [];
-        
+
         // Add streaming AI response message
         const streamingMsg: ChatMessageType = {
           id: `assistant-streaming-${Date.now()}`,
@@ -244,12 +244,33 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
         try {
           let streamComplete = false;
-          
+
+          // Build conversation history for context (last 5 messages, excluding current)
+          // Strip HTML tags from content to keep it clean
+          const stripHtml = (html: string): string => {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || '';
+          };
+
+          const conversationHistory = messages
+            .filter(msg => msg.type !== 'system') // Exclude system messages
+            .slice(-5) // Get last 5 messages
+            .map(msg => ({
+              role: msg.type as 'user' | 'assistant',
+              content: stripHtml(msg.content).substring(0, 500) // Limit to 500 chars per message
+            }));
+
+          // Log conversation history for debugging
+          if (conversationHistory.length > 0) {
+            console.log(`📜 Sending ${conversationHistory.length} messages as conversation history`);
+          }
+
           // Pass userId for admin prompt tracking, and files if present
           // Check if this is a modification request (make shorter, summarize, etc.)
           // Include both American and British spellings
           const isModificationRequest = /make\s+(it|the\s+reply)\s+shorter|shorten|summari[sz]e|summary|make\s+it\s+longer|expand|simpler|simplify|clarify|rephrase|rewrite|condense|brief/i.test(userMessage);
-          
+
           // Get the last assistant message if this is a modification request
           let previousResponse: string | undefined;
           if (isModificationRequest) {
@@ -258,13 +279,20 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
               previousResponse = lastAssistantMsg.content;
             }
           }
-          
-          for await (const chunk of backendService.streamChat(userMessage, currentChatId || undefined, user?.id || null, files || [], previousResponse)) {
+
+          for await (const chunk of backendService.streamChat(
+            userMessage,
+            currentChatId || undefined,
+            user?.id || null,
+            files || [],
+            previousResponse,
+            conversationHistory // Pass conversation history for context
+          )) {
             if (chunk.type === 'token' && chunk.text) {
               aiResponse += chunk.text;
               // Update the streaming message in real-time
-              setMessages(prev => prev.map(msg => 
-                msg.id === streamingMsg.id 
+              setMessages(prev => prev.map(msg =>
+                msg.id === streamingMsg.id
                   ? { ...msg, content: aiResponse }
                   : msg
               ));
@@ -273,13 +301,13 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
               streamComplete = true;
             } else if (chunk.type === 'error') {
               console.error('Backend error:', chunk.error);
-              
+
               // If backend is not available, fall back to local search
               if (chunk.error?.includes('Cannot reach backend')) {
                 console.log('Falling back to local search - backend unavailable');
                 setAiConnected(false);
                 setMessages(prev => prev.filter(msg => msg.id !== streamingMsg.id));
-                
+
                 const response = await conversationalLawSearch.processChatQuery(userMessage, conversationContext);
                 const assistantMsg: ChatMessageType = {
                   id: `assistant-${Date.now()}`,
@@ -292,11 +320,11 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                 setConversationContext(conversationalLawSearch.getConversationContext());
                 return;
               }
-              
+
               throw new Error(chunk.error || 'Backend service error');
             }
           }
-          
+
           // Finalize the message after streaming completes
           if (streamComplete && aiResponse) {
             // Clean up any inline citations that might have been included
@@ -305,28 +333,28 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
               .replace(/Source:\s*[^,]+,\s*Page\s*\d+/gi, '') // Remove Source: ..., Page X patterns
               .replace(/\s+/g, ' ') // Clean up extra whitespace
               .trim();
-            
+
             // Determine source name from citations
             let sourceName = 'South Sudan Law';
             if (citations.length > 0) {
-              const hasPenalCode = citations.some(c => 
+              const hasPenalCode = citations.some(c =>
                 c.source.toLowerCase().includes('penal')
               );
               sourceName = hasPenalCode ? 'Penal Code' : 'South Sudan Law';
             }
-            
+
             const citationsText = citations.length > 0
               ? `\n\n**Source:** ${sourceName}`
               : '';
-            
+
             // Replace streaming message with final message (new ID to force re-render)
-            setMessages(prev => prev.map(msg => 
-              msg.id === streamingMsg.id 
-                ? { 
-                    ...msg, 
-                    id: `assistant-${Date.now()}`, // New ID to ensure re-render
-                    content: cleanedResponse + citationsText,
-                  }
+            setMessages(prev => prev.map(msg =>
+              msg.id === streamingMsg.id
+                ? {
+                  ...msg,
+                  id: `assistant-${Date.now()}`, // New ID to ensure re-render
+                  content: cleanedResponse + citationsText,
+                }
                 : msg
             ));
           }
@@ -358,7 +386,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
     } catch (error) {
       console.error('Failed to process message:', error);
-      
+
       // Remove typing indicator
       setMessages(prev => prev.filter(msg => msg.id !== typingMsg.id));
 
@@ -402,14 +430,14 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
-    
+
     // Reset conversation context
     setConversationContext({
       previousQueries: [],
       mentionedArticles: [],
     });
     conversationalLawSearch.clearConversationContext();
-    
+
     // Reset expanded articles
     setExpandedArticles(new Set());
   };
@@ -453,7 +481,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           ) : null}
         </div>
 
-          {/* Action Buttons */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {process.env.NODE_ENV === 'development' && onToggleDebug && (
             <Button
@@ -482,7 +510,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
-          <UserProfileNav 
+          <UserProfileNav
             onManageSubscription={() => setShowSubscriptionModal(true)}
             compact={false}
           />
@@ -545,8 +573,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
                   clearEditedMessage={clearEditedMessage}
                 />
               ))}
-              
-              
+
+
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>

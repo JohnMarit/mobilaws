@@ -40,14 +40,14 @@ export function ChatProvider({ children }: ChatProviderProps) {
   useEffect(() => {
     // Clean up any empty chats from storage
     chatStorage.cleanupEmptyChats();
-    
+
     const storedHistory = chatStorage.getChatHistory();
-    
+
     // Load chat history but don't restore currentChatId
     // This ensures a fresh start on page refresh
     setChatHistory(storedHistory);
     setCurrentChatId(null);
-    
+
     // Clear the stored currentChatId so next refresh also starts fresh
     chatStorage.saveCurrentChatId(null);
   }, []);
@@ -75,36 +75,36 @@ export function ChatProvider({ children }: ChatProviderProps) {
         setChatHistory(prev => prev.filter(chat => chat.id !== currentChatId));
       }
     }
-    
+
     const newChatId = `chat-${Date.now()}`;
-    
+
     // Don't add to chat history yet - will be added when first message is sent
     // This prevents empty chats from appearing in the sidebar
-    
+
     previousChatIdRef.current = currentChatId;
     setCurrentChatId(newChatId);
-    
+
     // Save to storage (but not to chatHistory yet)
     chatStorage.saveCurrentChatId(newChatId);
-    
+
     return newChatId;
   }, [currentChatId]);
 
   const selectChat = useCallback((chatId: string, previousChatId?: string | null) => {
     // Use the provided previousChatId, or currentChatId, or the ref as fallback
     const prevId = previousChatId !== undefined ? previousChatId : (currentChatId || previousChatIdRef.current);
-    
+
     // Clean up previous chat if it was empty
     if (prevId && prevId !== chatId) {
       const previousChat = chatStorage.loadChat(prevId);
-      
+
       if (!previousChat || !previousChat.messages || previousChat.messages.length === 0) {
         // Delete empty chat
         chatStorage.deleteChat(prevId);
         setChatHistory(prev => prev.filter(chat => chat.id !== prevId));
       }
     }
-    
+
     // Update current and previous
     previousChatIdRef.current = currentChatId;
     setCurrentChatId(chatId);
@@ -112,17 +112,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
   }, [currentChatId]);
 
   const deleteChat = useCallback((chatId: string) => {
+    console.log(`🗑️ Deleting chat: ${chatId} (current: ${currentChatId})`);
+    console.log(`⚠️ NOTE: Chat deletion should NOT affect token counts!`);
+
     setChatHistory(prev => prev.filter(chat => chat.id !== chatId));
     if (currentChatId === chatId) {
       setCurrentChatId(null);
       chatStorage.saveCurrentChatId(null);
     }
     chatStorage.deleteChat(chatId);
+
+    console.log(`✅ Chat deleted: ${chatId}`);
   }, [currentChatId]);
 
   const renameChat = useCallback((chatId: string, newTitle: string) => {
-    setChatHistory(prev => 
-      prev.map(chat => 
+    setChatHistory(prev =>
+      prev.map(chat =>
         chat.id === chatId ? { ...chat, title: newTitle } : chat
       )
     );
@@ -131,8 +136,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const updateCurrentChat = useCallback((title: string) => {
     if (currentChatId) {
-      setChatHistory(prev => 
-        prev.map(chat => 
+      setChatHistory(prev =>
+        prev.map(chat =>
           chat.id === currentChatId ? { ...chat, title } : chat
         )
       );
@@ -145,11 +150,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
     if (messages.length === 0) {
       return;
     }
-    
+
     // Get the first user message timestamp (time of the question)
     const firstUserMessage = messages.find(m => m.type === 'user');
     const chatTimestamp = firstUserMessage?.timestamp || new Date();
-    
+
     // Generate title from first user message (truncate if too long)
     const generateTitle = (userMessage: string): string => {
       const maxLength = 50;
@@ -158,10 +163,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
       }
       return userMessage;
     };
-    
+
     // Check if chat exists in history
     let chat = chatHistory.find(c => c.id === chatId);
-    
+
     // If chat doesn't exist in history (new chat with first message), add it
     if (!chat) {
       const chatTitle = firstUserMessage ? generateTitle(firstUserMessage.content) : 'New Chat';
@@ -174,11 +179,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
       setChatHistory(prev => [newChatHistoryEntry, ...prev]);
       chat = newChatHistoryEntry;
     }
-    
+
     // Load existing edited messages to preserve them
     const existingChat = chatStorage.loadChat(chatId);
     const editedMessages = existingChat?.editedMessages || {};
-    
+
     const storedChat: StoredChat = {
       id: chatId,
       title: chat.title, // Use the title from chat history (which may have been updated)
