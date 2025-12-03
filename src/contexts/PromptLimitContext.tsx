@@ -40,104 +40,54 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const [tokensResetDate, setTokensResetDate] = useState('');
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { userSubscription, useToken, canUseToken, isLoading: subscriptionLoading } = useSubscription();
-  const maxPrompts = 3; // Daily limit for all users (anonymous and signed-up without subscription)
-  const maxDailyTokens = 5; // Free plan users limit
+  const maxPrompts = 3; // Anonymous user limit
+  const maxDailyTokens = 5; // Authenticated user limit (free plan)
 
-  // Load prompt count and check for 24-hour reset
+  // Load token count from Firestore
   useEffect(() => {
-    // Get anonymous user ID for consistent storage
-    const anonymousId = getAnonymousUserId();
-    const promptCountKey = `promptCount_${anonymousId}`;
-    const firstPromptTimeKey = `firstPromptTime_${anonymousId}`;
+    async function loadTokens() {
+      const anonymousId = getAnonymousUserId();
 
-    const savedCount = localStorage.getItem(promptCountKey);
-    const savedFirstPromptTime = localStorage.getItem(firstPromptTimeKey);
+      // For anonymous users
+      if (!isAuthenticated) {
+        try {
+          const { getTokenUsage } = await import('@/lib/tokenService');
+          const usage = await getTokenUsage(anonymousId, true);
 
-    if (savedCount && savedFirstPromptTime) {
-      try {
-        const count = parseInt(savedCount, 10);
-        const firstPromptTime = parseInt(savedFirstPromptTime, 10);
-        const now = Date.now();
-        const hoursElapsed = (now - firstPromptTime) / (1000 * 60 * 60);
+          if (usage) {
+            setPromptCount(usage.tokensUsed);
 
-        // Check if 24 hours have passed since FIRST prompt
-        if (hoursElapsed >= 24) {
-          // Reset after 24 hours
-          console.log('🔄 24 hours elapsed since first prompt, resetting count to 0');
-          setPromptCount(0);
-          localStorage.setItem(promptCountKey, '0');
-          localStorage.removeItem(firstPromptTimeKey); // Clear first prompt time
-        } else {
-          // Still within 24-hour window
-          setPromptCount(count);
-          console.log(`✅ Loaded prompt count: ${count}/${maxPrompts} (${(24 - hoursElapsed).toFixed(1)} hours until reset)`);
+            if (usage.resetAfter) {
+              const hoursUntilReset = (usage.resetAfter.toMillis() - Date.now()) / (1000 * 60 * 60);
+              console.log(`✅ Loaded anonymous tokens from Firestore: ${usage.tokensUsed}/${usage.maxTokens} (${hoursUntilReset.toFixed(1)}h until reset)`);
+            } else {
+              console.log(`✅ Loaded anonymous tokens from Firestore: ${usage.tokensUsed}/${usage.maxTokens}`);
+            }
+          } else {
+            // If Firestore fails, try localStorage migration
+            const promptCountKey = `promptCount_${anonymousId}`;
+            const savedCount = localStorage.getItem(promptCountKey);
+
+            if (savedCount) {
+              const count = parseInt(savedCount, 10);
+              setPromptCount(count);
+              console.log(`🔄 Migrated ${count} tokens from localStorage`);
+              // Token will be saved to Firestore on next use
+            }
+          }
+        } catch (error) {
+          console.error('Error loading tokens from Firestore:', error);
+          // Fallback to localStorage
+          const promptCountKey = `promptCount_${anonymousId}`;
+          const savedCount = localStorage.getItem(promptCountKey);
+          if (savedCount) {
+            setPromptCount(parseInt(savedCount, 10));
+          }
         }
-      } catch (error) {
-        console.error('Error parsing saved prompt data:', error);
-        setPromptCount(0);
-        localStorage.removeItem(firstPromptTimeKey);
       }
-    } else {
-      // No saved data - initialize
-      setPromptCount(0);
-    }
 
-    // Load daily tokens data for signed-up users
-    const savedTokens = localStorage.getItem('dailyTokens');
-    const savedTokensFirstTime = localStorage.getItem('tokensFirstTime');
-
-    if (savedTokens && savedTokensFirstTime) {
-      try {
-        const tokensData = JSON.parse(savedTokens);
-        const firstTokenTime = parseInt(savedTokensFirstTime, 10);
-        const now = Date.now();
-        const hoursElapsed = (now - firstTokenTime) / (1000 * 60 * 60);
-
-        // Check if 24 hours have passed since FIRST token use
-        if (hoursElapsed >= 24) {
-          console.log('🔄 24 hours elapsed since first token use, resetting to 0');
-          setDailyTokensUsed(0);
-          setTokensResetDate(new Date().toISOString());
-          localStorage.setItem('dailyTokens', JSON.stringify({ used: 0 }));
-          localStorage.removeItem('tokensFirstTime');
-        } else {
-          setDailyTokensUsed(tokensData.used || 0);
-          setTokensResetDate(new Date(firstTokenTime).toISOString());
-          console.log(`✅ Loaded tokens: ${tokensData.used}/${maxDailyTokens} (${(24 - hoursElapsed).toFixed(1)} hours until reset)`);
-        }
-      } catch (error) {
-        console.error('Error parsing saved tokens:', error);
-        setDailyTokensUsed(0);
-        setTokensResetDate(new Date().toISOString());
-      }
-    } else {
-      // Initialize
-      setDailyTokensUsed(0);
-      setTokensResetDate(new Date().toISOString());
-    }
-  }, []);
-
-  // Save prompt count to localStorage whenever it changes
-  useEffect(() => {
-    const anonymousId = getAnonymousUserId();
-    const promptCountKey = `promptCount_${anonymousId}`;
-
-    // Only save if promptCount is valid (not negative or NaN)
-    if (typeof promptCount === 'number' && promptCount >= 0 && !isNaN(promptCount)) {
-      localStorage.setItem(promptCountKey, promptCount.toString());
-      console.log(`📊 Token count saved: ${promptCount}/${maxPrompts}`);
-    } else {
-      console.error('⚠️ Invalid promptCount detected, not saving:', promptCount);
-    }
-  }, [promptCount, maxPrompts]);
-
-  // Save daily tokens to localStorage whenever it changes
-  useEffect(() => {
-    if (tokensResetDate) {
-      localStorage.setItem('dailyTokens', JSON.stringify({ used: dailyTokensUsed, date: tokensResetDate }));
-      localStorage.setItem('tokensResetDate', tokensResetDate);
-    }
-  }, [dailyTokensUsed, tokensResetDate]);
+      loadTokens();
+    }, [isAuthenticated]);
 
   // Reset prompt count and close modal when user authenticates
   useEffect(() => {
@@ -161,41 +111,38 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
           // If it's a free plan, update the daily tokens used counter for display
           if (userSubscription.isFree) {
             setDailyTokensUsed(userSubscription.tokensUsed + 1);
-
-            // Track first token time for 24-hour reset
-            const tokensFirstTime = localStorage.getItem('tokensFirstTime');
-            if (!tokensFirstTime) {
-              const now = Date.now();
-              localStorage.setItem('tokensFirstTime', now.toString());
-              console.log('🕐 First token used - 24-hour countdown started');
-            }
           }
         }
         return tokenUsed;
       }
       return false;
     } else {
-      // For anonymous users, increment prompt count
-      setPromptCount(prev => {
-        const newCount = prev + 1;
-
-        // Track first prompt time for 24-hour reset
+      // For anonymous users, use Firestore token service
+      try {
         const anonymousId = getAnonymousUserId();
-        const firstPromptTimeKey = `firstPromptTime_${anonymousId}`;
-        const firstPromptTime = localStorage.getItem(firstPromptTimeKey);
+        const { useToken: useFirestoreToken } = await import('@/lib/tokenService');
+        const result = await useFirestoreToken(anonymousId, true);
 
-        if (!firstPromptTime && newCount === 1) {
-          const now = Date.now();
-          localStorage.setItem(firstPromptTimeKey, now.toString());
-          console.log('🕐 First prompt used - 24-hour countdown started');
+        if (result.success) {
+          setPromptCount(prev => prev + 1);
+          console.log(`✅ Token used for anonymous user via Firestore: ${result.tokensRemaining} remaining`);
+
+          if (result.hoursUntilReset) {
+            console.log(`⏰ Tokens will reset in ${result.hoursUntilReset} hours`);
+          }
+        } else {
+          console.log(`⚠️ Cannot use token: ${result.tokensRemaining} remaining`);
         }
 
-        console.log(`✅ Token used for anonymous user: ${newCount}/${maxPrompts}`);
-        return newCount;
-      });
-      return true;
+        return result.success;
+      } catch (error) {
+        console.error('Error using Firestore token:', error);
+        // Fallback to local increment (should rarely happen)
+        setPromptCount(prev => prev + 1);
+        return true;
+      }
     }
-  }, [isAuthenticated, userSubscription, useToken, maxPrompts]);
+  }, [isAuthenticated, userSubscription, useToken]);
 
   const resetPromptCount = useCallback(() => {
     setPromptCount(0);
