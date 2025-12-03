@@ -212,7 +212,7 @@ export default function Sidebar({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={`h-6 w-6 p-0 opacity-70 group-hover:opacity-100 transition-opacity ${isCollapsed ? 'ml-0' : 'ml-2'
+                          className={`h-6 w-6 p-0 opacity-100 hover:bg-gray-700 transition-colors ${isCollapsed ? 'ml-0' : 'ml-2'
                             }`}
                           onClick={(e) => e.stopPropagation()}
                         >
