@@ -43,74 +43,77 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const maxPrompts = 3; // Daily limit for all users (anonymous and signed-up without subscription)
   const maxDailyTokens = 5; // Free plan users limit
 
-  // Load prompt count and daily tokens from localStorage on mount
-  // Check if 24 hours have passed and reset if needed
+  // Load prompt count and check for 24-hour reset
   useEffect(() => {
     // Get anonymous user ID for consistent storage
     const anonymousId = getAnonymousUserId();
     const promptCountKey = `promptCount_${anonymousId}`;
-    const promptDateKey = `promptCountDate_${anonymousId}`;
+    const firstPromptTimeKey = `firstPromptTime_${anonymousId}`;
 
     const savedCount = localStorage.getItem(promptCountKey);
-    const savedDate = localStorage.getItem(promptDateKey);
-    const today = new Date().toDateString();
+    const savedFirstPromptTime = localStorage.getItem(firstPromptTimeKey);
 
-    if (savedCount && savedDate) {
+    if (savedCount && savedFirstPromptTime) {
       try {
-        // Check if 24 hours have passed (new day)
-        if (savedDate !== today) {
-          // Reset prompts for new day
-          console.log('🔄 New day detected, resetting prompt count to 0');
+        const count = parseInt(savedCount, 10);
+        const firstPromptTime = parseInt(savedFirstPromptTime, 10);
+        const now = Date.now();
+        const hoursElapsed = (now - firstPromptTime) / (1000 * 60 * 60);
+
+        // Check if 24 hours have passed since FIRST prompt
+        if (hoursElapsed >= 24) {
+          // Reset after 24 hours
+          console.log('🔄 24 hours elapsed since first prompt, resetting count to 0');
           setPromptCount(0);
           localStorage.setItem(promptCountKey, '0');
-          localStorage.setItem(promptDateKey, today);
+          localStorage.removeItem(firstPromptTimeKey); // Clear first prompt time
         } else {
-          // Same day, load saved count
-          setPromptCount(parseInt(savedCount, 10));
+          // Still within 24-hour window
+          setPromptCount(count);
+          console.log(`✅ Loaded prompt count: ${count}/${maxPrompts} (${(24 - hoursElapsed).toFixed(1)} hours until reset)`);
         }
       } catch (error) {
-        console.error('Error parsing saved prompt count:', error);
+        console.error('Error parsing saved prompt data:', error);
         setPromptCount(0);
-        localStorage.setItem(promptDateKey, today);
+        localStorage.removeItem(firstPromptTimeKey);
       }
     } else {
-      // First time, initialize
+      // No saved data - initialize
       setPromptCount(0);
-      localStorage.setItem(promptDateKey, today);
     }
 
-    // Load daily tokens data
+    // Load daily tokens data for signed-up users
     const savedTokens = localStorage.getItem('dailyTokens');
-    const savedResetDate = localStorage.getItem('tokensResetDate');
+    const savedTokensFirstTime = localStorage.getItem('tokensFirstTime');
 
-    if (savedTokens && savedResetDate) {
+    if (savedTokens && savedTokensFirstTime) {
       try {
         const tokensData = JSON.parse(savedTokens);
-        const resetDate = savedResetDate;
-        const today = new Date().toDateString();
+        const firstTokenTime = parseInt(savedTokensFirstTime, 10);
+        const now = Date.now();
+        const hoursElapsed = (now - firstTokenTime) / (1000 * 60 * 60);
 
-        // Check if we need to reset tokens (new day)
-        if (resetDate !== today) {
+        // Check if 24 hours have passed since FIRST token use
+        if (hoursElapsed >= 24) {
+          console.log('🔄 24 hours elapsed since first token use, resetting to 0');
           setDailyTokensUsed(0);
-          setTokensResetDate(today);
-          localStorage.setItem('dailyTokens', JSON.stringify({ used: 0, date: today }));
-          localStorage.setItem('tokensResetDate', today);
+          setTokensResetDate(new Date().toISOString());
+          localStorage.setItem('dailyTokens', JSON.stringify({ used: 0 }));
+          localStorage.removeItem('tokensFirstTime');
         } else {
           setDailyTokensUsed(tokensData.used || 0);
-          setTokensResetDate(resetDate);
+          setTokensResetDate(new Date(firstTokenTime).toISOString());
+          console.log(`✅ Loaded tokens: ${tokensData.used}/${maxDailyTokens} (${(24 - hoursElapsed).toFixed(1)} hours until reset)`);
         }
       } catch (error) {
         console.error('Error parsing saved tokens:', error);
         setDailyTokensUsed(0);
-        setTokensResetDate(new Date().toDateString());
+        setTokensResetDate(new Date().toISOString());
       }
     } else {
-      // Initialize for first time
-      const today = new Date().toDateString();
+      // Initialize
       setDailyTokensUsed(0);
-      setTokensResetDate(today);
-      localStorage.setItem('dailyTokens', JSON.stringify({ used: 0, date: today }));
-      localStorage.setItem('tokensResetDate', today);
+      setTokensResetDate(new Date().toISOString());
     }
   }, []);
 
@@ -118,12 +121,10 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   useEffect(() => {
     const anonymousId = getAnonymousUserId();
     const promptCountKey = `promptCount_${anonymousId}`;
-    const promptDateKey = `promptCountDate_${anonymousId}`;
 
     // Only save if promptCount is valid (not negative or NaN)
     if (typeof promptCount === 'number' && promptCount >= 0 && !isNaN(promptCount)) {
       localStorage.setItem(promptCountKey, promptCount.toString());
-      localStorage.setItem(promptDateKey, new Date().toDateString());
       console.log(`📊 Token count saved: ${promptCount}/${maxPrompts}`);
     } else {
       console.error('⚠️ Invalid promptCount detected, not saving:', promptCount);
@@ -160,6 +161,14 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
           // If it's a free plan, update the daily tokens used counter for display
           if (userSubscription.isFree) {
             setDailyTokensUsed(userSubscription.tokensUsed + 1);
+
+            // Track first token time for 24-hour reset
+            const tokensFirstTime = localStorage.getItem('tokensFirstTime');
+            if (!tokensFirstTime) {
+              const now = Date.now();
+              localStorage.setItem('tokensFirstTime', now.toString());
+              console.log('🕐 First token used - 24-hour countdown started');
+            }
           }
         }
         return tokenUsed;
@@ -169,6 +178,18 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
       // For anonymous users, increment prompt count
       setPromptCount(prev => {
         const newCount = prev + 1;
+
+        // Track first prompt time for 24-hour reset
+        const anonymousId = getAnonymousUserId();
+        const firstPromptTimeKey = `firstPromptTime_${anonymousId}`;
+        const firstPromptTime = localStorage.getItem(firstPromptTimeKey);
+
+        if (!firstPromptTime && newCount === 1) {
+          const now = Date.now();
+          localStorage.setItem(firstPromptTimeKey, now.toString());
+          console.log('🕐 First prompt used - 24-hour countdown started');
+        }
+
         console.log(`✅ Token used for anonymous user: ${newCount}/${maxPrompts}`);
         return newCount;
       });
