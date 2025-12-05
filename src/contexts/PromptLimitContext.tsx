@@ -158,8 +158,12 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   }, []);
 
   // Check if user can send prompt based on their authentication status and subscription
+  // Authenticated users rely on subscription state; allow sending as long as
+  // subscription is present, active, and reports token availability. We avoid
+  // blocking on subscriptionLoading to prevent the UI from getting stuck if a
+  // network call is slow—token consumption itself will still be enforced.
   const canSendPrompt = isAuthenticated
-    ? (!subscriptionLoading && userSubscription && userSubscription.isActive && canUseToken)  // Authenticated users with active subscription (including free plan) and available tokens
+    ? Boolean(userSubscription && userSubscription.isActive && canUseToken)
     : promptCount < maxPrompts;  // Anonymous users: 3 prompts total
 
 

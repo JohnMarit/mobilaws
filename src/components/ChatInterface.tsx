@@ -144,12 +144,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   const handleSendMessage = async (userMessage: string, files?: File[]) => {
     if ((!userMessage.trim() && (!files || files.length === 0)) || isLoading) return;
 
-    // Wait for subscription to load before checking limits
-    if (isAuthenticated && subscriptionLoading) {
-      console.log('⏳ Waiting for subscription to load...');
-      return;
-    }
-
     // Check if user can send prompt
     if (!canSendPrompt) {
       // Don't show modals while auth is still loading
