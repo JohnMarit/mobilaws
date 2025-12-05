@@ -63,26 +63,9 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
             } else {
               console.log(`✅ Loaded anonymous tokens from Firestore: ${usage.tokensUsed}/${usage.maxTokens}`);
             }
-          } else {
-            // If Firestore fails, try localStorage migration
-            const promptCountKey = `promptCount_${anonymousId}`;
-            const savedCount = localStorage.getItem(promptCountKey);
-
-            if (savedCount) {
-              const count = parseInt(savedCount, 10);
-              setPromptCount(count);
-              console.log(`🔄 Migrated ${count} tokens from localStorage`);
-              // Token will be saved to Firestore on next use
-            }
           }
         } catch (error) {
           console.error('Error loading tokens from Firestore:', error);
-          // Fallback to localStorage
-          const promptCountKey = `promptCount_${anonymousId}`;
-          const savedCount = localStorage.getItem(promptCountKey);
-          if (savedCount) {
-            setPromptCount(parseInt(savedCount, 10));
-          }
         }
       }
     }

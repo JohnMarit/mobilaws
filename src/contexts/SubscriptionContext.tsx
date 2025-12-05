@@ -131,7 +131,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [user]);
 
-  // Load user subscription and initialize free plan if needed
+  // Load user subscription and initialize free plan if needed (no localStorage fallback)
   useEffect(() => {
     const initializeSubscription = async () => {
       if (isAuthenticated && user) {
@@ -144,156 +144,47 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           if (response.ok) {
             const result = await response.json();
             if (result.subscription) {
-              setUserSubscription(result.subscription);
-              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
-              console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
-            } else {
-              // Backend responded but no subscription - check localStorage first
-              const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-              if (savedSubscription) {
-                try {
-                  const subscription: UserSubscription = JSON.parse(savedSubscription);
-                  // Check if it's a valid free plan and same day
-                  if (subscription.planId === 'free' && subscription.isFree) {
-                    // Check if we need to reset tokens (new day)
-                    const lastReset = subscription.lastResetDate ? new Date(subscription.lastResetDate).toDateString() : null;
-                    const today = new Date().toDateString();
-
-                    if (lastReset !== today) {
-                      // New day - reset tokens
-                      console.log('🔄 New day detected, resetting free plan tokens to 5');
-                      const resetSubscription: UserSubscription = {
-                        ...subscription,
-                        tokensRemaining: 5,
-                        tokensUsed: 0,
-                        lastResetDate: new Date().toISOString()
-                      };
-                      setUserSubscription(resetSubscription);
-                      localStorage.setItem(`subscription_${user.id}`, JSON.stringify(resetSubscription));
-                    } else {
-                      // Same day - use existing token count
-                      setUserSubscription(subscription);
-                      console.log(`✅ Loaded existing free plan from localStorage: ${subscription.tokensUsed}/${subscription.totalTokens} tokens used`);
-                    }
-                  } else {
-                    // Not a free plan or invalid - use it as is
-                    setUserSubscription(subscription);
-                    console.log(`✅ Loaded existing subscription from localStorage`);
-                  }
-                } catch (error) {
-                  console.error('Error parsing saved subscription:', error);
-                  // Create new local free plan only if parsing fails
-                  const localFreePlan: UserSubscription = {
-                    planId: 'free',
-                    tokensRemaining: 5,
-                    tokensUsed: 0,
-                    totalTokens: 5,
-                    purchaseDate: new Date().toISOString(),
-                    lastResetDate: new Date().toISOString(),
-                    isActive: true,
-                    isFree: true
-                  };
-                  setUserSubscription(localFreePlan);
-                  localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-                  console.log(`✅ Created new local free plan after parsing error`);
+              if (result.subscription.planId === 'free') {
+                const freePlan = await syncFreePlanFromFirestore();
+                if (freePlan) {
+                  setUserSubscription(freePlan);
+                  console.log(`✅ Free subscription loaded from Firestore: ${freePlan.tokensRemaining} tokens`);
+                } else {
+                  setUserSubscription(result.subscription);
+                  console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
                 }
               } else {
-                // No localStorage data - create fresh free plan
-                console.warn('⚠️ No subscription from backend or localStorage - creating new free plan');
-                const localFreePlan: UserSubscription = {
-                  planId: 'free',
-                  tokensRemaining: 5,
-                  tokensUsed: 0,
-                  totalTokens: 5,
-                  purchaseDate: new Date().toISOString(),
-                  lastResetDate: new Date().toISOString(),
-                  isActive: true,
-                  isFree: true
-                };
-                setUserSubscription(localFreePlan);
-                localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-                console.log(`✅ Created new local free plan: 5 daily tokens`);
+                setUserSubscription(result.subscription);
+                console.log(`✅ Subscription loaded for user: ${result.subscription.planId} plan with ${result.subscription.tokensRemaining} tokens`);
+              }
+            } else {
+              // No subscription returned - attempt to sync free plan from Firestore
+              const freePlan = await syncFreePlanFromFirestore();
+              if (freePlan) {
+                setUserSubscription(freePlan);
+                console.log(`✅ Free plan initialized via Firestore`);
+              } else {
+                setUserSubscription(null);
               }
             }
           } else {
-            // Fallback to localStorage if backend returns error
             console.warn(`⚠️ Backend returned error: ${response.status}`);
-            const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-            if (savedSubscription) {
-              try {
-                const subscription: UserSubscription = JSON.parse(savedSubscription);
-                // Validate it's actually a subscription object
-                if (!subscription || typeof subscription !== 'object' || !subscription.planId) {
-                  throw new Error('Invalid subscription data');
-                }
-                // Check if subscription is still valid
-                if (subscription.isActive && (!subscription.expiryDate || new Date(subscription.expiryDate) > new Date())) {
-                  setUserSubscription(subscription);
-                  console.log(`✅ Loaded subscription from localStorage`);
-                } else {
-                  // Subscription expired, mark as inactive
-                  const expiredSubscription = { ...subscription, isActive: false };
-                  setUserSubscription(expiredSubscription);
-                  localStorage.setItem(`subscription_${user.id}`, JSON.stringify(expiredSubscription));
-                }
-              } catch (error) {
-                console.error('Error parsing saved subscription:', error);
-                // Create local free plan as last resort
-                const localFreePlan: UserSubscription = {
-                  planId: 'free',
-                  tokensRemaining: 5,
-                  tokensUsed: 0,
-                  totalTokens: 5,
-                  purchaseDate: new Date().toISOString(),
-                  lastResetDate: new Date().toISOString(),
-                  isActive: true,
-                  isFree: true
-                };
-                setUserSubscription(localFreePlan);
-                localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-                console.log(`✅ Local free plan created after error: 5 daily tokens`);
-              }
+            const freePlan = await syncFreePlanFromFirestore();
+            if (freePlan) {
+              setUserSubscription(freePlan);
+              console.log(`✅ Fallback to Firestore free plan`);
             } else {
-              // No saved subscription - create local free plan
-              console.warn('⚠️ No saved subscription - creating local free plan');
-              const localFreePlan: UserSubscription = {
-                planId: 'free',
-                tokensRemaining: 5,
-                tokensUsed: 0,
-                totalTokens: 5,
-                purchaseDate: new Date().toISOString(),
-                lastResetDate: new Date().toISOString(),
-                isActive: true,
-                isFree: true
-              };
-              setUserSubscription(localFreePlan);
-              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-              console.log(`✅ Local free plan created: 5 daily tokens`);
+              setUserSubscription(null);
             }
           }
         } catch (error) {
           console.error('Error fetching subscription:', error);
-          // Fallback to localStorage
-          const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-          if (savedSubscription) {
-            const subscription: UserSubscription = JSON.parse(savedSubscription);
-            setUserSubscription(subscription);
+          const freePlan = await syncFreePlanFromFirestore();
+          if (freePlan) {
+            setUserSubscription(freePlan);
+            console.log(`✅ Fallback to Firestore free plan`);
           } else {
-            // If no saved subscription and backend is unavailable, create a local free plan
-            console.warn('⚠️ Backend unavailable - creating local free plan');
-            const localFreePlan: UserSubscription = {
-              planId: 'free',
-              tokensRemaining: 5,
-              tokensUsed: 0,
-              totalTokens: 5,
-              purchaseDate: new Date().toISOString(),
-              lastResetDate: new Date().toISOString(),
-              isActive: true,
-              isFree: true
-            };
-            setUserSubscription(localFreePlan);
-            localStorage.setItem(`subscription_${user.id}`, JSON.stringify(localFreePlan));
-            console.log(`✅ Local free plan created: 5 daily tokens`);
+            setUserSubscription(null);
           }
         } finally {
           setIsLoading(false);
@@ -367,7 +258,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
 
       if (result.success) {
         setUserSubscription(result.subscription);
-        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
         console.log(`✅ Successfully purchased ${plan.name} plan with ${plan.tokens} tokens`);
         return true;
       } else {
@@ -559,7 +449,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         };
 
         setUserSubscription(updatedSubscription);
-        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(updatedSubscription));
         return true;
       } else {
         console.error('Failed to use token:', result.error);
@@ -577,7 +466,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       };
 
       setUserSubscription(updatedSubscription);
-      localStorage.setItem(`subscription_${user.id}`, JSON.stringify(updatedSubscription));
       console.log(`✅ Token used locally. Remaining: ${updatedSubscription.tokensRemaining}`);
       return true;
     }
@@ -598,36 +486,29 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
             const freePlan = await syncFreePlanFromFirestore();
             if (freePlan) {
               setUserSubscription(freePlan);
-              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(freePlan));
               return;
             }
           }
           setUserSubscription(result.subscription);
-          localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
         } else {
           setUserSubscription(null);
-          localStorage.removeItem(`subscription_${user.id}`);
         }
       } else {
-        // Fallback to localStorage if backend is unavailable
-        const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-        if (savedSubscription) {
-          const subscription: UserSubscription = JSON.parse(savedSubscription);
-          setUserSubscription(subscription);
+        const freePlan = await syncFreePlanFromFirestore();
+        if (freePlan) {
+          setUserSubscription(freePlan);
         }
       }
     } catch (error) {
       console.error('Error refreshing subscription:', error);
-      // Fallback to localStorage if backend is unavailable
-      const savedSubscription = localStorage.getItem(`subscription_${user.id}`);
-      if (savedSubscription) {
-        const subscription: UserSubscription = JSON.parse(savedSubscription);
-        setUserSubscription(subscription);
+      const freePlan = await syncFreePlanFromFirestore();
+      if (freePlan) {
+        setUserSubscription(freePlan);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
   const canUseToken = !!(userSubscription?.isActive && (userSubscription.tokensRemaining > 0 || userSubscription.isFree));
 

@@ -32,27 +32,16 @@ The Mobilaws application now uses a token-based access control system that provi
    - Shows different UI elements for anonymous vs authenticated users
 
 3. **LoginModal** (`src/components/LoginModal.tsx`)
-   - Updated to reflect 20 tokens per day instead of unlimited access
+- Updated to reflect daily token limits instead of unlimited access
 
 ### **Data Storage**
 
-**localStorage Keys:**
-- `promptCount`: Number of prompts used by anonymous users
-- `dailyTokens`: JSON object with `{ used: number, date: string }`
-- `tokensResetDate`: String of the last reset date
-- `user`: User authentication data
+- Token counts are persisted in Firestore (no localStorage for tokens).
+- Authentication data may still use localStorage (managed by Firebase auth context).
 
 ### **Reset Logic**
 
-```typescript
-// Daily reset check
-const today = new Date().toDateString();
-if (resetDate !== today) {
-  setDailyTokensUsed(0);
-  setTokensResetDate(today);
-  // Update localStorage
-}
-```
+- Daily reset occurs at midnight (local time) and is enforced via Firestore `tokenUsage` documents.
 
 ## User Experience Flow
 
