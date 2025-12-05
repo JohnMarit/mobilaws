@@ -88,6 +88,19 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false; // Only server with Admin SDK can write
     }
+
+    // Token usage (daily limits for anonymous and authenticated users)
+    match /tokenUsage/{docId} {
+      function isAnonDoc() {
+        return docId.size() >= 5 && docId[0:5] == "anon_";
+      }
+
+      function isUserDoc() {
+        return request.auth != null && docId == 'user_' + request.auth.uid;
+      }
+
+      allow read, write: if isAnonDoc() || isUserDoc();
+    }
     
     // Deny all other access by default
     match /{document=**} {

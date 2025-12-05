@@ -179,6 +179,14 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
             : "Purchase a plan to continue using the chatbot.",
           variant: "default",
         });
+      } else {
+        // Anonymous user with no tokens or an error: show login modal to encourage signup
+        setShowLoginModal(true);
+        toast({
+          title: "Free limit reached",
+          description: "You have used all 3 free daily tokens. They reset at midnight.",
+          variant: "default",
+        });
       }
       return;
     }
