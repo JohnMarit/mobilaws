@@ -22,6 +22,21 @@ export interface TokenUsage {
     email?: string;
 }
 
+// Calculate the next midnight (local time) to align daily resets at 12 a.m.
+function getNextMidnightTimestamp(): Timestamp {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    return Timestamp.fromDate(midnight);
+}
+
+// Convenience helper for computing hours until the next reset timestamp
+function getHoursUntilReset(resetAfter: Timestamp | null): number {
+    if (!resetAfter) return 24;
+    const diffMs = resetAfter.toMillis() - Date.now();
+    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60)));
+}
+
 /**
  * Get token usage from Firestore
  * Returns current usage or creates new document if doesn't exist
@@ -43,19 +58,20 @@ export async function getTokenUsage(
         if (docSnap.exists()) {
             const data = docSnap.data() as TokenUsage;
 
-            // Check if 24 hours have elapsed since first prompt
-            if (data.firstPromptTime && data.resetAfter) {
-                const now = Timestamp.now();
+            // Ensure resetAfter is set to midnight for daily resets
+            const resetAfter = data.resetAfter;
+            const now = Timestamp.now();
 
-                if (now.toMillis() >= data.resetAfter.toMillis()) {
-                    // 24 hours elapsed - reset tokens
-                    console.log('🔄 24 hours elapsed, resetting tokens');
-                    await resetTokens(userId, isAnonymous);
-                    return await getTokenUsage(userId, isAnonymous);
-                }
+            if (!resetAfter || now.toMillis() >= resetAfter.toMillis()) {
+                console.log('🔄 Daily reset window reached, resetting tokens to midnight schedule');
+                await resetTokens(userId, isAnonymous);
+                return await getTokenUsage(userId, isAnonymous);
             }
 
-            return data;
+            return {
+                ...data,
+                resetAfter
+            };
         } else {
             // Create new document with initial state
             const maxTokens = isAnonymous ? 3 : 5;
@@ -66,7 +82,7 @@ export async function getTokenUsage(
                 maxTokens,
                 firstPromptTime: null,
                 lastPromptTime: null,
-                resetAfter: null,
+                resetAfter: getNextMidnightTimestamp(),
                 createdAt: serverTimestamp() as Timestamp,
                 updatedAt: serverTimestamp() as Timestamp
             };
@@ -103,11 +119,19 @@ export async function useToken(
             return { success: false, tokensRemaining: 0 };
         }
 
+        // If the reset time has passed (or was missing), ensure fresh usage before proceeding
+        if (!usage.resetAfter || Timestamp.now().toMillis() >= usage.resetAfter.toMillis()) {
+            await resetTokens(userId, isAnonymous);
+            const refreshed = await getTokenUsage(userId, isAnonymous);
+            if (!refreshed) {
+                return { success: false, tokensRemaining: 0 };
+            }
+            return await useToken(userId, isAnonymous, email);
+        }
+
         // Check if user has tokens remaining
         if (usage.tokensUsed >= usage.maxTokens) {
-            const hoursUntilReset = usage.resetAfter
-                ? Math.ceil((usage.resetAfter.toMillis() - Timestamp.now().toMillis()) / (1000 * 60 * 60))
-                : 0;
+            const hoursUntilReset = getHoursUntilReset(usage.resetAfter);
 
             console.log(`⚠️ No tokens remaining. Reset in ${hoursUntilReset} hours`);
             return {
@@ -127,21 +151,16 @@ export async function useToken(
         const updateData: any = {
             tokensUsed: newTokensUsed,
             lastPromptTime: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            // Always carry a resetAfter aligned to midnight
+            resetAfter: usage.resetAfter ?? getNextMidnightTimestamp()
         };
 
         if (!usage.firstPromptTime) {
-            // First token - start 24-hour countdown
+            // First token - start daily schedule anchored to midnight
             updateData.firstPromptTime = serverTimestamp();
-
-            // Calculate reset time (24 hours from now)
-            const resetTime = new Timestamp(
-                now.seconds + (24 * 60 * 60), // Add 24 hours in seconds
-                now.nanoseconds
-            );
-            updateData.resetAfter = resetTime;
-
-            console.log('🕐 First token used - 24-hour countdown started');
+            updateData.resetAfter = getNextMidnightTimestamp();
+            console.log('🕐 First token used - daily countdown to midnight started');
         }
 
         if (email && !isAnonymous) {
@@ -153,9 +172,7 @@ export async function useToken(
         const tokensRemaining = usage.maxTokens - newTokensUsed;
         console.log(`✅ Token used: ${newTokensUsed}/${usage.maxTokens} (${tokensRemaining} remaining)`);
 
-        const hoursUntilReset = usage.resetAfter
-            ? Math.ceil((usage.resetAfter.toMillis() - now.toMillis()) / (1000 * 60 * 60))
-            : 24;
+        const hoursUntilReset = getHoursUntilReset(updateData.resetAfter || usage.resetAfter);
 
         return {
             success: true,
@@ -188,7 +205,8 @@ export async function resetTokens(
             tokensUsed: 0,
             firstPromptTime: null,
             lastPromptTime: null,
-            resetAfter: null,
+            // Always schedule the next reset for the upcoming midnight
+            resetAfter: getNextMidnightTimestamp(),
             updatedAt: serverTimestamp()
         });
 

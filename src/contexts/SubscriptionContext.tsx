@@ -101,6 +101,36 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   ];
 
+  // Keep free-plan tokens in Firestore so refreshes/browser actions cannot reset them
+  const syncFreePlanFromFirestore = useCallback(async (): Promise<UserSubscription | null> => {
+    if (!user) return null;
+
+    try {
+      const { getTokenUsage } = await import('@/lib/tokenService');
+      const usage = await getTokenUsage(user.id, false);
+
+      if (!usage) return null;
+
+      const tokensRemaining = Math.max(0, usage.maxTokens - usage.tokensUsed);
+
+      const freePlan: UserSubscription = {
+        planId: 'free',
+        tokensRemaining,
+        tokensUsed: usage.tokensUsed,
+        totalTokens: usage.maxTokens,
+        purchaseDate: usage.createdAt && 'toDate' in usage.createdAt ? usage.createdAt.toDate().toISOString() : new Date().toISOString(),
+        lastResetDate: usage.resetAfter && 'toDate' in usage.resetAfter ? usage.resetAfter.toDate().toISOString() : undefined,
+        isActive: true,
+        isFree: true
+      };
+
+      return freePlan;
+    } catch (error) {
+      console.error('Error syncing free tokens from Firestore:', error);
+      return null;
+    }
+  }, [user]);
+
   // Load user subscription and initialize free plan if needed
   useEffect(() => {
     const initializeSubscription = async () => {
@@ -274,7 +304,32 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     };
 
     initializeSubscription();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, syncFreePlanFromFirestore]);
+
+  // Keep free-tier token state in sync with Firestore (midnight resets)
+  useEffect(() => {
+    const syncFreeTokens = async () => {
+      if (!isAuthenticated || !user) return;
+
+      // Do not overwrite paid subscriptions
+      if (userSubscription && userSubscription.isActive && !userSubscription.isFree && userSubscription.planId !== 'free') {
+        return;
+      }
+
+      const freePlan = await syncFreePlanFromFirestore();
+      if (freePlan) {
+        setUserSubscription(prev => {
+          if (prev && !prev.isFree && prev.planId !== 'free') {
+            return prev;
+          }
+          return freePlan;
+        });
+        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(freePlan));
+      }
+    };
+
+    syncFreeTokens();
+  }, [isAuthenticated, user, userSubscription?.planId, userSubscription?.isFree, syncFreePlanFromFirestore]);
 
   const purchasePlan = useCallback(async (planId: string): Promise<boolean> => {
     if (!isAuthenticated || !user) {
@@ -430,15 +485,55 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       setIsLoading(false);
     }
     */
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
   const useToken = useCallback(async (): Promise<boolean> => {
-    if (!userSubscription || !userSubscription.isActive || userSubscription.tokensRemaining <= 0) {
+    if (!userSubscription || !userSubscription.isActive) {
       return false;
     }
 
     if (!user) {
       return false;
+    }
+
+    // Paid plans respect their remaining balance; free plans revalidate in Firestore even if local count is 0
+    if (!userSubscription.isFree && userSubscription.tokensRemaining <= 0) {
+      return false;
+    }
+
+    // Free daily tokens are enforced via Firestore so they cannot be reset client-side
+    if (userSubscription.isFree || userSubscription.planId === 'free') {
+      try {
+        const { useToken: useFirestoreToken, getTokenUsage } = await import('@/lib/tokenService');
+        const result = await useFirestoreToken(user.id, false, user.email);
+
+        if (!result.success) {
+          return false;
+        }
+
+        // Refresh usage so local state mirrors Firestore
+        const usage = await getTokenUsage(user.id, false);
+        const tokensUsed = usage?.tokensUsed ?? userSubscription.tokensUsed + 1;
+        const tokensRemaining = usage
+          ? Math.max(0, usage.maxTokens - usage.tokensUsed)
+          : Math.max(0, result.tokensRemaining);
+
+        const updatedSubscription = {
+          ...userSubscription,
+          tokensRemaining,
+          tokensUsed,
+          lastResetDate: usage?.resetAfter && 'toDate' in usage.resetAfter
+            ? usage.resetAfter.toDate().toISOString()
+            : userSubscription.lastResetDate
+        };
+
+        setUserSubscription(updatedSubscription);
+        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(updatedSubscription));
+        return true;
+      } catch (error) {
+        console.error('Error using free token via Firestore:', error);
+        return false;
+      }
     }
 
     try {
@@ -499,6 +594,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       if (response.ok) {
         const result = await response.json();
         if (result.subscription) {
+          if (result.subscription.planId === 'free') {
+            const freePlan = await syncFreePlanFromFirestore();
+            if (freePlan) {
+              setUserSubscription(freePlan);
+              localStorage.setItem(`subscription_${user.id}`, JSON.stringify(freePlan));
+              return;
+            }
+          }
           setUserSubscription(result.subscription);
           localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
         } else {
@@ -526,7 +629,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [isAuthenticated, user]);
 
-  const canUseToken = userSubscription?.isActive && (userSubscription.tokensRemaining > 0) || false;
+  const canUseToken = !!(userSubscription?.isActive && (userSubscription.tokensRemaining > 0 || userSubscription.isFree));
 
   const value: SubscriptionContextType = {
     plans,

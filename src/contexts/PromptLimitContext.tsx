@@ -102,6 +102,14 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
     }
   }, [isAuthenticated, authLoading]);
 
+  // Keep UI counters in sync with subscription state (especially free-plan tokens)
+  useEffect(() => {
+    if (isAuthenticated && userSubscription?.isFree) {
+      setDailyTokensUsed(userSubscription.tokensUsed);
+      setTokensResetDate(userSubscription.lastResetDate || '');
+    }
+  }, [isAuthenticated, userSubscription]);
+
   const incrementPromptCount = useCallback(async (): Promise<boolean> => {
     if (isAuthenticated) {
       // For authenticated users, always use subscription tokens (including free plan)
