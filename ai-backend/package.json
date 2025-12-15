@@ -42,6 +42,8 @@
     "pdf-parse": "^1.1.1",
     "stripe": "^19.1.0",
     "uuid": "^9.0.1",
+    "xlsx": "^0.18.5",
+    "pdfkit": "^0.15.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
