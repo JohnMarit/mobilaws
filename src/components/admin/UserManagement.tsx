@@ -194,7 +194,7 @@ export default function UserManagement() {
         </CardHeader>
         <CardContent>
           {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex flex-col gap-4 mb-6 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
@@ -207,12 +207,12 @@ export default function UserManagement() {
                 className="pl-10"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
               <Button
                 variant="default"
                 onClick={handleFirebaseAuthSync}
                 disabled={isSyncing || isLoading}
-                className="bg-orange-600 hover:bg-orange-700 flex-1 sm:flex-none"
+                className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto justify-center"
               >
                 <Zap className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                 {isSyncing ? 'Syncing...' : 'Sync from Firebase Auth'}
@@ -221,7 +221,7 @@ export default function UserManagement() {
                 variant="outline"
                 onClick={loadUsers}
                 disabled={isLoading}
-                className="flex-1 sm:flex-none"
+                className="w-full sm:w-auto justify-center"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
@@ -230,7 +230,7 @@ export default function UserManagement() {
                 variant="outline"
                 onClick={() => handleExport('excel')}
                 disabled={isLoading || isSyncing || isExporting}
-                className="flex-1 sm:flex-none"
+                className="w-full sm:w-auto justify-center"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export Excel
@@ -239,7 +239,7 @@ export default function UserManagement() {
                 variant="outline"
                 onClick={() => handleExport('pdf')}
                 disabled={isLoading || isSyncing || isExporting}
-                className="flex-1 sm:flex-none"
+                className="w-full sm:w-auto justify-center"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export PDF

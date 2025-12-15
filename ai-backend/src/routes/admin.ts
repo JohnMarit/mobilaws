@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { env } from '../env';
 import { requireAdmin, strictRateLimit, apiRateLimit } from '../middleware/security';
 import * as XLSX from 'xlsx';
 import PDFDocument from 'pdfkit';
+import { getAllFirebaseAuthUsers } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -127,14 +127,39 @@ router.get('/admin/users/export', apiRateLimit, verifyAdmin, async (req: Request
   try {
     const format = ((req.query.format as string) || 'excel').toLowerCase();
 
-    // Prepare a flat list of user records for export
-    const allUsers = Array.from(users.values()).map(u => ({
-      ID: u.id,
-      Name: u.name || '',
-      Email: u.email || '',
-      Status: u.status || 'active',
-      CreatedAt: u.createdAt || '',
-    }));
+    // Prefer fresh data directly from Firebase Auth so export always has all users
+    let allUsers: Array<{
+      ID: string;
+      Name: string;
+      Email: string;
+      Status: string;
+      CreatedAt: string;
+    }> = [];
+
+    try {
+      const firebaseUsers = await getAllFirebaseAuthUsers();
+      allUsers = firebaseUsers.map((u) => ({
+        ID: u.uid,
+        Name: u.displayName || (u.email ? u.email.split('@')[0] : '') || 'User',
+        Email: u.email || '',
+        Status: 'active',
+        CreatedAt: u.metadata?.creationTime || '',
+      }));
+    } catch (err) {
+      console.warn('⚠️ Failed to load users from Firebase Auth for export, falling back to in-memory users:', err);
+      // Fallback to in-memory storage if Firebase Admin is not configured
+      allUsers = Array.from(users.values()).map((u) => ({
+        ID: u.id,
+        Name: u.name || '',
+        Email: u.email || '',
+        Status: u.status || 'active',
+        CreatedAt: u.createdAt || '',
+      }));
+    }
+
+    if (allUsers.length === 0) {
+      console.log('ℹ️ No users found to export');
+    }
 
     if (format === 'pdf') {
       // Generate a simple PDF table
