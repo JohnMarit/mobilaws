@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { env } from '../env';
 import { requireAdmin, strictRateLimit, apiRateLimit } from '../middleware/security';
+import * as XLSX from 'xlsx';
+import PDFDocument from 'pdfkit';
 
 const router = Router();
 
@@ -114,6 +116,67 @@ router.get('/admin/users', apiRateLimit, verifyAdmin, async (req: Request, res: 
   } catch (error) {
     console.error('❌ Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+/**
+ * Export all users
+ * GET /api/admin/users/export?format=excel|pdf
+ */
+router.get('/admin/users/export', apiRateLimit, verifyAdmin, async (req: Request, res: Response) => {
+  try {
+    const format = ((req.query.format as string) || 'excel').toLowerCase();
+
+    // Prepare a flat list of user records for export
+    const allUsers = Array.from(users.values()).map(u => ({
+      ID: u.id,
+      Name: u.name || '',
+      Email: u.email || '',
+      Status: u.status || 'active',
+      CreatedAt: u.createdAt || '',
+    }));
+
+    if (format === 'pdf') {
+      // Generate a simple PDF table
+      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="users.pdf"');
+
+      doc.pipe(res);
+
+      doc.fontSize(18).text('Users Export', { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(10);
+      allUsers.forEach((user) => {
+        doc.text(`ID: ${user.ID}`);
+        doc.text(`Name: ${user.Name}`);
+        doc.text(`Email: ${user.Email}`);
+        doc.text(`Status: ${user.Status}`);
+        doc.text(`Created At: ${user.CreatedAt}`);
+        doc.moveDown(0.75);
+      });
+
+      doc.end();
+      return;
+    }
+
+    // Default: Excel export
+    const worksheet = XLSX.utils.json_to_sheet(allUsers);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename="users.xlsx"');
+    res.send(buffer);
+  } catch (error) {
+    console.error('❌ Error exporting users:', error);
+    res.status(500).json({ error: 'Failed to export users' });
   }
 });
 

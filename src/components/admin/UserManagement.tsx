@@ -21,12 +21,14 @@ import {
 } from '../ui/select';
 import { Search, RefreshCw, UserCheck, UserX, Ban, Download, Zap, Plus, Gift } from 'lucide-react';
 import { toast } from 'sonner';
+import { saveAs } from 'file-saver';
 
 export default function UserManagement() {
-  const { getUsers, updateUserStatus, syncAllUsersFromFirestore, grantTokens } = useAdmin();
+  const { getUsers, updateUserStatus, syncAllUsersFromFirestore, grantTokens, exportUsers } = useAdmin();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -156,6 +158,31 @@ export default function UserManagement() {
     }
   };
 
+  const handleExport = async (format: 'excel' | 'pdf') => {
+    setIsExporting(true);
+    try {
+      toast.info(`Preparing ${format === 'excel' ? 'Excel' : 'PDF'} export...`);
+      const blob = await exportUsers(format);
+
+      if (!blob) {
+        toast.error('Failed to export users');
+        return;
+      }
+
+      const date = new Date().toISOString().split('T')[0];
+      const extension = format === 'excel' ? 'xlsx' : 'pdf';
+      const filename = `users-${date}.${extension}`;
+
+      saveAs(blob, filename);
+      toast.success(`Users exported as ${format.toUpperCase()}`);
+    } catch (error) {
+      console.error('Error exporting users:', error);
+      toast.error('Failed to export users');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -198,6 +225,24 @@ export default function UserManagement() {
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport('excel')}
+                disabled={isLoading || isSyncing || isExporting}
+                className="flex-1 sm:flex-none"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleExport('pdf')}
+                disabled={isLoading || isSyncing || isExporting}
+                className="flex-1 sm:flex-none"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
               </Button>
             </div>
           </div>

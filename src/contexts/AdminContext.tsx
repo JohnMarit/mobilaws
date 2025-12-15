@@ -105,6 +105,7 @@ interface AdminContextType {
   updateTicket: (ticketId: string, updates: any) => Promise<boolean>;
   getStats: () => Promise<AdminStats | null>;
   syncAllUsersFromFirestore: () => Promise<{ success: boolean; count: number; errors: number }>;
+  exportUsers: (format: 'excel' | 'pdf') => Promise<Blob | null>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -424,65 +425,91 @@ export function AdminProvider({ children }: AdminProviderProps) {
     }
   }, [getHeaders]);
 
-  const syncAllUsersFromFirestore = useCallback(async (): Promise<{ success: boolean; count: number; errors: number }> => {
-    try {
-      console.log('🔄 Starting bulk user sync from Firestore...');
-      
-      // Import the function dynamically
-      const { getAllUsersFromFirestore } = await import('../lib/userService');
-      
-      // Fetch all users from Firestore
-      const users = await getAllUsersFromFirestore();
-      
-      if (users.length === 0) {
-        console.log('ℹ️ No users found in Firestore');
-        return { success: true, count: 0, errors: 0 };
-      }
+  const syncAllUsersFromFirestore = useCallback(
+    async (): Promise<{ success: boolean; count: number; errors: number }> => {
+      try {
+        console.log('🔄 Starting bulk user sync from Firestore...');
 
-      console.log(`📊 Found ${users.length} users in Firestore. Syncing to backend...`);
-      
-      // Sync each user to backend
-      let successCount = 0;
-      let errorCount = 0;
+        // Import the function dynamically
+        const { getAllUsersFromFirestore } = await import('../lib/userService');
 
-      for (const user of users) {
-        try {
-          const response = await fetch(getApiUrl('users/sync'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              picture: user.picture,
-            })
-          });
+        // Fetch all users from Firestore
+        const users = await getAllUsersFromFirestore();
 
-          if (response.ok) {
-            successCount++;
-            console.log(`✅ Synced user: ${user.email}`);
-          } else {
-            errorCount++;
-            console.error(`❌ Failed to sync user: ${user.email}`);
-          }
-        } catch (error) {
-          errorCount++;
-          console.error(`❌ Error syncing user ${user.email}:`, error);
+        if (users.length === 0) {
+          console.log('ℹ️ No users found in Firestore');
+          return { success: true, count: 0, errors: 0 };
         }
-      }
 
-      console.log(`✅ Bulk sync complete: ${successCount} successful, ${errorCount} errors`);
-      
-      return { 
-        success: errorCount === 0, 
-        count: successCount, 
-        errors: errorCount 
-      };
-    } catch (error) {
-      console.error('❌ Error during bulk sync:', error);
-      return { success: false, count: 0, errors: 1 };
-    }
-  }, [getHeaders]);
+        console.log(`📊 Found ${users.length} users in Firestore. Syncing to backend...`);
+
+        // Sync each user to backend
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const user of users) {
+          try {
+            const response = await fetch(getApiUrl('users/sync'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                picture: user.picture,
+              }),
+            });
+
+            if (response.ok) {
+              successCount++;
+              console.log(`✅ Synced user: ${user.email}`);
+            } else {
+              errorCount++;
+              console.error(`❌ Failed to sync user: ${user.email}`);
+            }
+          } catch (error) {
+            errorCount++;
+            console.error(`❌ Error syncing user ${user.email}:`, error);
+          }
+        }
+
+        console.log(`✅ Bulk sync complete: ${successCount} successful, ${errorCount} errors`);
+
+        return {
+          success: errorCount === 0,
+          count: successCount,
+          errors: errorCount,
+        };
+      } catch (error) {
+        console.error('❌ Error during bulk sync:', error);
+        return { success: false, count: 0, errors: 1 };
+      }
+    },
+    []
+  );
+
+  const exportUsers = useCallback(
+    async (format: 'excel' | 'pdf'): Promise<Blob | null> => {
+      try {
+        const params = new URLSearchParams({ format });
+        const response = await fetch(getApiUrl(`admin/users/export?${params}`), {
+          headers: getHeaders(),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Failed to export users:', response.status, errorText);
+          throw new Error(`Failed to export users: ${response.status}`);
+        }
+
+        return await response.blob();
+      } catch (error) {
+        console.error('❌ Error exporting users:', error);
+        return null;
+      }
+    },
+    [getHeaders]
+  );
 
   const value: AdminContextType = {
     admin,
@@ -501,6 +528,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     updateTicket,
     getStats,
     syncAllUsersFromFirestore,
+    exportUsers,
   };
 
   return (
