@@ -3,7 +3,7 @@ import { requireAdmin, strictRateLimit, apiRateLimit } from '../middleware/secur
 import * as XLSX from 'xlsx';
 import PDFDocument from 'pdfkit';
 import { getAllFirebaseAuthUsers } from '../lib/firebase-admin';
-import { getAllSubscriptions, saveSubscription, logAdminOperation } from '../lib/subscription-storage';
+import { getAllSubscriptions, getSubscription, saveSubscription, logAdminOperation } from '../lib/subscription-storage';
 
 const router = Router();
 
