@@ -195,6 +195,44 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     };
 
     initializeSubscription();
+    
+    // Set up polling interval to check for token updates every 10 seconds
+    // This allows users to see tokens granted by admin without manual refresh
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (isAuthenticated && user) {
+      intervalId = setInterval(async () => {
+        try {
+          const response = await fetch(getApiUrl(`subscription/${user.id}`));
+          if (response.ok) {
+            const result = await response.json();
+            if (result.subscription) {
+              // Only update if there's a meaningful change (avoid unnecessary re-renders)
+              setUserSubscription(prev => {
+                if (!prev || 
+                    prev.tokensRemaining !== result.subscription.tokensRemaining ||
+                    prev.totalTokens !== result.subscription.totalTokens ||
+                    prev.planId !== result.subscription.planId) {
+                  console.log(`🔄 Token update detected: ${result.subscription.tokensRemaining} remaining`);
+                  return result.subscription;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch (error) {
+          // Silently fail - polling is best-effort
+          console.debug('Token polling check failed:', error);
+        }
+      }, 10000); // Poll every 10 seconds
+    }
+    
+    // Cleanup interval on unmount or when dependencies change
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
   // Keep free-tier token state in sync with Firestore (midnight resets)

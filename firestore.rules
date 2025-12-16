@@ -102,6 +102,37 @@ service cloud.firestore {
       allow read, write: if isAnonDoc() || isUserDoc();
     }
     
+    // Subscriptions collection (persistent token grants and purchases)
+    match /subscriptions/{userId} {
+      // Users can read their own subscription
+      allow read: if isOwner(userId) || isAdmin();
+      // Only backend (Admin SDK) can write subscriptions
+      allow write: if false;
+    }
+    
+    // Purchases collection (transaction history)
+    match /purchases/{purchaseId} {
+      // Users can read their own purchases
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      // Only backend (Admin SDK) can write purchases
+      allow write: if false;
+    }
+    
+    // Admin operations log (audit trail)
+    match /admin_operations/{operationId} {
+      // Only admins can read the audit log
+      allow read: if isAdmin();
+      // Only backend (Admin SDK) can write operations
+      allow write: if false;
+    }
+    
+    // Admin stats collection (for dashboard)
+    match /admin_stats/{statId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only server with Admin SDK can write
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

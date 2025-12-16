@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { adminStorage } from './admin';
+import { getSubscription, saveSubscription, updateSubscriptionTokens } from '../lib/subscription-storage';
 
 const router = Router();
 
@@ -10,9 +11,16 @@ const subscriptions = adminStorage.subscriptions;
  * Initialize free plan for authenticated users
  * This gives users 5 tokens per day with daily reset
  */
-const initializeFreePlan = (userId: string) => {
+const initializeFreePlan = async (userId: string) => {
   const today = new Date().toDateString();
-  const existingSub = subscriptions.get(userId);
+  
+  // Try to get subscription from Firestore first
+  let existingSub = await getSubscription(userId);
+  
+  // Fallback to in-memory if Firestore is not available
+  if (!existingSub) {
+    existingSub = subscriptions.get(userId);
+  }
   
   // Check if user already has a paid subscription
   if (existingSub && existingSub.planId !== 'free') {
@@ -21,13 +29,17 @@ const initializeFreePlan = (userId: string) => {
   
   // Check if we need to reset daily tokens
   if (existingSub && existingSub.planId === 'free') {
-    const lastResetDate = new Date(existingSub.lastResetDate).toDateString();
+    const lastResetDate = new Date(existingSub.lastResetDate || '').toDateString();
     
     if (lastResetDate !== today) {
       // Reset tokens for new day
       existingSub.tokensRemaining = 5;
       existingSub.tokensUsed = 0;
       existingSub.lastResetDate = new Date().toISOString();
+      
+      // Save to Firestore
+      await saveSubscription(existingSub);
+      // Also update in-memory
       subscriptions.set(userId, existingSub);
       console.log(`✅ Daily tokens reset for user ${userId}: 5 tokens`);
     }
@@ -37,6 +49,7 @@ const initializeFreePlan = (userId: string) => {
   
   // Create new free plan
   const freePlan = {
+    userId,
     planId: 'free',
     tokensRemaining: 5,
     tokensUsed: 0,
@@ -48,6 +61,9 @@ const initializeFreePlan = (userId: string) => {
     isFree: true
   };
   
+  // Save to Firestore
+  await saveSubscription(freePlan);
+  // Also update in-memory
   subscriptions.set(userId, freePlan);
   console.log(`✅ Free plan initialized for user ${userId}: 5 daily tokens`);
   
@@ -62,20 +78,28 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     
-    let subscription = subscriptions.get(userId);
+    // Try to get from Firestore first
+    let subscription = await getSubscription(userId);
+    
+    // Fallback to in-memory
+    if (!subscription) {
+      subscription = subscriptions.get(userId);
+    }
     
     // If no subscription exists, initialize free plan
     if (!subscription) {
-      subscription = initializeFreePlan(userId);
+      subscription = await initializeFreePlan(userId);
     } else {
       // Check if free plan needs daily reset
       if (subscription.planId === 'free') {
-        subscription = initializeFreePlan(userId);
+        subscription = await initializeFreePlan(userId);
       }
       
       // Check if paid subscription is still valid
       if (subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
         subscription.isActive = false;
+        // Save updated status to Firestore
+        await saveSubscription(subscription);
         subscriptions.set(userId, subscription);
       }
     }
@@ -104,6 +128,7 @@ router.post('/subscription/:userId', async (req: Request, res: Response) => {
     // For demo purposes, we'll simulate a successful purchase
     
     const newSubscription = {
+      userId,
       planId,
       tokensRemaining: tokens,
       tokensUsed: 0,
@@ -115,6 +140,9 @@ router.post('/subscription/:userId', async (req: Request, res: Response) => {
       paymentId: `demo_${Date.now()}` // Demo payment ID
     };
     
+    // Save to Firestore
+    await saveSubscription(newSubscription);
+    // Also update in-memory
     subscriptions.set(userId, newSubscription);
     
     console.log(`✅ Subscription created for user ${userId}: ${planId} plan with ${tokens} tokens`);
@@ -138,16 +166,22 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
   try {
     const { userId } = req.params;
     
-    let subscription = subscriptions.get(userId);
+    // Try to get from Firestore first
+    let subscription = await getSubscription(userId);
+    
+    // Fallback to in-memory
+    if (!subscription) {
+      subscription = subscriptions.get(userId);
+    }
     
     // Initialize free plan if no subscription exists
     if (!subscription) {
-      subscription = initializeFreePlan(userId);
+      subscription = await initializeFreePlan(userId);
     }
     
     // Check for daily reset on free plan
     if (subscription.planId === 'free') {
-      subscription = initializeFreePlan(userId);
+      subscription = await initializeFreePlan(userId);
     }
     
     if (!subscription || !subscription.isActive) {
@@ -174,6 +208,9 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
     subscription.tokensRemaining -= 1;
     subscription.tokensUsed += 1;
     
+    // Save to Firestore
+    await updateSubscriptionTokens(userId, subscription.tokensRemaining, subscription.tokensUsed);
+    // Also update in-memory
     subscriptions.set(userId, subscription);
     
     console.log(`✅ Token used for user ${userId}. Remaining: ${subscription.tokensRemaining}`);

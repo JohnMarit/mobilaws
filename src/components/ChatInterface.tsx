@@ -603,16 +603,18 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
 
       {/* Subscription Modal */}
       {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">Subscription Plans</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="sticky top-0 bg-white border-b px-3 py-3 sm:px-4 sm:py-4 flex justify-between items-center shadow-sm z-10">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 truncate pr-2">Subscription Plans</h2>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowSubscriptionModal(false)}
+                className="flex-shrink-0 h-8 w-8 p-0 hover:bg-gray-100 rounded-full"
+                aria-label="Close"
               >
-                ✕
+                <span className="text-xl text-gray-600">✕</span>
               </Button>
             </div>
             <SubscriptionManager onClose={() => setShowSubscriptionModal(false)} />

@@ -3,6 +3,7 @@ import { requireAdmin, strictRateLimit, apiRateLimit } from '../middleware/secur
 import * as XLSX from 'xlsx';
 import PDFDocument from 'pdfkit';
 import { getAllFirebaseAuthUsers } from '../lib/firebase-admin';
+import { getAllSubscriptions, saveSubscription, logAdminOperation } from '../lib/subscription-storage';
 
 const router = Router();
 
@@ -273,11 +274,16 @@ router.get('/admin/subscriptions', verifyAdmin, async (req: Request, res: Respon
     const planId = req.query.planId as string;
     const status = req.query.status as string;
 
-    // Get all subscriptions
-    let allSubscriptions = Array.from(subscriptions.entries()).map(([userId, sub]) => ({
-      userId,
-      ...sub
-    }));
+    // Get all subscriptions from Firestore (fallback to in-memory)
+    let allSubscriptions = await getAllSubscriptions(1000); // Get up to 1000
+    
+    // If Firestore returns empty, fallback to in-memory
+    if (allSubscriptions.length === 0) {
+      allSubscriptions = Array.from(subscriptions.entries()).map(([userId, sub]) => ({
+        userId,
+        ...sub
+      }));
+    }
 
     // Filter by plan
     if (planId) {
@@ -326,6 +332,7 @@ router.put('/admin/subscriptions/:userId', verifyAdmin, async (req: Request, res
   try {
     const { userId } = req.params;
     const { tokensRemaining, expiryDate, isActive } = req.body;
+    const adminEmail = req.headers['x-admin-email'] as string;
 
     const subscription = subscriptions.get(userId);
     if (!subscription) {
@@ -344,7 +351,23 @@ router.put('/admin/subscriptions/:userId', verifyAdmin, async (req: Request, res
     }
 
     subscription.updatedAt = new Date().toISOString();
+    
+    // Save to Firestore
+    await saveSubscription(subscription);
+    // Also update in-memory
     subscriptions.set(userId, subscription);
+
+    // Log admin operation
+    await logAdminOperation({
+      adminEmail,
+      operationType: 'update_subscription',
+      targetUserId: userId,
+      details: {
+        tokensRemaining,
+        expiryDate,
+        isActive,
+      },
+    });
 
     console.log(`✅ Subscription updated for user: ${userId}`);
 

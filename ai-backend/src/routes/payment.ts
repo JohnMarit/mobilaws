@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { env } from '../env';
 import { adminStorage } from './admin';
+import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subscription-storage';
 
 const router = Router();
 
@@ -55,6 +56,18 @@ router.post('/payment/create-intent', async (req: Request, res: Response) => {
       createdAt: new Date().toISOString()
     });
 
+    // Log purchase as pending in Firestore
+    await logPurchase({
+      userId,
+      planId,
+      planName: planName || planId,
+      tokens: tokens || 0,
+      price,
+      paymentId: paymentIntent.id,
+      paymentStatus: 'pending',
+      paymentMethod: 'stripe',
+    });
+
     console.log(`✅ Payment intent created for user ${userId}: ${planName} - $${price}`);
 
     res.json({
@@ -103,6 +116,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 
     // Create subscription record
     const newSubscription = {
+      userId,
       planId,
       tokensRemaining: tokens,
       tokensUsed: 0,
@@ -115,10 +129,17 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       paymentStatus: 'completed'
     };
 
+    // Save to Firestore
+    await saveSubscription(newSubscription);
+    
     // Persist subscription into shared admin storage so admin dashboard can see it
     const existing = adminStorage.subscriptions.get(userId);
     const merged = existing ? { ...existing, ...newSubscription } : newSubscription;
     adminStorage.subscriptions.set(userId, merged);
+    
+    // Update purchase status to completed
+    await updatePurchaseStatus(paymentIntentId, 'completed');
+    
     console.log(`✅ Payment verified for user ${userId}: ${planName} - $${price}`);
 
     // Clean up stored payment intent
