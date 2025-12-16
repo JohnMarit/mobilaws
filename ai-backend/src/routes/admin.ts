@@ -334,28 +334,30 @@ router.put('/admin/subscriptions/:userId', verifyAdmin, async (req: Request, res
     const { tokensRemaining, expiryDate, isActive } = req.body;
     const adminEmail = req.headers['x-admin-email'] as string;
 
-    const subscription = subscriptions.get(userId);
+    let subscription = subscriptions.get(userId);
+    
+    // Try Firestore if not in memory
+    if (!subscription) {
+      subscription = await getSubscription(userId);
+    }
+    
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 
     // Update subscription fields
-    if (tokensRemaining !== undefined) {
-      subscription.tokensRemaining = tokensRemaining;
-    }
-    if (expiryDate !== undefined) {
-      subscription.expiryDate = expiryDate;
-    }
-    if (isActive !== undefined) {
-      subscription.isActive = isActive;
-    }
-
-    subscription.updatedAt = new Date().toISOString();
+    const updatedSubscription = {
+      ...subscription,
+      tokensRemaining: tokensRemaining !== undefined ? tokensRemaining : subscription.tokensRemaining,
+      expiryDate: expiryDate !== undefined ? expiryDate : subscription.expiryDate,
+      isActive: isActive !== undefined ? isActive : subscription.isActive,
+      updatedAt: new Date().toISOString(),
+    };
     
     // Save to Firestore
-    await saveSubscription(subscription);
+    await saveSubscription(updatedSubscription);
     // Also update in-memory
-    subscriptions.set(userId, subscription);
+    subscriptions.set(userId, updatedSubscription);
 
     // Log admin operation
     await logAdminOperation({
@@ -371,7 +373,7 @@ router.put('/admin/subscriptions/:userId', verifyAdmin, async (req: Request, res
 
     console.log(`✅ Subscription updated for user: ${userId}`);
 
-    res.json({ success: true, subscription });
+    res.json({ success: true, subscription: updatedSubscription });
   } catch (error) {
     console.error('❌ Error updating subscription:', error);
     res.status(500).json({ error: 'Failed to update subscription' });

@@ -115,7 +115,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     const { planId, userId, price, tokens, planName } = storedData;
 
     // Create subscription record
-    const newSubscription = {
+    const newSubscriptionData = {
       userId,
       planId,
       tokensRemaining: tokens,
@@ -129,12 +129,12 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       paymentStatus: 'completed'
     };
 
-    // Save to Firestore
-    await saveSubscription(newSubscription);
+    // Save to Firestore (this adds createdAt/updatedAt)
+    await saveSubscription(newSubscriptionData);
     
     // Persist subscription into shared admin storage so admin dashboard can see it
     const existing = adminStorage.subscriptions.get(userId);
-    const merged = existing ? { ...existing, ...newSubscription } : newSubscription;
+    const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
     adminStorage.subscriptions.set(userId, merged);
     
     // Update purchase status to completed
@@ -147,7 +147,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      subscription: newSubscription,
+      subscription: newSubscriptionData,
       message: 'Payment verified and subscription created successfully'
     });
 

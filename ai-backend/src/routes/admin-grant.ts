@@ -56,34 +56,32 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       subscription = adminStorage.subscriptions.get(userId);
     }
 
-    if (!subscription) {
-      // Create new subscription with granted tokens
-      subscription = {
-        userId,
-        planId: 'admin_granted',
-        tokensRemaining: tokens,
-        tokensUsed: 0,
-        totalTokens: tokens,
-        purchaseDate: new Date().toISOString(),
-        isActive: true,
-        price: 0, // Admin granted, no payment
-        grantedBy: adminEmail,
-        grantedAt: new Date().toISOString(),
-      };
-    } else {
-      // Add tokens to existing subscription
-      subscription.tokensRemaining = (subscription.tokensRemaining || 0) + tokens;
-      subscription.totalTokens = (subscription.totalTokens || 0) + tokens;
-      subscription.isActive = true;
-      subscription.grantedBy = adminEmail;
-      subscription.grantedAt = new Date().toISOString();
-    }
+    // Prepare subscription data (without timestamps - they'll be added by saveSubscription)
+    const subscriptionData = subscription ? {
+      ...subscription,
+      tokensRemaining: (subscription.tokensRemaining || 0) + tokens,
+      totalTokens: (subscription.totalTokens || 0) + tokens,
+      isActive: true,
+      grantedBy: adminEmail,
+      grantedAt: new Date().toISOString(),
+    } : {
+      userId,
+      planId: 'admin_granted',
+      tokensRemaining: tokens,
+      tokensUsed: 0,
+      totalTokens: tokens,
+      purchaseDate: new Date().toISOString(),
+      isActive: true,
+      price: 0, // Admin granted, no payment
+      grantedBy: adminEmail,
+      grantedAt: new Date().toISOString(),
+    };
 
-    // Save to Firestore
-    const savedToFirestore = await saveSubscription(subscription);
+    // Save to Firestore (this will add createdAt/updatedAt)
+    const savedToFirestore = await saveSubscription(subscriptionData);
     
     // Also update in-memory storage for immediate access
-    adminStorage.subscriptions.set(userId, subscription);
+    adminStorage.subscriptions.set(userId, subscriptionData);
 
     // Log admin operation to Firestore
     await logAdminOperation({
@@ -92,21 +90,21 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       targetUserId: userId,
       details: {
         tokensGranted: tokens,
-        newTotalTokens: subscription.totalTokens,
-        newRemainingTokens: subscription.tokensRemaining,
+        newTotalTokens: subscriptionData.totalTokens,
+        newRemainingTokens: subscriptionData.tokensRemaining,
       },
     });
 
-    console.log(`✅ Granted ${tokens} tokens to user ${userId}. Total: ${subscription.tokensRemaining}`);
+    console.log(`✅ Granted ${tokens} tokens to user ${userId}. Total: ${subscriptionData.tokensRemaining}`);
     console.log(`📝 Admin operation logged to Firestore: ${savedToFirestore ? 'Success' : 'Failed (using memory only)'}`);
 
     res.json({
       success: true,
       message: `Successfully granted ${tokens} tokens to user`,
       subscription: {
-        tokensRemaining: subscription.tokensRemaining,
-        totalTokens: subscription.totalTokens,
-        isActive: subscription.isActive,
+        tokensRemaining: subscriptionData.tokensRemaining,
+        totalTokens: subscriptionData.totalTokens,
+        isActive: subscriptionData.isActive,
       }
     });
   } catch (error) {

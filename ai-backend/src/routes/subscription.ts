@@ -33,22 +33,26 @@ const initializeFreePlan = async (userId: string) => {
     
     if (lastResetDate !== today) {
       // Reset tokens for new day
-      existingSub.tokensRemaining = 5;
-      existingSub.tokensUsed = 0;
-      existingSub.lastResetDate = new Date().toISOString();
+      const updatedSub = {
+        ...existingSub,
+        tokensRemaining: 5,
+        tokensUsed: 0,
+        lastResetDate: new Date().toISOString(),
+      };
       
       // Save to Firestore
-      await saveSubscription(existingSub);
+      await saveSubscription(updatedSub);
       // Also update in-memory
-      subscriptions.set(userId, existingSub);
+      subscriptions.set(userId, updatedSub);
       console.log(`✅ Daily tokens reset for user ${userId}: 5 tokens`);
+      return updatedSub;
     }
     
     return existingSub;
   }
   
-  // Create new free plan
-  const freePlan = {
+  // Create new free plan (without timestamps - saveSubscription will add them)
+  const freePlanData = {
     userId,
     planId: 'free',
     tokensRemaining: 5,
@@ -61,13 +65,15 @@ const initializeFreePlan = async (userId: string) => {
     isFree: true
   };
   
-  // Save to Firestore
-  await saveSubscription(freePlan);
+  // Save to Firestore (this adds createdAt/updatedAt)
+  await saveSubscription(freePlanData);
   // Also update in-memory
-  subscriptions.set(userId, freePlan);
+  subscriptions.set(userId, freePlanData);
   console.log(`✅ Free plan initialized for user ${userId}: 5 daily tokens`);
   
-  return freePlan;
+  // Get the saved version with timestamps from Firestore
+  const savedFreePlan = await getSubscription(userId);
+  return savedFreePlan || freePlanData;
 };
 
 /**
@@ -127,7 +133,7 @@ router.post('/subscription/:userId', async (req: Request, res: Response) => {
     // In a real application, this would integrate with a payment processor
     // For demo purposes, we'll simulate a successful purchase
     
-    const newSubscription = {
+    const newSubscriptionData = {
       userId,
       planId,
       tokensRemaining: tokens,
@@ -140,16 +146,16 @@ router.post('/subscription/:userId', async (req: Request, res: Response) => {
       paymentId: `demo_${Date.now()}` // Demo payment ID
     };
     
-    // Save to Firestore
-    await saveSubscription(newSubscription);
+    // Save to Firestore (this adds createdAt/updatedAt)
+    await saveSubscription(newSubscriptionData);
     // Also update in-memory
-    subscriptions.set(userId, newSubscription);
+    subscriptions.set(userId, newSubscriptionData);
     
     console.log(`✅ Subscription created for user ${userId}: ${planId} plan with ${tokens} tokens`);
     
     res.json({ 
       success: true, 
-      subscription: newSubscription,
+      subscription: newSubscriptionData,
       message: 'Subscription created successfully'
     });
   } catch (error) {
