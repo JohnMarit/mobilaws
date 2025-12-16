@@ -59,9 +59,11 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
     // Prepare subscription data (without timestamps - they'll be added by saveSubscription)
     const subscriptionData = subscription ? {
       ...subscription,
+      planId: subscription.planId === 'free' ? 'admin_granted' : subscription.planId, // Upgrade from free to admin_granted
       tokensRemaining: (subscription.tokensRemaining || 0) + tokens,
       totalTokens: (subscription.totalTokens || 0) + tokens,
       isActive: true,
+      isFree: false, // Admin-granted tokens are NOT free daily tokens
       grantedBy: adminEmail,
       grantedAt: new Date().toISOString(),
     } : {
@@ -73,6 +75,7 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       purchaseDate: new Date().toISOString(),
       isActive: true,
       price: 0, // Admin granted, no payment
+      isFree: false, // Admin-granted tokens are NOT free daily tokens
       grantedBy: adminEmail,
       grantedAt: new Date().toISOString(),
     };

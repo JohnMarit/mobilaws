@@ -105,12 +105,12 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
     if (!subscription) {
       subscription = await initializeFreePlan(userId);
     } else {
-      // Check if free plan needs daily reset
-      if (subscription.planId === 'free') {
+      // Check if free plan needs daily reset (ONLY for 'free' plan, not admin_granted)
+      if (subscription.planId === 'free' && subscription.isFree) {
         subscription = await initializeFreePlan(userId);
       }
       
-      // Check if paid subscription is still valid
+      // Check if paid/granted subscription is still valid
       if (subscription && subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
         const updatedSub = {
           ...subscription,
@@ -203,8 +203,8 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       subscription = await initializeFreePlan(userId);
     }
     
-    // Check for daily reset on free plan
-    if (subscription && subscription.planId === 'free') {
+    // Check for daily reset on free plan (ONLY for true free plan, not admin_granted)
+    if (subscription && subscription.planId === 'free' && subscription.isFree) {
       subscription = await initializeFreePlan(userId);
     }
     
