@@ -33,11 +33,11 @@ const verifyAdmin = (req: Request, res: Response, next: Function): void => {
 /**
  * Grant tokens to a user
  * POST /api/admin/grant-tokens
- * Body: { userId: string, tokens: number }
+ * Body: { userId: string, tokens: number, expiryDays?: number }
  */
 router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Response) => {
   try {
-    const { userId, tokens } = req.body;
+    const { userId, tokens, expiryDays } = req.body;
     const adminEmail = req.headers['x-admin-email'] as string;
 
     if (!userId || typeof tokens !== 'number' || tokens <= 0) {
@@ -46,7 +46,11 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       });
     }
 
-    console.log(`💎 Admin granting ${tokens} tokens to user ${userId}`);
+    // Calculate expiry date if provided (defaults to 30 days for granted tokens)
+    const expiryDaysToUse = expiryDays && expiryDays > 0 ? expiryDays : 30;
+    const expiryDate = new Date(Date.now() + expiryDaysToUse * 24 * 60 * 60 * 1000).toISOString();
+
+    console.log(`💎 Admin granting ${tokens} tokens to user ${userId} (expires in ${expiryDaysToUse} days)`);
 
     // Get existing subscription from Firestore (try Firestore first, fallback to memory)
     let subscription = await getSubscription(userId);
@@ -66,6 +70,7 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       isFree: false, // Admin-granted tokens are NOT free daily tokens
       grantedBy: adminEmail,
       grantedAt: new Date().toISOString(),
+      expiryDate: expiryDate, // Set expiry date for granted tokens
     } : {
       userId,
       planId: 'admin_granted',
@@ -73,6 +78,7 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
       tokensUsed: 0,
       totalTokens: tokens,
       purchaseDate: new Date().toISOString(),
+      expiryDate: expiryDate, // Set expiry date for granted tokens
       isActive: true,
       price: 0, // Admin granted, no payment
       isFree: false, // Admin-granted tokens are NOT free daily tokens
@@ -95,19 +101,22 @@ router.post('/admin/grant-tokens', verifyAdmin, async (req: Request, res: Respon
         tokensGranted: tokens,
         newTotalTokens: subscriptionData.totalTokens,
         newRemainingTokens: subscriptionData.tokensRemaining,
+        expiryDate: expiryDate,
+        expiryDays: expiryDaysToUse,
       },
     });
 
-    console.log(`✅ Granted ${tokens} tokens to user ${userId}. Total: ${subscriptionData.tokensRemaining}`);
+    console.log(`✅ Granted ${tokens} tokens to user ${userId}. Total: ${subscriptionData.tokensRemaining}, Expires: ${expiryDate}`);
     console.log(`📝 Admin operation logged to Firestore: ${savedToFirestore ? 'Success' : 'Failed (using memory only)'}`);
 
     res.json({
       success: true,
-      message: `Successfully granted ${tokens} tokens to user`,
+      message: `Successfully granted ${tokens} tokens to user (expires in ${expiryDaysToUse} days)`,
       subscription: {
         tokensRemaining: subscriptionData.tokensRemaining,
         totalTokens: subscriptionData.totalTokens,
         isActive: subscriptionData.isActive,
+        expiryDate: subscriptionData.expiryDate,
       }
     });
   } catch (error) {

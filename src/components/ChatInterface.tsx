@@ -474,7 +474,9 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           )}
           {isAuthenticated && userSubscription ? (
             <span className="text-xs text-gray-500 ml-4">
-              ● {userSubscription.tokensUsed}/{userSubscription.totalTokens} tokens {userSubscription.isFree ? 'today' : ''}
+              ● {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens
+              {userSubscription.isFree === true ? ' (daily)' : ''}
+              {userSubscription.planId === 'admin_granted' ? ' (granted)' : ''}
             </span>
           ) : !isAuthenticated ? (
             <span className="text-xs text-gray-500 ml-4">

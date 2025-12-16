@@ -103,7 +103,15 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2 text-green-800 text-base sm:text-lg flex-1 min-w-0">
                 <Check className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-                <span className="truncate">Current Plan: {plans.find(p => p.id === userSubscription.planId)?.name}</span>
+                <span className="truncate">
+                  Current Plan: {
+                    userSubscription.planId === 'admin_granted' 
+                      ? 'Granted Tokens' 
+                      : userSubscription.planId === 'free'
+                      ? 'Free Plan'
+                      : plans.find(p => p.id === userSubscription.planId)?.name || userSubscription.planId
+                  }
+                </span>
               </CardTitle>
               <Button
                 variant="ghost"
@@ -130,7 +138,15 @@ export default function SubscriptionManager({ onClose }: SubscriptionManagerProp
             </div>
             {userSubscription.expiryDate && (
               <p className="text-xs sm:text-sm text-gray-600 mt-3">
-                Expires: {new Date(userSubscription.expiryDate).toLocaleDateString()}
+                {userSubscription.isFree === true 
+                  ? 'Resets daily at midnight' 
+                  : `Expires: ${new Date(userSubscription.expiryDate).toLocaleDateString()}`
+                }
+              </p>
+            )}
+            {!userSubscription.expiryDate && userSubscription.isFree === true && (
+              <p className="text-xs sm:text-sm text-gray-600 mt-3">
+                Resets daily at midnight
               </p>
             )}
           </CardContent>

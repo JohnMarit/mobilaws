@@ -424,48 +424,15 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       return false;
     }
 
-    // Paid plans respect their remaining balance; free plans revalidate in Firestore even if local count is 0
-    if (!userSubscription.isFree && userSubscription.tokensRemaining <= 0) {
+    // Don't allow token usage if none remaining (backend will also check)
+    if (userSubscription.tokensRemaining <= 0) {
+      console.warn('⚠️ No tokens remaining');
       return false;
     }
 
-    // Free daily tokens are enforced via Firestore so they cannot be reset client-side
-    if (userSubscription.isFree || userSubscription.planId === 'free') {
-      try {
-        const { useToken: useFirestoreToken, getTokenUsage } = await import('@/lib/tokenService');
-        const result = await useFirestoreToken(user.id, false, user.email);
-
-        if (!result.success) {
-          return false;
-        }
-
-        // Refresh usage so local state mirrors Firestore
-        const usage = await getTokenUsage(user.id, false);
-        const tokensUsed = usage?.tokensUsed ?? userSubscription.tokensUsed + 1;
-        const tokensRemaining = usage
-          ? Math.max(0, usage.maxTokens - usage.tokensUsed)
-          : Math.max(0, result.tokensRemaining);
-
-        const updatedSubscription = {
-          ...userSubscription,
-          tokensRemaining,
-          tokensUsed,
-          lastResetDate: usage?.resetAfter && 'toDate' in usage.resetAfter
-            ? usage.resetAfter.toDate().toISOString()
-            : userSubscription.lastResetDate
-        };
-
-        setUserSubscription(updatedSubscription);
-        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(updatedSubscription));
-        return true;
-      } catch (error) {
-        console.error('Error using free token via Firestore:', error);
-        return false;
-      }
-    }
-
     try {
-      // Call backend API to use token
+      // ALL authenticated users (free, granted, paid) use the backend subscription API
+      // This ensures proper token consumption order: granted/paid tokens FIRST, then free
       const response = await fetch(getApiUrl(`subscription/${user.id}/use-token`), {
         method: 'POST',
         headers: {
@@ -474,7 +441,9 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to use token: ${response.statusText}`);
+        const errorData = await response.json();
+        console.error('Failed to use token:', errorData.error);
+        return false;
       }
 
       const result = await response.json();
@@ -483,10 +452,14 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
         const updatedSubscription = {
           ...userSubscription,
           tokensRemaining: result.tokensRemaining,
-          tokensUsed: result.tokensUsed
+          tokensUsed: result.tokensUsed,
+          planId: result.planId || userSubscription.planId,
+          isFree: result.isFree,
+          lastResetDate: result.lastResetDate
         };
 
         setUserSubscription(updatedSubscription);
+        console.log(`✅ Token used (${result.planId}). Remaining: ${result.tokensRemaining}`);
         return true;
       } else {
         console.error('Failed to use token:', result.error);
@@ -494,8 +467,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       }
     } catch (error) {
       console.error('Error using token via backend:', error);
-      // Fallback to local token management
-      console.warn('⚠️ Using local token management');
+      // Fallback to local token management only as last resort
+      console.warn('⚠️ Using local token management fallback');
 
       const updatedSubscription = {
         ...userSubscription,
@@ -504,7 +477,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       };
 
       setUserSubscription(updatedSubscription);
-      console.log(`✅ Token used locally. Remaining: ${updatedSubscription.tokensRemaining}`);
+      console.log(`✅ Token used locally (fallback). Remaining: ${updatedSubscription.tokensRemaining}`);
       return true;
     }
   }, [userSubscription, user]);

@@ -52,7 +52,14 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
                 <div className="flex flex-col items-start">
                   <span className="text-xs font-medium text-gray-900">{user.name}</span>
                   <span className="text-xs text-gray-500">
-                    {userSubscription?.isActive ? `${userSubscription.planId === 'free' ? 'Free' : userSubscription.planId.charAt(0).toUpperCase() + userSubscription.planId.slice(1)} Plan` : 'Free Plan'}
+                    {userSubscription?.isActive 
+                      ? userSubscription.planId === 'free' 
+                        ? 'Free Plan'
+                        : userSubscription.planId === 'admin_granted'
+                        ? 'Granted Tokens'
+                        : `${userSubscription.planId.charAt(0).toUpperCase() + userSubscription.planId.slice(1)} Plan`
+                      : 'Free Plan'
+                    }
                   </span>
                 </div>
               )}

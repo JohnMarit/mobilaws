@@ -105,26 +105,22 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
     if (!subscription) {
       subscription = await initializeFreePlan(userId);
     } else {
-      // Check if free plan needs daily reset (ONLY for 'free' plan, not admin_granted)
-      if (subscription.planId === 'free' && subscription.isFree) {
-        subscription = await initializeFreePlan(userId);
-      }
-      
-      // Check if paid/granted subscription is still valid
+      // Check if paid/granted subscription has expired
       if (subscription && subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
+        console.log(`⏰ Subscription expired for user ${userId}, falling back to free plan`);
+        // Mark expired subscription as inactive
         const updatedSub = {
           ...subscription,
           isActive: false,
         };
-        // Save updated status to Firestore
         await saveSubscription(updatedSub);
         
-        // Get refreshed version from Firestore
-        const refreshedSub = await getSubscription(userId);
-        if (refreshedSub) {
-          subscriptions.set(userId, refreshedSub);
-          subscription = refreshedSub;
-        }
+        // Initialize free plan for expired subscription
+        subscription = await initializeFreePlan(userId);
+      }
+      // ONLY reset tokens if user has a true free plan (not admin_granted or paid)
+      else if (subscription.planId === 'free' && subscription.isFree === true) {
+        subscription = await initializeFreePlan(userId);
       }
     }
     
@@ -203,8 +199,17 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       subscription = await initializeFreePlan(userId);
     }
     
-    // Check for daily reset on free plan (ONLY for true free plan, not admin_granted)
-    if (subscription && subscription.planId === 'free' && subscription.isFree) {
+    // Check if subscription has expired (for paid/granted plans)
+    if (subscription && subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
+      console.log(`⏰ Subscription expired for user ${userId}, falling back to free plan`);
+      // Mark as inactive and fall back to free plan
+      subscription.isActive = false;
+      await saveSubscription(subscription);
+      subscription = await initializeFreePlan(userId);
+    }
+    
+    // ONLY reset free tokens if this is a TRUE free plan (not admin_granted or paid)
+    if (subscription && subscription.planId === 'free' && subscription.isFree === true) {
       subscription = await initializeFreePlan(userId);
     }
     
@@ -216,7 +221,8 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
     }
     
     if (subscription.tokensRemaining <= 0) {
-      const hoursUntilReset = subscription.planId === 'free' 
+      // For free plans, show hours until reset; for others, no reset
+      const hoursUntilReset = (subscription.planId === 'free' && subscription.isFree === true)
         ? getHoursUntilMidnight() 
         : null;
       
@@ -224,7 +230,8 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
         error: 'No tokens remaining',
         canUseToken: false,
         hoursUntilReset,
-        isFree: subscription.planId === 'free'
+        isFree: subscription.isFree === true,
+        planId: subscription.planId
       });
     }
     
@@ -237,14 +244,15 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
     // Also update in-memory
     subscriptions.set(userId, subscription);
     
-    console.log(`✅ Token used for user ${userId}. Remaining: ${subscription.tokensRemaining}`);
+    console.log(`✅ Token used for user ${userId} (${subscription.planId}). Remaining: ${subscription.tokensRemaining}`);
     
     res.json({ 
       success: true, 
       tokensRemaining: subscription.tokensRemaining,
       tokensUsed: subscription.tokensUsed,
       canUseToken: subscription.tokensRemaining > 0,
-      isFree: subscription.planId === 'free',
+      isFree: subscription.isFree === true,
+      planId: subscription.planId,
       lastResetDate: subscription.lastResetDate
     });
   } catch (error) {
