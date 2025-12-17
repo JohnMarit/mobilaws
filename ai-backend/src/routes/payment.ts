@@ -7,9 +7,9 @@ import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subs
 const router = Router();
 
 // Dodo Payments API configuration
-const DODO_PAYMENTS_API_URL = env.DODO_PAYMENTS_ENVIRONMENT === 'live' 
-  ? 'https://api.dodopayments.com' 
-  : 'https://api-sandbox.dodopayments.com';
+// Note: Dodo Payments uses the same API URL for both test and live modes
+// The environment variable controls which API key to use (test vs live key)
+const DODO_PAYMENTS_API_URL = 'https://api.dodopayments.com';
 
 // Type definitions for Dodo Payments API responses
 interface DodoPaymentResponse {
@@ -43,8 +43,23 @@ const paymentSessions = new Map<string, any>();
  * POST /api/payment/create-link
  */
 router.post('/payment/create-link', async (req: Request, res: Response) => {
+  // Map plan IDs to Dodo Payments product IDs (defined outside try for error handling)
+  const productIdMap: Record<string, string | undefined> = {
+    'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
+    'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
+    'premium': env.DODO_PAYMENTS_PRODUCT_PREMIUM,
+  };
+
   try {
     const { planId, userId, planName, price, tokens, userEmail, userName } = req.body;
+    
+    console.log('📥 Payment link request received:', {
+      planId,
+      userId,
+      price,
+      hasEmail: !!userEmail,
+      hasName: !!userName
+    });
     
     if (!planId || !userId || !price) {
       return res.status(400).json({ 
@@ -58,13 +73,6 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    // Map plan IDs to Dodo Payments product IDs
-    const productIdMap: Record<string, string | undefined> = {
-      'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
-      'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
-      'premium': env.DODO_PAYMENTS_PRODUCT_PREMIUM,
-    };
-
     const productId = productIdMap[planId];
     
     if (!productId) {
@@ -73,6 +81,32 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
+    // Prepare request body
+    const requestBody = {
+      payment_link: true,
+      customer: {
+        email: userEmail || 'customer@example.com',
+        name: userName || 'Customer',
+      },
+      product_cart: [
+        {
+          product_id: productId,
+          quantity: 1
+        }
+      ],
+      metadata: {
+        planId,
+        userId,
+        planName: planName || planId,
+        tokens: tokens?.toString() || '0'
+      },
+      success_url: `${env.FRONTEND_URL}/payment/success?payment_id={payment_id}`,
+      cancel_url: `${env.FRONTEND_URL}/payment/cancel`,
+    };
+
+    console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
+    console.log(`📡 API URL: ${DODO_PAYMENTS_API_URL}/v1/payments`);
+
     // Create payment link via Dodo Payments API using product
     const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments`, {
       method: 'POST',
@@ -80,32 +114,34 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
         'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        payment_link: true,
-        customer: {
-          email: userEmail || 'customer@example.com',
-          name: userName || 'Customer',
-        },
-        product_cart: [
-          {
-            product_id: productId,
-            quantity: 1
-          }
-        ],
-        metadata: {
-          planId,
-          userId,
-          planName: planName || planId,
-          tokens: tokens?.toString() || '0'
-        },
-        success_url: `${env.FRONTEND_URL}/payment/success?payment_id={payment_id}`,
-        cancel_url: `${env.FRONTEND_URL}/payment/cancel`,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
-      throw new Error(errorData.message || errorData.error || `Dodo Payments API error: ${response.status}`);
+      const errorText = await response.text();
+      let errorData: DodoErrorResponse;
+      
+      try {
+        errorData = JSON.parse(errorText) as DodoErrorResponse;
+      } catch {
+        errorData = { message: errorText || 'Unknown error' };
+      }
+
+      console.error('❌ Dodo Payments API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData,
+        requestBody: {
+          ...requestBody,
+          customer: { ...requestBody.customer, email: '***' } // Don't log full email
+        }
+      });
+
+      throw new Error(
+        errorData.message || 
+        errorData.error || 
+        `Dodo Payments API error: ${response.status} ${response.statusText}`
+      );
     }
 
     const paymentData = await response.json() as DodoPaymentResponse;
@@ -149,10 +185,27 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('❌ Error creating payment link:', error);
-    res.status(500).json({ 
+    
+    // Provide more detailed error information
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails: any = {
       error: 'Failed to create payment link',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+      message: errorMessage
+    };
+
+    // In development, include more details
+    if (env.NODE_ENV === 'development') {
+      errorDetails.stack = error instanceof Error ? error.stack : undefined;
+      errorDetails.details = {
+        planId: req.body?.planId,
+        hasApiKey: !!env.DODO_PAYMENTS_API_KEY,
+        hasProductId: !!productIdMap[req.body?.planId],
+        apiUrl: DODO_PAYMENTS_API_URL,
+        frontendUrl: env.FRONTEND_URL
+      };
+    }
+
+    res.status(500).json(errorDetails);
   }
 });
 
