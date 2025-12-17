@@ -43,6 +43,8 @@ const envSchema = z.object({
   DODO_PAYMENTS_API_KEY: z.string().optional(),
   DODO_PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
   DODO_PAYMENTS_ENVIRONMENT: z.enum(['test', 'live']).default('test'),
+  // Optional override for base API URL (if Dodo Payments provides a different domain)
+  DODO_PAYMENTS_API_URL: z.string().optional(),
   // Dodo Payments Product IDs (from your Dodo Payments dashboard)
   DODO_PAYMENTS_PRODUCT_BASIC: z.string().optional(),
   DODO_PAYMENTS_PRODUCT_STANDARD: z.string().optional(),
