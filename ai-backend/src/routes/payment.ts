@@ -11,6 +11,30 @@ const DODO_PAYMENTS_API_URL = env.DODO_PAYMENTS_ENVIRONMENT === 'live'
   ? 'https://api.dodopayments.com' 
   : 'https://api-sandbox.dodopayments.com';
 
+// Type definitions for Dodo Payments API responses
+interface DodoPaymentResponse {
+  payment_id?: string;
+  payment_url?: string;
+  checkout_url?: string;
+  status?: string;
+  amount?: number;
+  currency?: string;
+  metadata?: {
+    planId?: string;
+    userId?: string;
+    planName?: string;
+    tokens?: string;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+interface DodoErrorResponse {
+  message?: string;
+  error?: string;
+  [key: string]: any;
+}
+
 // Store payment sessions temporarily (in production, use a database)
 const paymentSessions = new Map<string, any>();
 
@@ -80,11 +104,11 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `Dodo Payments API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
+      throw new Error(errorData.message || errorData.error || `Dodo Payments API error: ${response.status}`);
     }
 
-    const paymentData = await response.json();
+    const paymentData = await response.json() as DodoPaymentResponse;
 
     // Store payment session for later verification
     paymentSessions.set(paymentData.payment_id, {
@@ -153,11 +177,11 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `Failed to retrieve payment: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
+      throw new Error(errorData.message || errorData.error || `Failed to retrieve payment: ${response.status}`);
     }
 
-    const payment = await response.json();
+    const payment = await response.json() as DodoPaymentResponse;
     
     if (payment.status !== 'succeeded' && payment.status !== 'completed') {
       return res.status(400).json({ 
@@ -175,14 +199,14 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Payment session not found' });
       }
       
+      // Calculate price from payment amount
+      const price = payment.amount ? payment.amount / 100 : 0;
+      
       // Use metadata if stored data not found
-      const { planId, userId, planName, tokens } = {
-        planId: metadata.planId,
-        userId: metadata.userId,
-        planName: metadata.planName || metadata.planId,
-        tokens: parseInt(metadata.tokens || '0'),
-        price: payment.amount ? payment.amount / 100 : 0,
-      };
+      const planId = metadata.planId as string;
+      const userId = metadata.userId as string;
+      const planName = (metadata.planName || metadata.planId) as string;
+      const tokens = parseInt(metadata.tokens || '0');
 
       // Create subscription record
       const newSubscriptionData = {
@@ -194,7 +218,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
         purchaseDate: new Date().toISOString(),
         expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
         isActive: true,
-        price: payment.amount ? payment.amount / 100 : 0,
+        price,
         paymentId: paymentId,
         paymentStatus: 'completed'
       };
@@ -290,11 +314,11 @@ router.get('/payment/status/:paymentId', async (req: Request, res: Response) => 
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-      throw new Error(errorData.message || `Failed to retrieve payment: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
+      throw new Error(errorData.message || errorData.error || `Failed to retrieve payment: ${response.status}`);
     }
 
-    const payment = await response.json();
+    const payment = await response.json() as DodoPaymentResponse;
     
     res.json({
       status: payment.status,
@@ -335,18 +359,19 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
       }
     }
 
-    const event = req.body;
+    const event = req.body as { type?: string; event_type?: string; data?: DodoPaymentResponse; [key: string]: any };
 
     // Handle the event
     switch (event.type || event.event_type) {
       case 'payment.succeeded':
       case 'payment.completed':
-        const payment = event.data || event;
-        console.log('✅ Payment succeeded:', payment.payment_id || payment.id);
+        const payment = (event.data || event) as DodoPaymentResponse;
+        const paymentId = payment.payment_id || (payment as any).id;
+        console.log('✅ Payment succeeded:', paymentId);
         
         // Verify and create subscription
         try {
-          const storedData = paymentSessions.get(payment.payment_id || payment.id);
+          const storedData = paymentSessions.get(paymentId);
           if (storedData) {
             const { planId, userId, price, tokens, planName } = storedData;
             
@@ -360,7 +385,7 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
               expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               isActive: true,
               price,
-              paymentId: payment.payment_id || payment.id,
+              paymentId: paymentId,
               paymentStatus: 'completed'
             };
 
@@ -370,7 +395,7 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
             const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
             adminStorage.subscriptions.set(userId, merged);
             
-            await updatePurchaseStatus(payment.payment_id || payment.id, 'completed');
+            await updatePurchaseStatus(paymentId, 'completed');
             
             console.log(`✅ Subscription created via webhook for user ${userId}`);
           }
@@ -380,11 +405,12 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
         break;
         
       case 'payment.failed':
-        const failedPayment = event.data || event;
-        console.log('❌ Payment failed:', failedPayment.payment_id || failedPayment.id);
+        const failedPayment = (event.data || event) as DodoPaymentResponse;
+        const failedPaymentId = failedPayment.payment_id || (failedPayment as any).id;
+        console.log('❌ Payment failed:', failedPaymentId);
         // Handle failed payment
-        if (failedPayment.payment_id || failedPayment.id) {
-          await updatePurchaseStatus(failedPayment.payment_id || failedPayment.id, 'failed');
+        if (failedPaymentId) {
+          await updatePurchaseStatus(failedPaymentId, 'failed');
         }
         break;
         
