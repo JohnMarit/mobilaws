@@ -12,6 +12,31 @@ const dodoClient = env.DODO_PAYMENTS_API_KEY ? new DodoPayments({
   bearerToken: env.DODO_PAYMENTS_API_KEY,
 }) : null;
 
+/**
+ * Diagnostic endpoint to check Dodo Payments configuration
+ * GET /api/payment/config-check
+ */
+router.get('/payment/config-check', (req: Request, res: Response) => {
+  const config = {
+    apiKeyPresent: !!env.DODO_PAYMENTS_API_KEY,
+    apiKeyLength: env.DODO_PAYMENTS_API_KEY?.length || 0,
+    apiKeyPrefix: env.DODO_PAYMENTS_API_KEY?.substring(0, 15) || 'NOT SET',
+    environment: env.DODO_PAYMENTS_ENVIRONMENT,
+    frontendUrl: env.FRONTEND_URL,
+    productIds: {
+      basic: env.DODO_PAYMENTS_PRODUCT_BASIC || 'NOT SET',
+      standard: env.DODO_PAYMENTS_PRODUCT_STANDARD || 'NOT SET',
+      premium: env.DODO_PAYMENTS_PRODUCT_PREMIUM || 'NOT SET',
+    },
+    webhookSecretPresent: !!env.DODO_PAYMENTS_WEBHOOK_SECRET,
+    sdkClientInitialized: !!dodoClient,
+  };
+  
+  console.log('🔍 Dodo Payments Configuration Check:', config);
+  
+  res.json(config);
+});
+
 // Type definitions for Dodo Payments API responses
 interface DodoPaymentResponse {
   payment_id?: string;
