@@ -29,8 +29,8 @@ interface SubscriptionContextType {
   userSubscription: UserSubscription | null;
   isLoading: boolean;
   purchasePlan: (planId: string) => Promise<boolean>;
-  initiatePayment: (planId: string) => Promise<{ success: boolean; clientSecret?: string; error?: string }>;
-  verifyPayment: (paymentIntentId: string) => Promise<boolean>;
+  initiatePayment: (planId: string) => Promise<{ success: boolean; paymentLink?: string; paymentId?: string; error?: string }>;
+  verifyPayment: (paymentId: string) => Promise<boolean>;
   useToken: () => Promise<boolean>;
   canUseToken: boolean;
   refreshSubscription: () => Promise<void>;
@@ -309,11 +309,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [isAuthenticated, user, plans]);
 
-  const initiatePayment = useCallback(async (planId: string): Promise<{ success: boolean; clientSecret?: string; error?: string }> => {
-    // STRIPE COMMENTED OUT - Payment processing disabled
-    return { success: false, error: 'Payment processing is currently disabled. Please contact support.' };
-
-    /* STRIPE COMMENTED OUT - Disabled for now
+  const initiatePayment = useCallback(async (planId: string): Promise<{ success: boolean; paymentLink?: string; paymentId?: string; error?: string }> => {
     if (!isAuthenticated || !user) {
       return { success: false, error: 'User must be authenticated to purchase a plan' };
     }
@@ -326,8 +322,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setIsLoading(true);
     
     try {
-      // Create payment intent with Stripe
-      const response = await fetch(getApiUrl('payment/create-intent'), {
+      // Create payment link with Dodo Payments
+      const response = await fetch(getApiUrl('payment/create-link'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -337,41 +333,37 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           userId: user.id,
           planName: plan.name,
           price: plan.price,
-          tokens: plan.tokens
+          tokens: plan.tokens,
+          userEmail: user.email || undefined,
+          userName: user.displayName || undefined,
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment intent');
+        throw new Error(errorData.error || 'Failed to create payment link');
       }
 
       const result = await response.json();
       
-      if (result.clientSecret) {
-        console.log(`✅ Payment intent created for ${plan.name} plan - $${plan.price}`);
-        return { success: true, clientSecret: result.clientSecret };
+      if (result.paymentLink) {
+        console.log(`✅ Payment link created for ${plan.name} plan - $${plan.price}`);
+        return { success: true, paymentLink: result.paymentLink, paymentId: result.paymentId };
       } else {
-        throw new Error('No client secret received');
+        throw new Error('No payment link received');
       }
     } catch (error) {
-      console.error('Error creating payment intent:', error);
+      console.error('Error creating payment link:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create payment intent' 
+        error: error instanceof Error ? error.message : 'Failed to create payment link' 
       };
     } finally {
       setIsLoading(false);
     }
-    */
   }, [isAuthenticated, user, plans]);
 
-  const verifyPayment = useCallback(async (paymentIntentId: string): Promise<boolean> => {
-    // STRIPE COMMENTED OUT - Payment processing disabled
-    console.warn('Payment verification is disabled');
-    return false;
-
-    /* STRIPE COMMENTED OUT - Disabled for now
+  const verifyPayment = useCallback(async (paymentId: string): Promise<boolean> => {
     if (!isAuthenticated || !user) {
       console.error('User must be authenticated to verify payment');
       return false;
@@ -387,7 +379,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          paymentIntentId
+          paymentId
         })
       });
 
@@ -400,7 +392,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       
       if (result.success && result.subscription) {
         setUserSubscription(result.subscription);
-        localStorage.setItem(`subscription_${user.id}`, JSON.stringify(result.subscription));
         console.log(`✅ Payment verified and subscription created successfully`);
         return true;
       } else {
@@ -412,7 +403,6 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     } finally {
       setIsLoading(false);
     }
-    */
   }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
   const useToken = useCallback(async (): Promise<boolean> => {

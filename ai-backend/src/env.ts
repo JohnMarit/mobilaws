@@ -39,10 +39,14 @@ const envSchema = z.object({
   API_KEY_REQUIRED: z.string().default('false').transform(val => val === 'true'),
   API_KEY_SECRET: z.string().optional(),
 
-  // Stripe Payment Gateway
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Dodo Payments Gateway
+  DODO_PAYMENTS_API_KEY: z.string().optional(),
+  DODO_PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
+  DODO_PAYMENTS_ENVIRONMENT: z.enum(['test', 'live']).default('test'),
+  // Dodo Payments Product IDs (from your Dodo Payments dashboard)
+  DODO_PAYMENTS_PRODUCT_BASIC: z.string().optional(),
+  DODO_PAYMENTS_PRODUCT_STANDARD: z.string().optional(),
+  DODO_PAYMENTS_PRODUCT_PREMIUM: z.string().optional(),
 
   // Email Configuration
   EMAIL_HOST: z.string().optional(),

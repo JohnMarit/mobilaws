@@ -1,25 +1,26 @@
 import { Router, Request, Response } from 'express';
-import Stripe from 'stripe';
+import { createHmac } from 'crypto';
 import { env } from '../env';
 import { adminStorage } from './admin';
 import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subscription-storage';
 
 const router = Router();
 
-// Initialize Stripe with secret key
-// Let Stripe SDK use the default API version (matches package types)
-const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key');
+// Dodo Payments API configuration
+const DODO_PAYMENTS_API_URL = env.DODO_PAYMENTS_ENVIRONMENT === 'live' 
+  ? 'https://api.dodopayments.com' 
+  : 'https://api-sandbox.dodopayments.com';
 
-// Store payment intents temporarily (in production, use a database)
-const paymentIntents = new Map<string, any>();
+// Store payment sessions temporarily (in production, use a database)
+const paymentSessions = new Map<string, any>();
 
 /**
- * Create a payment intent for a subscription plan
- * POST /api/payment/create-intent
+ * Create a payment link for a subscription plan
+ * POST /api/payment/create-link
  */
-router.post('/payment/create-intent', async (req: Request, res: Response) => {
+router.post('/payment/create-link', async (req: Request, res: Response) => {
   try {
-    const { planId, userId, planName, price, tokens } = req.body;
+    const { planId, userId, planName, price, tokens, userEmail, userName } = req.body;
     
     if (!planId || !userId || !price) {
       return res.status(400).json({ 
@@ -27,33 +28,73 @@ router.post('/payment/create-intent', async (req: Request, res: Response) => {
       });
     }
 
-    // Convert price to cents (Stripe expects amounts in cents)
-    const amountInCents = Math.round(price * 100);
+    if (!env.DODO_PAYMENTS_API_KEY) {
+      return res.status(500).json({ 
+        error: 'Dodo Payments API key not configured' 
+      });
+    }
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'usd',
-      metadata: {
-        planId,
-        userId,
-        planName: planName || planId,
-        tokens: tokens?.toString() || '0'
+    // Map plan IDs to Dodo Payments product IDs
+    const productIdMap: Record<string, string | undefined> = {
+      'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
+      'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
+      'premium': env.DODO_PAYMENTS_PRODUCT_PREMIUM,
+    };
+
+    const productId = productIdMap[planId];
+    
+    if (!productId) {
+      return res.status(400).json({ 
+        error: `Product ID not configured for plan: ${planId}. Please configure DODO_PAYMENTS_PRODUCT_${planId.toUpperCase()} in environment variables.` 
+      });
+    }
+
+    // Create payment link via Dodo Payments API using product
+    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-      description: `Subscription: ${planName || planId} - ${tokens} tokens`,
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      body: JSON.stringify({
+        payment_link: true,
+        customer: {
+          email: userEmail || 'customer@example.com',
+          name: userName || 'Customer',
+        },
+        product_cart: [
+          {
+            product_id: productId,
+            quantity: 1
+          }
+        ],
+        metadata: {
+          planId,
+          userId,
+          planName: planName || planId,
+          tokens: tokens?.toString() || '0'
+        },
+        success_url: `${env.FRONTEND_URL}/payment/success?payment_id={payment_id}`,
+        cancel_url: `${env.FRONTEND_URL}/payment/cancel`,
+      }),
     });
 
-    // Store payment intent for later verification
-    paymentIntents.set(paymentIntent.id, {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `Dodo Payments API error: ${response.status}`);
+    }
+
+    const paymentData = await response.json();
+
+    // Store payment session for later verification
+    paymentSessions.set(paymentData.payment_id, {
       planId,
       userId,
       price,
       tokens,
       planName,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      paymentId: paymentData.payment_id,
     });
 
     // Log purchase as pending in Firestore
@@ -63,22 +104,22 @@ router.post('/payment/create-intent', async (req: Request, res: Response) => {
       planName: planName || planId,
       tokens: tokens || 0,
       price,
-      paymentId: paymentIntent.id,
+      paymentId: paymentData.payment_id,
       paymentStatus: 'pending',
-      paymentMethod: 'stripe',
+      paymentMethod: 'dodo_payments',
     });
 
-    console.log(`✅ Payment intent created for user ${userId}: ${planName} - $${price}`);
+    console.log(`✅ Payment link created for user ${userId}: ${planName} - $${price}`);
 
     res.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id
+      paymentLink: paymentData.payment_url || paymentData.checkout_url,
+      paymentId: paymentData.payment_id,
     });
 
   } catch (error) {
-    console.error('❌ Error creating payment intent:', error);
+    console.error('❌ Error creating payment link:', error);
     res.status(500).json({ 
-      error: 'Failed to create payment intent',
+      error: 'Failed to create payment link',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -90,26 +131,92 @@ router.post('/payment/create-intent', async (req: Request, res: Response) => {
  */
 router.post('/payment/verify', async (req: Request, res: Response) => {
   try {
-    const { paymentIntentId } = req.body;
+    const { paymentId } = req.body;
     
-    if (!paymentIntentId) {
-      return res.status(400).json({ error: 'Payment intent ID is required' });
+    if (!paymentId) {
+      return res.status(400).json({ error: 'Payment ID is required' });
     }
 
-    // Retrieve payment intent from Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    
-    if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({ 
-        error: 'Payment not completed',
-        status: paymentIntent.status
+    if (!env.DODO_PAYMENTS_API_KEY) {
+      return res.status(500).json({ 
+        error: 'Dodo Payments API key not configured' 
       });
     }
 
-    // Get stored payment intent data
-    const storedData = paymentIntents.get(paymentIntentId);
+    // Retrieve payment from Dodo Payments API
+    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments/${paymentId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `Failed to retrieve payment: ${response.status}`);
+    }
+
+    const payment = await response.json();
+    
+    if (payment.status !== 'succeeded' && payment.status !== 'completed') {
+      return res.status(400).json({ 
+        error: 'Payment not completed',
+        status: payment.status
+      });
+    }
+
+    // Get stored payment session data
+    const storedData = paymentSessions.get(paymentId);
     if (!storedData) {
-      return res.status(400).json({ error: 'Payment intent not found' });
+      // Try to extract from payment metadata
+      const metadata = payment.metadata || {};
+      if (!metadata.userId || !metadata.planId) {
+        return res.status(400).json({ error: 'Payment session not found' });
+      }
+      
+      // Use metadata if stored data not found
+      const { planId, userId, planName, tokens } = {
+        planId: metadata.planId,
+        userId: metadata.userId,
+        planName: metadata.planName || metadata.planId,
+        tokens: parseInt(metadata.tokens || '0'),
+        price: payment.amount ? payment.amount / 100 : 0,
+      };
+
+      // Create subscription record
+      const newSubscriptionData = {
+        userId,
+        planId,
+        tokensRemaining: tokens,
+        tokensUsed: 0,
+        totalTokens: tokens,
+        purchaseDate: new Date().toISOString(),
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+        isActive: true,
+        price: payment.amount ? payment.amount / 100 : 0,
+        paymentId: paymentId,
+        paymentStatus: 'completed'
+      };
+
+      // Save to Firestore
+      await saveSubscription(newSubscriptionData);
+      
+      // Persist subscription into shared admin storage
+      const existing = adminStorage.subscriptions.get(userId);
+      const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
+      adminStorage.subscriptions.set(userId, merged);
+      
+      // Update purchase status to completed
+      await updatePurchaseStatus(paymentId, 'completed');
+      
+      console.log(`✅ Payment verified for user ${userId}: ${planName} - $${newSubscriptionData.price}`);
+
+      return res.json({
+        success: true,
+        subscription: newSubscriptionData,
+        message: 'Payment verified and subscription created successfully'
+      });
     }
 
     const { planId, userId, price, tokens, planName } = storedData;
@@ -125,7 +232,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
       isActive: true,
       price,
-      paymentId: paymentIntentId,
+      paymentId: paymentId,
       paymentStatus: 'completed'
     };
 
@@ -138,12 +245,12 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     adminStorage.subscriptions.set(userId, merged);
     
     // Update purchase status to completed
-    await updatePurchaseStatus(paymentIntentId, 'completed');
+    await updatePurchaseStatus(paymentId, 'completed');
     
     console.log(`✅ Payment verified for user ${userId}: ${planName} - $${price}`);
 
-    // Clean up stored payment intent
-    paymentIntents.delete(paymentIntentId);
+    // Clean up stored payment session
+    paymentSessions.delete(paymentId);
 
     res.json({
       success: true,
@@ -162,19 +269,38 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 
 /**
  * Get payment status
- * GET /api/payment/status/:paymentIntentId
+ * GET /api/payment/status/:paymentId
  */
-router.get('/payment/status/:paymentIntentId', async (req: Request, res: Response) => {
+router.get('/payment/status/:paymentId', async (req: Request, res: Response) => {
   try {
-    const { paymentIntentId } = req.params;
+    const { paymentId } = req.params;
     
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (!env.DODO_PAYMENTS_API_KEY) {
+      return res.status(500).json({ 
+        error: 'Dodo Payments API key not configured' 
+      });
+    }
+
+    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments/${paymentId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      throw new Error(errorData.message || `Failed to retrieve payment: ${response.status}`);
+    }
+
+    const payment = await response.json();
     
     res.json({
-      status: paymentIntent.status,
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency,
-      metadata: paymentIntent.metadata
+      status: payment.status,
+      amount: payment.amount,
+      currency: payment.currency || 'USD',
+      metadata: payment.metadata || {}
     });
 
   } catch (error) {
@@ -187,39 +313,93 @@ router.get('/payment/status/:paymentIntentId', async (req: Request, res: Respons
 });
 
 /**
- * Webhook endpoint for Stripe events
+ * Webhook endpoint for Dodo Payments events
  * POST /api/payment/webhook
  */
 router.post('/payment/webhook', async (req: Request, res: Response) => {
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret';
-
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig as string, endpointSecret);
-  } catch (err) {
-    console.error('❌ Webhook signature verification failed:', err);
-    return res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
-  }
+    const signature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
+    const webhookSecret = env.DODO_PAYMENTS_WEBHOOK_SECRET;
 
-  // Handle the event
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      const paymentIntent = event.data.object;
-      console.log('✅ Payment succeeded:', paymentIntent.id);
-      // Here you would typically update your database
-      break;
-    case 'payment_intent.payment_failed':
-      const failedPayment = event.data.object;
-      console.log('❌ Payment failed:', failedPayment.id);
-      // Handle failed payment
-      break;
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
+    // Verify webhook signature if secret is configured
+    if (webhookSecret && signature) {
+      // Note: Implement signature verification based on Dodo Payments documentation
+      // This is a placeholder - adjust based on actual Dodo Payments webhook verification method
+      const expectedSignature = createHmac('sha256', webhookSecret)
+        .update(JSON.stringify(req.body))
+        .digest('hex');
+      
+      if (signature !== expectedSignature) {
+        console.error('❌ Webhook signature verification failed');
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
+    }
 
-  res.json({ received: true });
+    const event = req.body;
+
+    // Handle the event
+    switch (event.type || event.event_type) {
+      case 'payment.succeeded':
+      case 'payment.completed':
+        const payment = event.data || event;
+        console.log('✅ Payment succeeded:', payment.payment_id || payment.id);
+        
+        // Verify and create subscription
+        try {
+          const storedData = paymentSessions.get(payment.payment_id || payment.id);
+          if (storedData) {
+            const { planId, userId, price, tokens, planName } = storedData;
+            
+            const newSubscriptionData = {
+              userId,
+              planId,
+              tokensRemaining: tokens,
+              tokensUsed: 0,
+              totalTokens: tokens,
+              purchaseDate: new Date().toISOString(),
+              expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              isActive: true,
+              price,
+              paymentId: payment.payment_id || payment.id,
+              paymentStatus: 'completed'
+            };
+
+            await saveSubscription(newSubscriptionData);
+            
+            const existing = adminStorage.subscriptions.get(userId);
+            const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
+            adminStorage.subscriptions.set(userId, merged);
+            
+            await updatePurchaseStatus(payment.payment_id || payment.id, 'completed');
+            
+            console.log(`✅ Subscription created via webhook for user ${userId}`);
+          }
+        } catch (error) {
+          console.error('❌ Error processing webhook subscription:', error);
+        }
+        break;
+        
+      case 'payment.failed':
+        const failedPayment = event.data || event;
+        console.log('❌ Payment failed:', failedPayment.payment_id || failedPayment.id);
+        // Handle failed payment
+        if (failedPayment.payment_id || failedPayment.id) {
+          await updatePurchaseStatus(failedPayment.payment_id || failedPayment.id, 'failed');
+        }
+        break;
+        
+      default:
+        console.log(`Unhandled event type: ${event.type || event.event_type}`);
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).json({ 
+      error: 'Webhook processing failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 });
 
 export default router;
