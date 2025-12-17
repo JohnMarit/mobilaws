@@ -1,20 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { createHmac } from 'crypto';
+import DodoPayments from 'dodopayments';
 import { env } from '../env';
 import { adminStorage } from './admin';
 import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subscription-storage';
 
 const router = Router();
 
-// Dodo Payments API configuration
-// Allow override via env.DODO_PAYMENTS_API_URL (recommended to set this from dashboard docs)
-// Defaults:
-// - Test mode: https://test.dodopayments.com
-// - Live mode: https://live.dodopayments.com
-const DODO_PAYMENTS_API_URL = env.DODO_PAYMENTS_API_URL
-  || (env.DODO_PAYMENTS_ENVIRONMENT === 'live'
-    ? 'https://live.dodopayments.com'
-    : 'https://test.dodopayments.com');
+// Initialize Dodo Payments client with SDK
+const dodoClient = env.DODO_PAYMENTS_API_KEY ? new DodoPayments({
+  bearerToken: env.DODO_PAYMENTS_API_KEY,
+}) : null;
 
 // Type definitions for Dodo Payments API responses
 interface DodoPaymentResponse {
@@ -72,7 +68,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    if (!env.DODO_PAYMENTS_API_KEY) {
+    if (!dodoClient) {
       return res.status(500).json({ 
         error: 'Dodo Payments API key not configured' 
       });
@@ -86,9 +82,16 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    // Prepare request body
-    const requestBody = {
+    console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
+    console.log(`🔑 API Key present: ${!!env.DODO_PAYMENTS_API_KEY}`);
+
+    // Create payment using Dodo Payments SDK
+    const payment = await dodoClient.payments.create({
       payment_link: true,
+      billing: {
+        country: 'US', // Default country code (ISO 3166-1 alpha-2)
+        // Optional: Add more billing details if available from user profile
+      },
       customer: {
         email: userEmail || 'customer@example.com',
         name: userName || 'Customer',
@@ -105,55 +108,13 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
         planName: planName || planId,
         tokens: tokens?.toString() || '0'
       },
-      success_url: `${env.FRONTEND_URL}/payment/success?payment_id={payment_id}`,
-      cancel_url: `${env.FRONTEND_URL}/payment/cancel`,
-    };
-
-    console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
-    console.log(`📡 API URL: ${DODO_PAYMENTS_API_URL}/v1/payments`);
-    console.log(`🔑 API Key present: ${!!env.DODO_PAYMENTS_API_KEY}`);
-    console.log(`🔑 API Key prefix: ${env.DODO_PAYMENTS_API_KEY?.substring(0, 10)}...`);
-
-    // Create payment link via Dodo Payments API using product
-    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+      return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
+      // Note: Dodo Payments uses return_url, not success_url/cancel_url
     });
-    
-    console.log(`📡 Response status: ${response.status} ${response.statusText}`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorData: DodoErrorResponse;
-      
-      try {
-        errorData = JSON.parse(errorText) as DodoErrorResponse;
-      } catch {
-        errorData = { message: errorText || 'Unknown error' };
-      }
+    console.log(`✅ Payment created successfully:`, payment.payment_id);
 
-      console.error('❌ Dodo Payments API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData,
-        requestBody: {
-          ...requestBody,
-          customer: { ...requestBody.customer, email: '***' } // Don't log full email
-        }
-      });
-
-      throw new Error(
-        errorData.message || 
-        errorData.error || 
-        `Dodo Payments API error: ${response.status} ${response.statusText}`
-      );
-    }
-
-    const paymentData = await response.json() as DodoPaymentResponse;
+    const paymentData = payment as DodoPaymentResponse;
 
     // Validate that payment_id exists
     if (!paymentData.payment_id) {
@@ -192,29 +153,37 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       paymentId: paymentId,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error creating payment link:', error);
     
-    // Provide more detailed error information
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorDetails: any = {
-      error: 'Failed to create payment link',
-      message: errorMessage
-    };
+    // Handle Dodo Payments SDK errors
+    let errorMessage = 'Unknown error';
+    let errorDetails: any = {};
 
-    // In development, include more details
-    if (env.NODE_ENV === 'development') {
-      errorDetails.stack = error instanceof Error ? error.stack : undefined;
-      errorDetails.details = {
-        planId: req.body?.planId,
-        hasApiKey: !!env.DODO_PAYMENTS_API_KEY,
-        hasProductId: !!productIdMap[req.body?.planId],
-        apiUrl: DODO_PAYMENTS_API_URL,
-        frontendUrl: env.FRONTEND_URL
-      };
+    if (error && typeof error === 'object') {
+      if ('status' in error) {
+        errorMessage = `Dodo Payments API Error (${error.status}): ${error.message || error.name || 'Unknown'}`;
+        errorDetails = {
+          status: error.status,
+          name: error.name,
+          message: error.message,
+        };
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = {
+          message: error.message,
+          stack: env.NODE_ENV === 'development' ? error.stack : undefined
+        };
+      }
     }
 
-    res.status(500).json(errorDetails);
+    console.error('❌ Detailed error:', errorDetails);
+
+    res.status(500).json({
+      error: 'Failed to create payment link',
+      message: errorMessage,
+      details: env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
   }
 });
 
@@ -230,27 +199,14 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Payment ID is required' });
     }
 
-    if (!env.DODO_PAYMENTS_API_KEY) {
+    if (!dodoClient) {
       return res.status(500).json({ 
         error: 'Dodo Payments API key not configured' 
       });
     }
 
-    // Retrieve payment from Dodo Payments API
-    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments/${paymentId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
-      throw new Error(errorData.message || errorData.error || `Failed to retrieve payment: ${response.status}`);
-    }
-
-    const payment = await response.json() as DodoPaymentResponse;
+    // Retrieve payment from Dodo Payments using SDK
+    const payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
     
     if (payment.status !== 'succeeded' && payment.status !== 'completed') {
       return res.status(400).json({ 
@@ -368,26 +324,14 @@ router.get('/payment/status/:paymentId', async (req: Request, res: Response) => 
   try {
     const { paymentId } = req.params;
     
-    if (!env.DODO_PAYMENTS_API_KEY) {
+    if (!dodoClient) {
       return res.status(500).json({ 
         error: 'Dodo Payments API key not configured' 
       });
     }
 
-    const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments/${paymentId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${env.DODO_PAYMENTS_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' })) as DodoErrorResponse;
-      throw new Error(errorData.message || errorData.error || `Failed to retrieve payment: ${response.status}`);
-    }
-
-    const payment = await response.json() as DodoPaymentResponse;
+    // Retrieve payment from Dodo Payments using SDK
+    const payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
     
     res.json({
       status: payment.status,
