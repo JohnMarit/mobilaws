@@ -110,15 +110,22 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
     const paymentData = await response.json() as DodoPaymentResponse;
 
+    // Validate that payment_id exists
+    if (!paymentData.payment_id) {
+      throw new Error('Payment ID not returned from Dodo Payments API');
+    }
+
+    const paymentId = paymentData.payment_id;
+
     // Store payment session for later verification
-    paymentSessions.set(paymentData.payment_id, {
+    paymentSessions.set(paymentId, {
       planId,
       userId,
       price,
       tokens,
       planName,
       createdAt: new Date().toISOString(),
-      paymentId: paymentData.payment_id,
+      paymentId: paymentId,
     });
 
     // Log purchase as pending in Firestore
@@ -128,7 +135,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       planName: planName || planId,
       tokens: tokens || 0,
       price,
-      paymentId: paymentData.payment_id,
+      paymentId: paymentId,
       paymentStatus: 'pending',
       paymentMethod: 'dodo_payments',
     });
@@ -137,7 +144,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
     res.json({
       paymentLink: paymentData.payment_url || paymentData.checkout_url,
-      paymentId: paymentData.payment_id,
+      paymentId: paymentId,
     });
 
   } catch (error) {
