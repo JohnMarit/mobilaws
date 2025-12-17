@@ -106,6 +106,8 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
     console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
     console.log(`📡 API URL: ${DODO_PAYMENTS_API_URL}/v1/payments`);
+    console.log(`🔑 API Key present: ${!!env.DODO_PAYMENTS_API_KEY}`);
+    console.log(`🔑 API Key prefix: ${env.DODO_PAYMENTS_API_KEY?.substring(0, 10)}...`);
 
     // Create payment link via Dodo Payments API using product
     const response = await fetch(`${DODO_PAYMENTS_API_URL}/v1/payments`, {
@@ -116,6 +118,8 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       },
       body: JSON.stringify(requestBody),
     });
+    
+    console.log(`📡 Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const errorText = await response.text();
