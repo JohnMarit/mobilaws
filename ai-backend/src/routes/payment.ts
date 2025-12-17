@@ -7,9 +7,11 @@ import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subs
 const router = Router();
 
 // Dodo Payments API configuration
-// Note: Dodo Payments uses the same API URL for both test and live modes
-// The environment variable controls which API key to use (test vs live key)
-const DODO_PAYMENTS_API_URL = 'https://api.dodopayments.com';
+// Test mode: https://test.dodopayments.com
+// Live mode: https://live.dodopayments.com
+const DODO_PAYMENTS_API_URL = env.DODO_PAYMENTS_ENVIRONMENT === 'live' 
+  ? 'https://live.dodopayments.com' 
+  : 'https://test.dodopayments.com';
 
 // Type definitions for Dodo Payments API responses
 interface DodoPaymentResponse {
