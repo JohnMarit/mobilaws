@@ -84,35 +84,53 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
     console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
     console.log(`🔑 API Key present: ${!!env.DODO_PAYMENTS_API_KEY}`);
+    console.log(`🔑 API Key first 20 chars: ${env.DODO_PAYMENTS_API_KEY?.substring(0, 20)}...`);
+    console.log(`🌍 Environment: ${env.DODO_PAYMENTS_ENVIRONMENT}`);
+    console.log(`🏠 Frontend URL: ${env.FRONTEND_URL}`);
 
     // Create payment using Dodo Payments SDK
-    const payment = await dodoClient.payments.create({
-      payment_link: true,
-      billing: {
-        country: 'US', // Default country code (ISO 3166-1 alpha-2)
-        // Optional: Add more billing details if available from user profile
-      },
-      customer: {
-        email: userEmail || 'customer@example.com',
-        name: userName || 'Customer',
-      },
-      product_cart: [
-        {
-          product_id: productId,
-          quantity: 1
-        }
-      ],
-      metadata: {
-        planId,
-        userId,
-        planName: planName || planId,
-        tokens: tokens?.toString() || '0'
-      },
-      return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
-      // Note: Dodo Payments uses return_url, not success_url/cancel_url
-    });
-
-    console.log(`✅ Payment created successfully:`, payment.payment_id);
+    let payment;
+    try {
+      console.log(`🚀 Calling dodoClient.payments.create()...`);
+      payment = await dodoClient.payments.create({
+        payment_link: true,
+        billing: {
+          country: 'US' as any, // Default country code (ISO 3166-1 alpha-2)
+        },
+        customer: {
+          email: userEmail || 'customer@example.com',
+          name: userName || 'Customer',
+        },
+        product_cart: [
+          {
+            product_id: productId,
+            quantity: 1
+          }
+        ],
+        metadata: {
+          planId,
+          userId,
+          planName: planName || planId,
+          tokens: tokens?.toString() || '0'
+        },
+        return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
+      });
+      console.log(`✅ Payment created successfully:`, JSON.stringify(payment, null, 2));
+    } catch (sdkError: any) {
+      console.error(`❌ SDK Error Details:`, {
+        name: sdkError?.name,
+        message: sdkError?.message,
+        status: sdkError?.status,
+        statusCode: sdkError?.statusCode,
+        code: sdkError?.code,
+        error: sdkError?.error,
+        body: sdkError?.body,
+        response: sdkError?.response,
+        stack: sdkError?.stack,
+        fullError: JSON.stringify(sdkError, null, 2)
+      });
+      throw sdkError;
+    }
 
     const paymentData = payment as DodoPaymentResponse;
 
