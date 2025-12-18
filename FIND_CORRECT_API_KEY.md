@@ -50,7 +50,7 @@ You should see **TWO types of keys**:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ 🔑 Secret Key (Backend)                                 │
-│ sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   │
+│ sk_live_[YOUR_KEY_HERE]                                 │
 │ [Reveal] [Copy]                                         │
 │                                                         │
 │ ⚠️ Keep this secret! Never expose in frontend code     │
@@ -58,7 +58,7 @@ You should see **TWO types of keys**:
 
 ┌─────────────────────────────────────────────────────────┐
 │ 📢 Publishable Key (Frontend - Optional)               │
-│ pk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   │
+│ pk_live_[YOUR_KEY_HERE]                                 │
 │ [Reveal] [Copy]                                         │
 │                                                         │
 │ Safe to use in frontend code                            │
@@ -79,11 +79,11 @@ You should see **TWO types of keys**:
 
 ✅ **CORRECT format:**
 ```
-sk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+sk_live_[long_string_of_characters_here]
 ```
 OR
 ```
-sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+sk_test_[long_string_of_characters_here]
 ```
 
 ❌ **WRONG formats (DO NOT USE):**
@@ -139,7 +139,7 @@ https://mobilaws-ympe.vercel.app/api/payment/config-check
 You should now see:
 ```json
 {
-  "apiKeyPrefix": "sk_live_xxxxx"  ✅ CORRECT!
+  "apiKeyPrefix": "sk_live_[first_15_chars]"  ✅ CORRECT!
 }
 ```
 
@@ -173,10 +173,10 @@ You should now see:
 Developer API Keys
 ─────────────────────────────────────────────────────
 Secret Key (Use in your backend)
-sk_live_51AbC123XyZ789... [Reveal] [Copy] [Delete]
+sk_live_[YOUR_SECRET_KEY] [Reveal] [Copy] [Delete]
 
 Publishable Key (Use in frontend)
-pk_live_51AbC123XyZ789... [Reveal] [Copy] [Delete]
+pk_live_[YOUR_PUBLIC_KEY] [Reveal] [Copy] [Delete]
 ─────────────────────────────────────────────────────
 ```
 
