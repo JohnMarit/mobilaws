@@ -9,6 +9,7 @@ import * as admin from 'firebase-admin';
 const SUBSCRIPTIONS_COLLECTION = 'subscriptions';
 const PURCHASES_COLLECTION = 'purchases';
 const ADMIN_OPERATIONS_COLLECTION = 'admin_operations';
+const PAYMENT_SESSIONS_COLLECTION = 'payment_sessions';
 
 export interface Subscription {
   userId: string;
@@ -53,6 +54,20 @@ export interface AdminOperation {
   details: Record<string, any>;
   timestamp: admin.firestore.Timestamp;
   ipAddress?: string;
+}
+
+export interface PaymentSession {
+  paymentId: string;
+  userId: string;
+  planId: string;
+  planName: string;
+  price: number;
+  tokens: number;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+  expiresAt: admin.firestore.Timestamp;
+  metadata?: Record<string, any>;
 }
 
 /**
@@ -329,6 +344,142 @@ export async function getUserAdminOperations(userId: string, limit: number = 50)
   } catch (error) {
     console.error('❌ Error fetching user admin operations from Firestore:', error);
     return [];
+  }
+}
+
+export interface PaymentSession {
+  paymentId: string;
+  userId: string;
+  planId: string;
+  planName: string;
+  price: number;
+  tokens: number;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  createdAt: admin.firestore.Timestamp;
+  updatedAt: admin.firestore.Timestamp;
+  expiresAt: admin.firestore.Timestamp;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Save payment session to Firestore (replaces in-memory storage)
+ */
+export async function savePaymentSession(
+  session: Omit<PaymentSession, 'createdAt' | 'updatedAt' | 'expiresAt'>
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    console.warn('⚠️ Firebase Admin not initialized');
+    return false;
+  }
+
+  try {
+    const sessionRef = db.collection(PAYMENT_SESSIONS_COLLECTION).doc(session.paymentId);
+    const now = admin.firestore.Timestamp.now();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      Date.now() + 24 * 60 * 60 * 1000 // 24 hours expiry
+    );
+
+    const sessionData: PaymentSession = {
+      ...session,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    };
+
+    await sessionRef.set(sessionData);
+    console.log(`✅ Payment session saved: ${session.paymentId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving payment session to Firestore:', error);
+    return false;
+  }
+}
+
+/**
+ * Get payment session from Firestore
+ */
+export async function getPaymentSession(paymentId: string): Promise<PaymentSession | null> {
+  const db = getFirestore();
+  if (!db) {
+    console.warn('⚠️ Firebase Admin not initialized');
+    return null;
+  }
+
+  try {
+    const sessionRef = db.collection(PAYMENT_SESSIONS_COLLECTION).doc(paymentId);
+    const sessionDoc = await sessionRef.get();
+
+    if (sessionDoc.exists) {
+      return sessionDoc.data() as PaymentSession;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching payment session from Firestore:', error);
+    return null;
+  }
+}
+
+/**
+ * Update payment session status
+ */
+export async function updatePaymentSessionStatus(
+  paymentId: string,
+  status: 'pending' | 'completed' | 'failed' | 'cancelled'
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    console.warn('⚠️ Firebase Admin not initialized');
+    return false;
+  }
+
+  try {
+    const sessionRef = db.collection(PAYMENT_SESSIONS_COLLECTION).doc(paymentId);
+    await sessionRef.update({
+      status,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+    
+    console.log(`✅ Payment session status updated: ${paymentId} -> ${status}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating payment session status:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if payment has already been processed (idempotency check)
+ */
+export async function isPaymentProcessed(paymentId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    // Check if there's a completed purchase with this payment ID
+    const purchaseSnapshot = await db.collection(PURCHASES_COLLECTION)
+      .where('paymentId', '==', paymentId)
+      .where('paymentStatus', '==', 'completed')
+      .limit(1)
+      .get();
+
+    if (!purchaseSnapshot.empty) {
+      return true;
+    }
+
+    // Check if there's a completed payment session
+    const session = await getPaymentSession(paymentId);
+    if (session && session.status === 'completed') {
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ Error checking if payment is processed:', error);
+    return false;
   }
 }
 

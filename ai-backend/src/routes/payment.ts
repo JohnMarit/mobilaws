@@ -3,7 +3,16 @@ import { createHmac } from 'crypto';
 import DodoPayments from 'dodopayments';
 import { env } from '../env';
 import { adminStorage } from './admin';
-import { saveSubscription, logPurchase, updatePurchaseStatus } from '../lib/subscription-storage';
+import {
+  saveSubscription,
+  logPurchase,
+  updatePurchaseStatus,
+  savePaymentSession,
+  getPaymentSession,
+  updatePaymentSessionStatus,
+  isPaymentProcessed,
+  getSubscription,
+} from '../lib/subscription-storage';
 
 const router = Router();
 
@@ -61,15 +70,59 @@ interface DodoErrorResponse {
   [key: string]: any;
 }
 
-// Store payment sessions temporarily (in production, use a database)
-const paymentSessions = new Map<string, any>();
+/**
+ * Helper function to create subscription from payment data
+ */
+async function createSubscriptionFromPayment(
+  paymentId: string,
+  planId: string,
+  userId: string,
+  planName: string,
+  tokens: number,
+  price: number
+): Promise<boolean> {
+  const newSubscriptionData = {
+    userId,
+    planId,
+    tokensRemaining: tokens,
+    tokensUsed: 0,
+    totalTokens: tokens,
+    purchaseDate: new Date().toISOString(),
+    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    isActive: true,
+    price,
+    paymentId: paymentId,
+    paymentStatus: 'completed'
+  };
+
+  // Save to Firestore
+  const saved = await saveSubscription(newSubscriptionData);
+  if (!saved) {
+    console.error(`❌ Failed to save subscription for user ${userId}`);
+    return false;
+  }
+  
+  // Persist subscription into shared admin storage
+  const existing = adminStorage.subscriptions.get(userId);
+  const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
+  adminStorage.subscriptions.set(userId, merged);
+  
+  // Update purchase status to completed
+  await updatePurchaseStatus(paymentId, 'completed');
+  
+  // Update payment session status
+  await updatePaymentSessionStatus(paymentId, 'completed');
+  
+  console.log(`✅ Subscription created for user ${userId}: ${planName} - $${price} - ${tokens} tokens`);
+  return true;
+}
 
 /**
  * Create a payment link for a subscription plan
  * POST /api/payment/create-link
  */
 router.post('/payment/create-link', async (req: Request, res: Response) => {
-  // Map plan IDs to Dodo Payments product IDs (defined outside try for error handling)
+  // Map plan IDs to Dodo Payments product IDs
   const productIdMap: Record<string, string | undefined> = {
     'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
     'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
@@ -79,14 +132,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
   try {
     const { planId, userId, planName, price, tokens, userEmail, userName } = req.body;
     
-    console.log('📥 Payment link request received:', {
-      planId,
-      userId,
-      price,
-      hasEmail: !!userEmail,
-      hasName: !!userName
-    });
-    
+    // Input validation
     if (!planId || !userId || !price) {
       return res.status(400).json({ 
         error: 'Missing required fields: planId, userId, price' 
@@ -94,6 +140,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     }
 
     if (!dodoClient) {
+      console.error('❌ Dodo Payments client not initialized');
       return res.status(500).json({ 
         error: 'Dodo Payments API key not configured' 
       });
@@ -107,16 +154,16 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`🔗 Creating payment link for plan ${planId} with product ${productId}`);
-    console.log(`🔑 API Key present: ${!!env.DODO_PAYMENTS_API_KEY}`);
-    console.log(`🔑 API Key first 20 chars: ${env.DODO_PAYMENTS_API_KEY?.substring(0, 20)}...`);
-    console.log(`🌍 Environment: ${env.DODO_PAYMENTS_ENVIRONMENT}`);
-    console.log(`🏠 Frontend URL: ${env.FRONTEND_URL}`);
+    console.log(`🔗 Creating payment link for plan ${planId} (product: ${productId}) for user ${userId}`);
+    console.log(`💰 Amount: $${price}, Tokens: ${tokens}`);
 
-    // Create payment using Dodo Payments SDK
-    let payment;
-    try {
-      console.log(`🚀 Calling dodoClient.payments.create()...`);
+    // Create payment using Dodo Payments SDK with retry logic
+    let payment: DodoPaymentResponse;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
       payment = await dodoClient.payments.create({
         payment_link: true,
         billing: {
@@ -139,42 +186,48 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
           tokens: tokens?.toString() || '0'
         },
         return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
-      });
-      console.log(`✅ Payment created successfully:`, JSON.stringify(payment, null, 2));
+        }) as DodoPaymentResponse;
+        
+        console.log(`✅ Payment created successfully on attempt ${retries + 1}`);
+        break;
     } catch (sdkError: any) {
-      console.error(`❌ SDK Error Details:`, {
+        retries++;
+        console.error(`❌ SDK Error (attempt ${retries}/${maxRetries}):`, {
         name: sdkError?.name,
         message: sdkError?.message,
         status: sdkError?.status,
         statusCode: sdkError?.statusCode,
-        code: sdkError?.code,
-        error: sdkError?.error,
-        body: sdkError?.body,
-        response: sdkError?.response,
-        stack: sdkError?.stack,
-        fullError: JSON.stringify(sdkError, null, 2)
-      });
+        });
+        
+        if (retries >= maxRetries) {
       throw sdkError;
     }
 
-    const paymentData = payment as DodoPaymentResponse;
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+      }
+    }
 
     // Validate that payment_id exists
-    if (!paymentData.payment_id) {
+    if (!payment!.payment_id) {
       throw new Error('Payment ID not returned from Dodo Payments API');
     }
 
-    const paymentId = paymentData.payment_id;
+    const paymentId = payment!.payment_id;
 
-    // Store payment session for later verification
-    paymentSessions.set(paymentId, {
-      planId,
+    // Save payment session to Firestore (replaces in-memory storage)
+    await savePaymentSession({
+      paymentId,
       userId,
+      planId,
+      planName: planName || planId,
       price,
-      tokens,
-      planName,
-      createdAt: new Date().toISOString(),
-      paymentId: paymentId,
+      tokens: tokens || 0,
+      status: 'pending',
+      metadata: {
+        userEmail,
+        userName,
+      }
     });
 
     // Log purchase as pending in Firestore
@@ -189,10 +242,10 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       paymentMethod: 'dodo_payments',
     });
 
-    console.log(`✅ Payment link created for user ${userId}: ${planName} - $${price}`);
+    console.log(`✅ Payment link created: ${paymentId} for user ${userId}`);
 
     res.json({
-      paymentLink: paymentData.payment_url || paymentData.checkout_url,
+      paymentLink: payment!.payment_url || payment!.checkout_url,
       paymentId: paymentId,
     });
 
@@ -204,10 +257,11 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     let errorDetails: any = {};
 
     if (error && typeof error === 'object') {
-      if ('status' in error) {
-        errorMessage = `Dodo Payments API Error (${error.status}): ${error.message || error.name || 'Unknown'}`;
+      if ('status' in error || 'statusCode' in error) {
+        const status = error.status || error.statusCode;
+        errorMessage = `Dodo Payments API Error (${status}): ${error.message || error.name || 'Unknown'}`;
         errorDetails = {
-          status: error.status,
+          status,
           name: error.name,
           message: error.message,
         };
@@ -219,8 +273,6 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
         };
       }
     }
-
-    console.error('❌ Detailed error:', errorDetails);
 
     res.status(500).json({
       error: 'Failed to create payment link',
@@ -248,105 +300,139 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       });
     }
 
+    // Idempotency check: prevent duplicate subscription creation
+    const alreadyProcessed = await isPaymentProcessed(paymentId);
+    if (alreadyProcessed) {
+      console.log(`⚠️ Payment ${paymentId} already processed, returning existing subscription`);
+      
+      // Get existing subscription from payment session
+      const session = await getPaymentSession(paymentId);
+      if (session) {
+        const existingSub = await getSubscription(session.userId);
+        if (existingSub) {
+          return res.json({
+            success: true,
+            subscription: existingSub,
+            message: 'Payment already verified',
+            alreadyProcessed: true
+          });
+        }
+      }
+      
+      return res.status(409).json({
+        error: 'Payment already processed',
+        message: 'This payment has already been verified and subscription created'
+      });
+    }
+
     // Retrieve payment from Dodo Payments using SDK
-    const payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
+    let payment: DodoPaymentResponse;
+    try {
+      payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
+    } catch (error: any) {
+      console.error('❌ Error retrieving payment from Dodo Payments:', error);
+      return res.status(500).json({
+        error: 'Failed to retrieve payment',
+        details: error.message || 'Unknown error'
+      });
+    }
     
+    // Check payment status
     if (payment.status !== 'succeeded' && payment.status !== 'completed') {
+      await updatePaymentSessionStatus(paymentId, 'failed');
       return res.status(400).json({ 
         error: 'Payment not completed',
         status: payment.status
       });
     }
 
-    // Get stored payment session data
-    const storedData = paymentSessions.get(paymentId);
-    if (!storedData) {
-      // Try to extract from payment metadata
+    // Get payment session data from Firestore
+    let session = await getPaymentSession(paymentId);
+    
+    // If session not found, try to extract from payment metadata
+    if (!session) {
       const metadata = payment.metadata || {};
       if (!metadata.userId || !metadata.planId) {
-        return res.status(400).json({ error: 'Payment session not found' });
+        console.error(`❌ Payment session not found and metadata incomplete for ${paymentId}`);
+        return res.status(400).json({ 
+          error: 'Payment session not found and cannot be reconstructed from metadata' 
+        });
       }
       
-      // Calculate price from payment amount
+      // Reconstruct session from metadata
       const price = payment.amount ? payment.amount / 100 : 0;
-      
-      // Use metadata if stored data not found
       const planId = metadata.planId as string;
       const userId = metadata.userId as string;
       const planName = (metadata.planName || metadata.planId) as string;
       const tokens = parseInt(metadata.tokens || '0');
 
-      // Create subscription record
-      const newSubscriptionData = {
-        userId,
+      // Create subscription
+      const success = await createSubscriptionFromPayment(
+        paymentId,
         planId,
-        tokensRemaining: tokens,
-        tokensUsed: 0,
-        totalTokens: tokens,
-        purchaseDate: new Date().toISOString(),
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-        isActive: true,
-        price,
-        paymentId: paymentId,
-        paymentStatus: 'completed'
-      };
+        userId,
+        planName,
+        tokens,
+        price
+      );
 
-      // Save to Firestore
-      await saveSubscription(newSubscriptionData);
-      
-      // Persist subscription into shared admin storage
-      const existing = adminStorage.subscriptions.get(userId);
-      const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
-      adminStorage.subscriptions.set(userId, merged);
-      
-      // Update purchase status to completed
-      await updatePurchaseStatus(paymentId, 'completed');
-      
-      console.log(`✅ Payment verified for user ${userId}: ${planName} - $${newSubscriptionData.price}`);
+      if (!success) {
+        return res.status(500).json({
+          error: 'Failed to create subscription',
+          message: 'Payment verified but subscription creation failed'
+        });
+      }
+
+      // Get the created subscription
+      const subscription = await getSubscription(userId);
 
       return res.json({
         success: true,
-        subscription: newSubscriptionData,
+        subscription: subscription,
         message: 'Payment verified and subscription created successfully'
       });
     }
 
-    const { planId, userId, price, tokens, planName } = storedData;
+    // Use session data to create subscription
+    const { planId, userId, price, tokens, planName } = session;
 
-    // Create subscription record
-    const newSubscriptionData = {
-      userId,
+    // Double-check idempotency
+    const processed = await isPaymentProcessed(paymentId);
+    if (processed) {
+      const existingSub = await getSubscription(userId);
+      return res.json({
+        success: true,
+        subscription: existingSub,
+        message: 'Payment already processed',
+        alreadyProcessed: true
+      });
+    }
+
+    // Create subscription
+    const success = await createSubscriptionFromPayment(
+      paymentId,
       planId,
-      tokensRemaining: tokens,
-      tokensUsed: 0,
-      totalTokens: tokens,
-      purchaseDate: new Date().toISOString(),
-      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-      isActive: true,
-      price,
-      paymentId: paymentId,
-      paymentStatus: 'completed'
-    };
+      userId,
+      planName,
+      tokens,
+      price
+    );
 
-    // Save to Firestore (this adds createdAt/updatedAt)
-    await saveSubscription(newSubscriptionData);
-    
-    // Persist subscription into shared admin storage so admin dashboard can see it
-    const existing = adminStorage.subscriptions.get(userId);
-    const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
-    adminStorage.subscriptions.set(userId, merged);
-    
-    // Update purchase status to completed
-    await updatePurchaseStatus(paymentId, 'completed');
+    if (!success) {
+      return res.status(500).json({
+        error: 'Failed to create subscription',
+        message: 'Payment verified but subscription creation failed'
+      });
+    }
+
+    // Get the created subscription
+    const subscription = await require('../lib/subscription-storage').getSubscription(userId);
     
     console.log(`✅ Payment verified for user ${userId}: ${planName} - $${price}`);
 
-    // Clean up stored payment session
-    paymentSessions.delete(paymentId);
-
     res.json({
       success: true,
-      subscription: newSubscriptionData,
+      subscription: subscription,
       message: 'Payment verified and subscription created successfully'
     });
 
@@ -376,11 +462,16 @@ router.get('/payment/status/:paymentId', async (req: Request, res: Response) => 
     // Retrieve payment from Dodo Payments using SDK
     const payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
     
+    // Also get session status from Firestore
+    const session = await getPaymentSession(paymentId);
+    
     res.json({
       status: payment.status,
       amount: payment.amount,
       currency: payment.currency || 'USD',
-      metadata: payment.metadata || {}
+      metadata: payment.metadata || {},
+      sessionStatus: session?.status,
+      isProcessed: await isPaymentProcessed(paymentId)
     });
 
   } catch (error) {
@@ -393,90 +484,203 @@ router.get('/payment/status/:paymentId', async (req: Request, res: Response) => 
 });
 
 /**
+ * Verify webhook signature
+ * Dodo Payments typically uses HMAC SHA256 with the webhook secret
+ */
+function verifyWebhookSignature(
+  payload: string | object,
+  signature: string,
+  secret: string
+): boolean {
+  try {
+    const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const expectedSignature = createHmac('sha256', secret)
+      .update(payloadString)
+      .digest('hex');
+    
+    // Some providers use a prefix like "sha256="
+    const cleanSignature = signature.replace(/^sha256=/, '');
+    const cleanExpected = expectedSignature.replace(/^sha256=/, '');
+    
+    // Use timing-safe comparison to prevent timing attacks
+    if (cleanSignature.length !== cleanExpected.length) {
+      return false;
+    }
+    
+    let result = 0;
+    for (let i = 0; i < cleanSignature.length; i++) {
+      result |= cleanSignature.charCodeAt(i) ^ cleanExpected.charCodeAt(i);
+    }
+    
+    return result === 0;
+  } catch (error) {
+    console.error('❌ Error verifying webhook signature:', error);
+    return false;
+  }
+}
+
+/**
  * Webhook endpoint for Dodo Payments events
  * POST /api/payment/webhook
  */
 router.post('/payment/webhook', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  
   try {
-    const signature = req.headers['dodo-signature'] || req.headers['x-dodo-signature'];
+    const signature = req.headers['dodo-signature'] || 
+                     req.headers['x-dodo-signature'] || 
+                     req.headers['x-signature'];
     const webhookSecret = env.DODO_PAYMENTS_WEBHOOK_SECRET;
 
     // Verify webhook signature if secret is configured
-    if (webhookSecret && signature) {
-      // Note: Implement signature verification based on Dodo Payments documentation
-      // This is a placeholder - adjust based on actual Dodo Payments webhook verification method
-      const expectedSignature = createHmac('sha256', webhookSecret)
-        .update(JSON.stringify(req.body))
-        .digest('hex');
-      
-      if (signature !== expectedSignature) {
-        console.error('❌ Webhook signature verification failed');
-        return res.status(400).json({ error: 'Invalid signature' });
+    if (webhookSecret) {
+      if (!signature) {
+        console.error('❌ Webhook signature missing');
+        return res.status(401).json({ error: 'Missing signature' });
       }
+
+      // Get raw body for signature verification
+      // Note: You may need to configure Express to capture raw body
+      const rawBody = JSON.stringify(req.body);
+      const isValid = verifyWebhookSignature(rawBody, signature as string, webhookSecret);
+      
+      if (!isValid) {
+        console.error('❌ Webhook signature verification failed');
+        console.error('Received signature:', signature);
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+      
+      console.log('✅ Webhook signature verified');
+    } else {
+      console.warn('⚠️ Webhook secret not configured, skipping signature verification');
     }
 
-    const event = req.body as { type?: string; event_type?: string; data?: DodoPaymentResponse; [key: string]: any };
+    const event = req.body as { 
+      type?: string; 
+      event_type?: string; 
+      event?: string;
+      data?: DodoPaymentResponse; 
+      payment?: DodoPaymentResponse;
+      [key: string]: any;
+    };
+
+    const eventType = event.type || event.event_type || event.event;
+    console.log(`📨 Webhook received: ${eventType}`);
 
     // Handle the event
-    switch (event.type || event.event_type) {
+    switch (eventType) {
       case 'payment.succeeded':
       case 'payment.completed':
-        const payment = (event.data || event) as DodoPaymentResponse;
-        const paymentId = payment.payment_id || (payment as any).id;
-        console.log('✅ Payment succeeded:', paymentId);
+      case 'payment.success':
+        const payment = (event.data || event.payment || event) as DodoPaymentResponse;
+        const paymentId = payment.payment_id || (payment as any).id || (event as any).payment_id;
         
-        // Verify and create subscription
-        try {
-          const storedData = paymentSessions.get(paymentId);
-          if (storedData) {
-            const { planId, userId, price, tokens, planName } = storedData;
-            
-            const newSubscriptionData = {
-              userId,
-              planId,
-              tokensRemaining: tokens,
-              tokensUsed: 0,
-              totalTokens: tokens,
-              purchaseDate: new Date().toISOString(),
-              expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              isActive: true,
-              price,
-              paymentId: paymentId,
-              paymentStatus: 'completed'
-            };
-
-            await saveSubscription(newSubscriptionData);
-            
-            const existing = adminStorage.subscriptions.get(userId);
-            const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
-            adminStorage.subscriptions.set(userId, merged);
-            
-            await updatePurchaseStatus(paymentId, 'completed');
-            
-            console.log(`✅ Subscription created via webhook for user ${userId}`);
-          }
-        } catch (error) {
-          console.error('❌ Error processing webhook subscription:', error);
+        if (!paymentId) {
+          console.error('❌ Payment ID not found in webhook event');
+          return res.status(400).json({ error: 'Payment ID not found' });
         }
+        
+        console.log(`✅ Payment succeeded webhook: ${paymentId}`);
+        
+        // Idempotency check
+        const alreadyProcessed = await isPaymentProcessed(paymentId);
+        if (alreadyProcessed) {
+          console.log(`⚠️ Payment ${paymentId} already processed, skipping`);
+          return res.json({ received: true, message: 'Already processed' });
+        }
+        
+        // Get payment session
+        let session = await getPaymentSession(paymentId);
+        
+        // If no session, try to extract from metadata
+        if (!session) {
+          const metadata = payment.metadata || {};
+          if (!metadata.userId || !metadata.planId) {
+            console.error(`❌ Cannot process webhook: session and metadata incomplete for ${paymentId}`);
+            return res.status(400).json({ error: 'Insufficient data to process payment' });
+          }
+          
+          // Reconstruct from metadata
+          const price = payment.amount ? payment.amount / 100 : 0;
+          const planId = metadata.planId as string;
+          const userId = metadata.userId as string;
+          const planName = (metadata.planName || metadata.planId) as string;
+          const tokens = parseInt(metadata.tokens || '0');
+
+          const success = await createSubscriptionFromPayment(
+            paymentId,
+            planId,
+            userId,
+            planName,
+            tokens,
+            price
+          );
+
+          if (success) {
+            console.log(`✅ Subscription created via webhook (from metadata) for user ${userId}`);
+          } else {
+            console.error(`❌ Failed to create subscription via webhook for ${paymentId}`);
+          }
+          
+          return res.json({ received: true, processed: success });
+        }
+
+        // Process with session data
+        const { planId, userId, price, tokens, planName } = session;
+        
+        const success = await createSubscriptionFromPayment(
+          paymentId,
+          planId,
+          userId,
+          planName,
+          tokens,
+          price
+        );
+
+        if (success) {
+          console.log(`✅ Subscription created via webhook for user ${userId}`);
+        } else {
+          console.error(`❌ Failed to create subscription via webhook for ${paymentId}`);
+        }
+        
         break;
         
       case 'payment.failed':
-        const failedPayment = (event.data || event) as DodoPaymentResponse;
-        const failedPaymentId = failedPayment.payment_id || (failedPayment as any).id;
-        console.log('❌ Payment failed:', failedPaymentId);
-        // Handle failed payment
+      case 'payment.failure':
+        const failedPayment = (event.data || event.payment || event) as DodoPaymentResponse;
+        const failedPaymentId = failedPayment.payment_id || (failedPayment as any).id || (event as any).payment_id;
+        console.log(`❌ Payment failed webhook: ${failedPaymentId}`);
+        
         if (failedPaymentId) {
           await updatePurchaseStatus(failedPaymentId, 'failed');
+          await updatePaymentSessionStatus(failedPaymentId, 'failed');
+        }
+        break;
+        
+      case 'payment.cancelled':
+      case 'payment.canceled':
+        const cancelledPayment = (event.data || event.payment || event) as DodoPaymentResponse;
+        const cancelledPaymentId = cancelledPayment.payment_id || (cancelledPayment as any).id || (event as any).payment_id;
+        console.log(`⚠️ Payment cancelled webhook: ${cancelledPaymentId}`);
+        
+        if (cancelledPaymentId) {
+          await updatePaymentSessionStatus(cancelledPaymentId, 'cancelled');
         }
         break;
         
       default:
-        console.log(`Unhandled event type: ${event.type || event.event_type}`);
+        console.log(`⚠️ Unhandled webhook event type: ${eventType}`);
     }
 
-    res.json({ received: true });
+    const processingTime = Date.now() - startTime;
+    console.log(`✅ Webhook processed in ${processingTime}ms`);
+
+    res.json({ received: true, processed: true });
   } catch (error) {
     console.error('❌ Webhook error:', error);
+    const processingTime = Date.now() - startTime;
+    console.error(`❌ Webhook failed after ${processingTime}ms`);
+    
     res.status(500).json({ 
       error: 'Webhook processing failed',
       details: error instanceof Error ? error.message : 'Unknown error'
