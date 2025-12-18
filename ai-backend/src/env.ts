@@ -42,7 +42,7 @@ const envSchema = z.object({
   // Dodo Payments Gateway
   DODO_PAYMENTS_API_KEY: z.string().optional(),
   DODO_PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
-  DODO_PAYMENTS_ENVIRONMENT: z.enum(['test', 'live']).default('test'),
+  DODO_PAYMENTS_ENVIRONMENT: z.enum(['test', 'live']).default('live'), // Default to LIVE for production
   // Dodo Payments Product IDs (from your Dodo Payments dashboard)
   DODO_PAYMENTS_PRODUCT_BASIC: z.string().optional(),
   DODO_PAYMENTS_PRODUCT_STANDARD: z.string().optional(),

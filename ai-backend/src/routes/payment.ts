@@ -71,7 +71,7 @@ interface DodoErrorResponse {
 }
 
 /**
- * Helper function to create subscription from payment data
+ * Helper function to create/update subscription from subscription event data
  */
 async function createSubscriptionFromPayment(
   paymentId: string,
@@ -79,20 +79,31 @@ async function createSubscriptionFromPayment(
   userId: string,
   planName: string,
   tokens: number,
-  price: number
+  price: number,
+  subscriptionId?: string,
+  customerId?: string
 ): Promise<boolean> {
+  const now = new Date();
+  const nextRenewalDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+
   const newSubscriptionData = {
     userId,
     planId,
     tokensRemaining: tokens,
     tokensUsed: 0,
     totalTokens: tokens,
-    purchaseDate: new Date().toISOString(),
-    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    purchaseDate: now.toISOString(),
+    expiryDate: nextRenewalDate.toISOString(), // When current period ends
     isActive: true,
     price,
     paymentId: paymentId,
-    paymentStatus: 'completed'
+    paymentStatus: 'completed',
+    // Subscription-specific fields
+    subscriptionId: subscriptionId || undefined,
+    customerId: customerId || undefined,
+    subscriptionStatus: 'active' as const,
+    monthlyTokens: tokens, // Store monthly allocation for renewals
+    nextRenewalDate: nextRenewalDate.toISOString(),
   };
 
   // Save to Firestore
@@ -113,16 +124,68 @@ async function createSubscriptionFromPayment(
   // Update payment session status
   await updatePaymentSessionStatus(paymentId, 'completed');
   
-  console.log(`✅ Subscription created for user ${userId}: ${planName} - $${price} - ${tokens} tokens`);
+  console.log(`✅ Subscription created for user ${userId}: ${planName} - $${price}/month - ${tokens} tokens/month`);
+  if (subscriptionId) {
+    console.log(`📋 Subscription ID: ${subscriptionId}, Customer ID: ${customerId}`);
+  }
   return true;
 }
 
 /**
- * Create a payment link for a subscription plan
+ * Helper function to handle subscription renewals (monthly token grants)
+ */
+async function handleSubscriptionRenewal(
+  subscriptionId: string,
+  userId: string,
+  monthlyTokens: number
+): Promise<boolean> {
+  try {
+    // Get existing subscription
+    const subscription = await getSubscription(userId);
+    if (!subscription) {
+      console.error(`❌ No subscription found for user ${userId} to renew`);
+      return false;
+    }
+
+    const now = new Date();
+    const nextRenewalDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    // Grant new monthly tokens
+    const updatedSubscription = {
+      ...subscription,
+      tokensRemaining: monthlyTokens, // Reset to monthly allocation
+      totalTokens: monthlyTokens,
+      tokensUsed: 0, // Reset usage counter
+      lastResetDate: now.toISOString(),
+      nextRenewalDate: nextRenewalDate.toISOString(),
+      isActive: true,
+      subscriptionStatus: 'active' as const,
+    };
+
+    // Save updated subscription
+    const saved = await saveSubscription(updatedSubscription);
+    if (!saved) {
+      console.error(`❌ Failed to save renewed subscription for user ${userId}`);
+      return false;
+    }
+
+    // Update admin storage
+    adminStorage.subscriptions.set(userId, updatedSubscription);
+
+    console.log(`🔄 Subscription renewed for user ${userId}: ${monthlyTokens} tokens granted`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error renewing subscription for user ${userId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Create a checkout session for a subscription plan (monthly recurring)
  * POST /api/payment/create-link
  */
 router.post('/payment/create-link', async (req: Request, res: Response) => {
-  // Map plan IDs to Dodo Payments product IDs
+  // Map plan IDs to Dodo Payments product IDs (these should be recurring subscription products)
   const productIdMap: Record<string, string | undefined> = {
     'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
     'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
@@ -154,41 +217,39 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`🔗 Creating payment link for plan ${planId} (product: ${productId}) for user ${userId}`);
-    console.log(`💰 Amount: $${price}, Tokens: ${tokens}`);
+    console.log(`🔗 Creating subscription checkout session for plan ${planId} (product: ${productId}) for user ${userId}`);
+    console.log(`💰 Monthly: $${price}, Monthly Tokens: ${tokens}`);
 
-    // Create payment using Dodo Payments SDK with retry logic
-    let payment: DodoPaymentResponse;
+    // Create checkout session using Dodo Payments SDK with retry logic
+    // NOTE: For subscriptions, we use checkouts.create() NOT payments.create()
+    let checkout: any;
     let retries = 0;
     const maxRetries = 3;
     
     while (retries < maxRetries) {
       try {
-      payment = await dodoClient.payments.create({
-        payment_link: true,
-        billing: {
-          country: 'US' as any, // Default country code (ISO 3166-1 alpha-2)
-        },
-        customer: {
-          email: userEmail || 'customer@example.com',
-          name: userName || 'Customer',
-        },
+      // Create a subscription checkout session (not a one-time payment)
+      checkout = await dodoClient.checkouts.create({
         product_cart: [
           {
             product_id: productId,
             quantity: 1
           }
         ],
+        customer: {
+          email: userEmail || 'customer@example.com',
+          name: userName || 'Customer',
+        },
         metadata: {
           planId,
           userId,
           planName: planName || planId,
-          tokens: tokens?.toString() || '0'
+          monthlyTokens: tokens?.toString() || '0' // Monthly token allocation
         },
-        return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
-        }) as DodoPaymentResponse;
+        return_url: `${env.FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+        }) as any;
         
-        console.log(`✅ Payment created successfully on attempt ${retries + 1}`);
+        console.log(`✅ Checkout session created successfully on attempt ${retries + 1}`);
         break;
     } catch (sdkError: any) {
         retries++;
@@ -208,16 +269,15 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       }
     }
 
-    // Validate that payment_id exists
-    if (!payment!.payment_id) {
-      throw new Error('Payment ID not returned from Dodo Payments API');
+    // Validate that checkout session ID exists
+    const sessionId = checkout?.id || checkout?.checkout_session_id;
+    if (!sessionId) {
+      throw new Error('Checkout session ID not returned from Dodo Payments API');
     }
 
-    const paymentId = payment!.payment_id;
-
-    // Save payment session to Firestore (replaces in-memory storage)
+    // Save checkout session to Firestore (replaces in-memory storage)
     await savePaymentSession({
-      paymentId,
+      paymentId: sessionId,
       userId,
       planId,
       planName: planName || planId,
@@ -227,6 +287,8 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       metadata: {
         userEmail,
         userName,
+        monthlyTokens: tokens || 0,
+        isSubscription: true,
       }
     });
 
@@ -237,16 +299,17 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       planName: planName || planId,
       tokens: tokens || 0,
       price,
-      paymentId: paymentId,
+      paymentId: sessionId,
       paymentStatus: 'pending',
       paymentMethod: 'dodo_payments',
     });
 
-    console.log(`✅ Payment link created: ${paymentId} for user ${userId}`);
+    console.log(`✅ Subscription checkout session created: ${sessionId} for user ${userId}`);
 
     res.json({
-      paymentLink: payment!.payment_url || payment!.checkout_url,
-      paymentId: paymentId,
+      paymentLink: checkout!.url || checkout!.checkout_url,
+      paymentId: sessionId,
+      sessionId: sessionId,
     });
 
   } catch (error: any) {
@@ -665,6 +728,133 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
         
         if (cancelledPaymentId) {
           await updatePaymentSessionStatus(cancelledPaymentId, 'cancelled');
+        }
+        break;
+        
+      // ========== SUBSCRIPTION LIFECYCLE EVENTS ==========
+      
+      case 'subscription.active':
+      case 'subscription.activated':
+        // New subscription activated - grant initial tokens
+        const activatedSub = event.data || event.subscription || event;
+        const activatedSubId = activatedSub.subscription_id || activatedSub.id;
+        const activatedCustomerId = activatedSub.customer_id;
+        const activatedUserId = activatedSub.metadata?.userId;
+        
+        console.log(`✅ Subscription activated: ${activatedSubId} for user ${activatedUserId}`);
+        
+        if (activatedUserId && activatedSubId) {
+          const metadata = activatedSub.metadata || {};
+          const monthlyTokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
+          const planId = metadata.planId;
+          const planName = metadata.planName || planId;
+          const price = activatedSub.amount ? activatedSub.amount / 100 : 0;
+          
+          await createSubscriptionFromPayment(
+            activatedSubId,
+            planId,
+            activatedUserId,
+            planName,
+            monthlyTokens,
+            price,
+            activatedSubId,
+            activatedCustomerId
+          );
+        }
+        break;
+        
+      case 'subscription.renewed':
+      case 'subscription.renewal':
+        // Monthly subscription renewed - grant new tokens
+        const renewedSub = event.data || event.subscription || event;
+        const renewedSubId = renewedSub.subscription_id || renewedSub.id;
+        const renewedUserId = renewedSub.metadata?.userId;
+        
+        console.log(`🔄 Subscription renewed: ${renewedSubId} for user ${renewedUserId}`);
+        
+        if (renewedUserId && renewedSubId) {
+          const metadata = renewedSub.metadata || {};
+          const monthlyTokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
+          
+          const renewed = await handleSubscriptionRenewal(
+            renewedSubId,
+            renewedUserId,
+            monthlyTokens
+          );
+          
+          if (renewed) {
+            console.log(`✅ Monthly tokens granted for user ${renewedUserId}: ${monthlyTokens} tokens`);
+          } else {
+            console.error(`❌ Failed to grant renewal tokens for user ${renewedUserId}`);
+          }
+        }
+        break;
+        
+      case 'subscription.on_hold':
+      case 'subscription.paused':
+        // Subscription payment failed, put on hold
+        const onHoldSub = event.data || event.subscription || event;
+        const onHoldUserId = onHoldSub.metadata?.userId;
+        
+        console.log(`⚠️ Subscription on hold for user ${onHoldUserId}`);
+        
+        if (onHoldUserId) {
+          const subscription = await getSubscription(onHoldUserId);
+          if (subscription) {
+            const updatedSub = {
+              ...subscription,
+              subscriptionStatus: 'on_hold' as const,
+              isActive: false, // Pause token usage
+            };
+            await saveSubscription(updatedSub);
+            adminStorage.subscriptions.set(onHoldUserId, updatedSub);
+            console.log(`⏸️ Subscription paused for user ${onHoldUserId} due to payment failure`);
+          }
+        }
+        break;
+        
+      case 'subscription.cancelled':
+      case 'subscription.canceled':
+        // User or system cancelled subscription
+        const cancelledSub = event.data || event.subscription || event;
+        const cancelledUserId = cancelledSub.metadata?.userId;
+        
+        console.log(`🚫 Subscription cancelled for user ${cancelledUserId}`);
+        
+        if (cancelledUserId) {
+          const subscription = await getSubscription(cancelledUserId);
+          if (subscription) {
+            const updatedSub = {
+              ...subscription,
+              subscriptionStatus: 'cancelled' as const,
+              isActive: false, // Stop token usage
+            };
+            await saveSubscription(updatedSub);
+            adminStorage.subscriptions.set(cancelledUserId, updatedSub);
+            console.log(`❌ Subscription cancelled for user ${cancelledUserId}`);
+          }
+        }
+        break;
+        
+      case 'subscription.expired':
+        // Subscription expired (not renewed)
+        const expiredSub = event.data || event.subscription || event;
+        const expiredUserId = expiredSub.metadata?.userId;
+        
+        console.log(`⏰ Subscription expired for user ${expiredUserId}`);
+        
+        if (expiredUserId) {
+          const subscription = await getSubscription(expiredUserId);
+          if (subscription) {
+            const updatedSub = {
+              ...subscription,
+              subscriptionStatus: 'expired' as const,
+              isActive: false, // Stop token usage
+            };
+            await saveSubscription(updatedSub);
+            adminStorage.subscriptions.set(expiredUserId, updatedSub);
+            console.log(`⌛ Subscription expired for user ${expiredUserId}`);
+          }
         }
         break;
         

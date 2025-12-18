@@ -27,6 +27,12 @@ export interface Subscription {
   paymentStatus?: string;
   grantedBy?: string;
   grantedAt?: string;
+  // Subscription-specific fields for Dodo Payments recurring billing
+  subscriptionId?: string; // Dodo subscription ID
+  customerId?: string; // Dodo customer ID
+  subscriptionStatus?: 'active' | 'on_hold' | 'cancelled' | 'expired'; // Subscription lifecycle status
+  monthlyTokens?: number; // Monthly token allocation for renewal
+  nextRenewalDate?: string; // When the subscription will renew next
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
 }
