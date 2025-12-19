@@ -222,7 +222,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
 
     // Create payment link using Dodo Payments SDK with retry logic.
     // We use payments.create with a recurring product; Dodo will treat it as a subscription.
-    let payment: DodoPaymentResponse;
+    let payment: DodoPaymentResponse | null = null;
     let retries = 0;
     const maxRetries = 3;
     
@@ -230,23 +230,26 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       try {
       // Create a subscription payment link (recurring product)
       payment = await dodoClient.payments.create({
+        payment_link: true,
+        billing: {
+          country: 'US' as any, // Required field
+        },
+        customer: {
+          email: userEmail || 'customer@example.com',
+          name: userName || 'Customer',
+        },
         product_cart: [
           {
             product_id: productId,
             quantity: 1
           }
         ],
-        customer: {
-          email: userEmail || 'customer@example.com',
-          name: userName || 'Customer',
-        },
         metadata: {
           planId,
           userId,
           planName: planName || planId,
           monthlyTokens: tokens?.toString() || '0' // Monthly token allocation
         },
-        payment_link: true,
         return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
         }) as DodoPaymentResponse;
         
