@@ -220,16 +220,16 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     console.log(`🔗 Creating subscription checkout session for plan ${planId} (product: ${productId}) for user ${userId}`);
     console.log(`💰 Monthly: $${price}, Monthly Tokens: ${tokens}`);
 
-    // Create checkout session using Dodo Payments SDK with retry logic
-    // NOTE: For subscriptions, we use checkouts.create() NOT payments.create()
-    let checkout: any;
+    // Create payment link using Dodo Payments SDK with retry logic.
+    // We use payments.create with a recurring product; Dodo will treat it as a subscription.
+    let payment: DodoPaymentResponse;
     let retries = 0;
     const maxRetries = 3;
     
     while (retries < maxRetries) {
       try {
-      // Create a subscription checkout session (not a one-time payment)
-      checkout = await dodoClient.checkouts.create({
+      // Create a subscription payment link (recurring product)
+      payment = await dodoClient.payments.create({
         product_cart: [
           {
             product_id: productId,
@@ -246,10 +246,11 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
           planName: planName || planId,
           monthlyTokens: tokens?.toString() || '0' // Monthly token allocation
         },
-        return_url: `${env.FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-        }) as any;
+        payment_link: true,
+        return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
+        }) as DodoPaymentResponse;
         
-        console.log(`✅ Checkout session created successfully on attempt ${retries + 1}`);
+        console.log(`✅ Payment link created successfully on attempt ${retries + 1}`);
         break;
     } catch (sdkError: any) {
         retries++;
@@ -269,13 +270,14 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       }
     }
 
-    // Validate that checkout session ID exists
-    const sessionId = checkout?.id || checkout?.checkout_session_id;
-    if (!sessionId) {
-      throw new Error('Checkout session ID not returned from Dodo Payments API');
+    // Validate that payment_id exists
+    if (!payment?.payment_id) {
+      throw new Error('Payment ID not returned from Dodo Payments API');
     }
 
-    // Save checkout session to Firestore (replaces in-memory storage)
+    const sessionId = payment.payment_id;
+
+    // Save payment session to Firestore (replaces in-memory storage)
     await savePaymentSession({
       paymentId: sessionId,
       userId,
@@ -304,10 +306,10 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       paymentMethod: 'dodo_payments',
     });
 
-    console.log(`✅ Subscription checkout session created: ${sessionId} for user ${userId}`);
+    console.log(`✅ Subscription payment link created: ${sessionId} for user ${userId}`);
 
     res.json({
-      paymentLink: checkout!.url || checkout!.checkout_url,
+      paymentLink: payment!.payment_url || payment!.checkout_url,
       paymentId: sessionId,
       sessionId: sessionId,
     });
