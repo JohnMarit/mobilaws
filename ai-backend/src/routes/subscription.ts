@@ -296,7 +296,7 @@ router.get('/subscription/plans', async (req: Request, res: Response) => {
       {
         id: 'basic',
         name: 'Basic',
-        price: 5,
+        price: 600, // KSh 600
         tokens: 50,
         description: 'Perfect for occasional legal queries',
         features: [
@@ -309,7 +309,7 @@ router.get('/subscription/plans', async (req: Request, res: Response) => {
       {
         id: 'standard',
         name: 'Standard',
-        price: 10,
+        price: 1350, // KSh 1,350
         tokens: 120,
         description: 'Great for regular legal assistance',
         features: [
@@ -324,7 +324,7 @@ router.get('/subscription/plans', async (req: Request, res: Response) => {
       {
         id: 'premium',
         name: 'Premium',
-        price: 30,
+        price: 4000, // KSh 4,000
         tokens: 500,
         description: 'Best value for heavy legal research',
         features: [

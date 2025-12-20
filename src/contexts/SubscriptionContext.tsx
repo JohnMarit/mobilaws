@@ -60,7 +60,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'basic',
       name: 'Basic',
-      price: 500, // KSh 500 (~$5 USD)
+      price: 600, // KSh 600
       tokens: 50,
       description: 'Perfect for occasional legal queries',
       features: [
@@ -73,7 +73,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'standard',
       name: 'Standard',
-      price: 1000, // KSh 1,000 (~$10 USD)
+      price: 1350, // KSh 1,350
       tokens: 120,
       description: 'Great for regular legal assistance',
       features: [
@@ -88,7 +88,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'premium',
       name: 'Premium',
-      price: 3000, // KSh 3,000 (~$30 USD)
+      price: 4000, // KSh 4,000
       tokens: 500,
       description: 'Best value for heavy legal research',
       features: [
