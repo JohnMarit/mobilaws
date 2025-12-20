@@ -55,12 +55,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
-  // Define subscription plans
+  // Define subscription plans (prices in Kenya Shillings)
   const plans: SubscriptionPlan[] = [
     {
       id: 'basic',
       name: 'Basic',
-      price: 5,
+      price: 500, // KSh 500 (~$5 USD)
       tokens: 50,
       description: 'Perfect for occasional legal queries',
       features: [
@@ -73,7 +73,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'standard',
       name: 'Standard',
-      price: 10,
+      price: 1000, // KSh 1,000 (~$10 USD)
       tokens: 120,
       description: 'Great for regular legal assistance',
       features: [
@@ -88,7 +88,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'premium',
       name: 'Premium',
-      price: 30,
+      price: 3000, // KSh 3,000 (~$30 USD)
       tokens: 500,
       description: 'Best value for heavy legal research',
       features: [

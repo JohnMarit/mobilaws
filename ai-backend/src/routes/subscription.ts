@@ -93,16 +93,30 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     
-    // Try to get from Firestore first
+    console.log(`📊 Fetching subscription for user: ${userId}`);
+    
+    // ALWAYS try Firestore first (most up-to-date data, especially after payments)
     let subscription = await getSubscription(userId);
     
-    // Fallback to in-memory
-    if (!subscription) {
+    if (subscription) {
+      console.log(`✅ Found subscription in Firestore for ${userId}: ${subscription.planId} (${subscription.tokensRemaining} tokens)`);
+      
+      // Sync to in-memory cache
+      subscriptions.set(userId, subscription);
+    } else {
+      console.log(`⚠️  No subscription in Firestore for ${userId}, checking in-memory...`);
+      
+      // Fallback to in-memory
       subscription = subscriptions.get(userId);
+      
+      if (subscription) {
+        console.log(`✅ Found subscription in memory for ${userId}: ${subscription.planId}`);
+      }
     }
     
     // If no subscription exists, initialize free plan
     if (!subscription) {
+      console.log(`🆓 No subscription found for ${userId}, initializing free plan...`);
       subscription = await initializeFreePlan(userId);
     } else {
       // Check if paid/granted subscription has expired
@@ -124,6 +138,7 @@ router.get('/subscription/:userId', async (req: Request, res: Response) => {
       }
     }
     
+    console.log(`📤 Returning subscription for ${userId}: ${subscription?.planId} (active: ${subscription?.isActive})`);
     res.json({ subscription });
   } catch (error) {
     console.error('❌ Error getting subscription:', error);

@@ -129,10 +129,14 @@ async function createSubscriptionFromPayment(
     return false;
   }
   
+  console.log(`✅ Subscription saved to Firestore for user ${userId}`);
+  
   // Persist subscription into shared admin storage
   const existing = adminStorage.subscriptions.get(userId);
   const merged = existing ? { ...existing, ...newSubscriptionData } : newSubscriptionData;
   adminStorage.subscriptions.set(userId, merged);
+  
+  console.log(`✅ Subscription added to admin storage for user ${userId}`);
   
   // Update purchase status to completed
   await updatePurchaseStatus(reference, 'completed');
@@ -144,6 +148,15 @@ async function createSubscriptionFromPayment(
   if (subscriptionCode) {
     console.log(`📋 Subscription Code: ${subscriptionCode}, Customer Code: ${customerCode}`);
   }
+  
+  // Verify the subscription was actually saved
+  const verification = await getSubscription(userId);
+  if (verification) {
+    console.log(`✅✅ Subscription verified in Firestore for ${userId}: ${verification.planId}`);
+  } else {
+    console.error(`❌❌ CRITICAL: Subscription not found in Firestore immediately after save for ${userId}`);
+  }
+  
   return true;
 }
 
