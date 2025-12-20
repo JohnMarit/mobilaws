@@ -322,7 +322,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     setIsLoading(true);
     
     try {
-      // Create payment link with Dodo Payments
+      // Create payment link with Paystack
       const response = await fetch(getApiUrl('payment/create-link'), {
         method: 'POST',
         headers: {
@@ -348,7 +348,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       
       if (result.paymentLink) {
         console.log(`✅ Payment link created for ${plan.name} plan - $${plan.price}`);
-        return { success: true, paymentLink: result.paymentLink, paymentId: result.paymentId };
+        return { success: true, paymentLink: result.paymentLink, paymentId: result.reference || result.paymentId };
       } else {
         throw new Error('No payment link received');
       }
@@ -379,7 +379,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          paymentId
+          reference: paymentId,
+          paymentId: paymentId
         })
       });
 

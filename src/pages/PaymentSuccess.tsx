@@ -17,16 +17,16 @@ export default function PaymentSuccess() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Get payment ID or session ID from URL
-    const paymentId = searchParams.get('payment_id') || searchParams.get('session_id');
+    // Get payment reference from URL (Paystack uses 'reference' parameter)
+    const reference = searchParams.get('reference') || searchParams.get('payment_id') || searchParams.get('session_id');
     
-    if (!paymentId) {
-      setVerificationError('No payment or session ID found in URL');
+    if (!reference) {
+      setVerificationError('No payment reference found in URL');
       setIsVerifying(false);
       return;
     }
 
-    console.log(`🔍 Processing payment success for ID: ${paymentId}`);
+    console.log(`🔍 Processing payment success for reference: ${reference}`);
 
     // Polling function to check if webhook has processed the payment
     const pollForSubscription = async () => {
@@ -37,7 +37,7 @@ export default function PaymentSuccess() {
         await refreshSubscription();
         
         // Try to verify payment (this will check if webhook already processed it)
-        const success = await verifyPayment(paymentId);
+        const success = await verifyPayment(reference);
         
         if (success) {
           console.log('✅ Subscription activated successfully');

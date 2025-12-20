@@ -39,14 +39,14 @@ const envSchema = z.object({
   API_KEY_REQUIRED: z.string().default('false').transform(val => val === 'true'),
   API_KEY_SECRET: z.string().optional(),
 
-  // Dodo Payments Gateway
-  DODO_PAYMENTS_API_KEY: z.string().optional(),
-  DODO_PAYMENTS_WEBHOOK_SECRET: z.string().optional(),
-  DODO_PAYMENTS_ENVIRONMENT: z.enum(['test', 'live']).default('live'), // Default to LIVE for production
-  // Dodo Payments Product IDs (from your Dodo Payments dashboard)
-  DODO_PAYMENTS_PRODUCT_BASIC: z.string().optional(),
-  DODO_PAYMENTS_PRODUCT_STANDARD: z.string().optional(),
-  DODO_PAYMENTS_PRODUCT_PREMIUM: z.string().optional(),
+  // Paystack Payment Gateway
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+  PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  PAYSTACK_ENVIRONMENT: z.enum(['test', 'live']).default('live'), // Default to LIVE for production
+  // Paystack Plan Codes (from your Paystack dashboard)
+  PAYSTACK_PLAN_BASIC: z.string().optional(),
+  PAYSTACK_PLAN_STANDARD: z.string().optional(),
+  PAYSTACK_PLAN_PREMIUM: z.string().optional(),
 
   // Email Configuration
   EMAIL_HOST: z.string().optional(),

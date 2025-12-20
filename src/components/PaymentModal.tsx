@@ -45,7 +45,7 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
 
   const handleRedirectToPayment = () => {
     if (paymentLink) {
-      // Redirect to Dodo Payments checkout
+      // Redirect to Paystack checkout
       window.location.href = paymentLink;
     } else {
       onError('Payment link not available. Please try again.');
@@ -96,7 +96,7 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
         <CardHeader>
           <CardTitle>Payment Information</CardTitle>
           <CardDescription>
-            You will be redirected to Dodo Payments to complete your purchase securely
+            You will be redirected to Paystack to complete your purchase securely
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -104,7 +104,7 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
             <div className="p-4 border rounded-lg bg-blue-50 text-center">
               <CreditCard className="h-8 w-8 text-blue-500 mx-auto mb-2" />
               <p className="text-sm text-gray-700 font-medium">Secure Payment</p>
-              <p className="text-xs text-gray-600 mt-1">Powered by Dodo Payments</p>
+              <p className="text-xs text-gray-600 mt-1">Powered by Paystack</p>
             </div>
             
             <div className="flex items-center gap-2 text-sm text-gray-600">

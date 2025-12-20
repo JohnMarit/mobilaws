@@ -1,0 +1,113 @@
+# ================================
+# PAYSTACK PAYMENT CONFIGURATION
+# ================================
+# Get these from: https://dashboard.paystack.com/settings/developer
+
+# Test Keys (for development/testing)
+PAYSTACK_SECRET_KEY=sk_test_your_test_secret_key_here
+PAYSTACK_PUBLIC_KEY=pk_test_your_test_public_key_here
+PAYSTACK_ENVIRONMENT=test
+
+# Live Keys (for production - uncomment when ready)
+# PAYSTACK_SECRET_KEY=sk_live_your_live_secret_key_here
+# PAYSTACK_PUBLIC_KEY=pk_live_your_live_public_key_here
+# PAYSTACK_ENVIRONMENT=live
+
+# Subscription Plan Codes
+# Create plans at: https://dashboard.paystack.com/payments/plans
+PAYSTACK_PLAN_BASIC=PLN_your_basic_plan_code_here
+PAYSTACK_PLAN_STANDARD=PLN_your_standard_plan_code_here
+PAYSTACK_PLAN_PREMIUM=PLN_your_premium_plan_code_here
+
+# ================================
+# APPLICATION CONFIGURATION
+# ================================
+
+# Server Configuration
+PORT=8000
+TZ=Africa/Juba
+NODE_ENV=development
+
+# Frontend URL (for payment redirects)
+FRONTEND_URL=http://localhost:5173
+
+# ================================
+# OPENAI CONFIGURATION
+# ================================
+OPENAI_API_KEY=your_openai_api_key_here
+LLM_MODEL=gpt-4o
+EMBED_MODEL=text-embedding-3-large
+
+# ================================
+# VECTOR STORE CONFIGURATION
+# ================================
+VECTOR_BACKEND=chroma
+CHROMA_DIR=./storage/chroma
+DOCS_DIR=./storage/documents
+
+# Pinecone (optional)
+# PINECONE_API_KEY=your_pinecone_api_key
+# PINECONE_ENV=your_pinecone_environment
+# PINECONE_INDEX=your_pinecone_index
+
+# Qdrant (optional)
+# QDRANT_URL=your_qdrant_url
+# QDRANT_API_KEY=your_qdrant_api_key
+QDRANT_COLLECTION=mobilaws_legal
+
+# ================================
+# CORS CONFIGURATION
+# ================================
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+# ================================
+# API SECURITY (optional)
+# ================================
+API_KEY_REQUIRED=false
+# API_KEY_SECRET=your_api_secret_here
+
+# ================================
+# EMAIL CONFIGURATION (optional)
+# ================================
+# EMAIL_HOST=smtp.gmail.com
+# EMAIL_PORT=587
+# EMAIL_SECURE=false
+# EMAIL_USER=your_email@gmail.com
+# EMAIL_PASSWORD=your_app_password
+EMAIL_FROM=noreply@mobilaws.com
+
+# ================================
+# ADMIN CONFIGURATION
+# ================================
+ADMIN_EMAILS=thuchabraham42@gmail.com
+# GOOGLE_CLIENT_ID=your_google_client_id
+
+# ================================
+# LLM PARAMETERS
+# ================================
+TEMPERATURE=0.1
+MAX_TOKENS=1024
+TOP_K=5
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=150
+
+# ================================
+# INSTRUCTIONS
+# ================================
+# 
+# 1. Copy this file to ai-backend/.env (create .env file)
+# 2. Replace all placeholder values with your actual credentials
+# 3. Never commit .env files to git (.env is already in .gitignore)
+# 4. For production, use live keys and set NODE_ENV=production
+# 
+# Quick Start:
+# - Get Paystack keys from: https://dashboard.paystack.com/settings/developer
+# - Create plans at: https://dashboard.paystack.com/payments/plans
+# - Set webhook URL: https://your-backend.com/api/payment/webhook
+#
+# Test Cards (Paystack):
+# - Success: 4084084084084081
+# - Declined: 5060666666666666666
+# - Any future expiry, any CVV
+#
+

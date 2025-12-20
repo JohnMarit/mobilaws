@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { createHmac } from 'crypto';
-import DodoPayments from 'dodopayments';
+import Paystack from 'paystack';
 import { env } from '../env';
 import { adminStorage } from './admin';
 import {
@@ -16,72 +16,87 @@ import {
 
 const router = Router();
 
-// Initialize Dodo Payments client with SDK
-const dodoClient = env.DODO_PAYMENTS_API_KEY ? new DodoPayments({
-  bearerToken: env.DODO_PAYMENTS_API_KEY,
-}) : null;
+// Initialize Paystack client
+const paystackClient = env.PAYSTACK_SECRET_KEY ? new Paystack(env.PAYSTACK_SECRET_KEY) : null;
 
 /**
- * Diagnostic endpoint to check Dodo Payments configuration
+ * Diagnostic endpoint to check Paystack configuration
  * GET /api/payment/config-check
  */
 router.get('/payment/config-check', (req: Request, res: Response) => {
   const config = {
-    apiKeyPresent: !!env.DODO_PAYMENTS_API_KEY,
-    apiKeyLength: env.DODO_PAYMENTS_API_KEY?.length || 0,
-    apiKeyPrefix: env.DODO_PAYMENTS_API_KEY?.substring(0, 15) || 'NOT SET',
-    environment: env.DODO_PAYMENTS_ENVIRONMENT,
+    apiKeyPresent: !!env.PAYSTACK_SECRET_KEY,
+    apiKeyLength: env.PAYSTACK_SECRET_KEY?.length || 0,
+    apiKeyPrefix: env.PAYSTACK_SECRET_KEY?.substring(0, 10) || 'NOT SET',
+    publicKeyPresent: !!env.PAYSTACK_PUBLIC_KEY,
+    environment: env.PAYSTACK_ENVIRONMENT,
     frontendUrl: env.FRONTEND_URL,
-    productIds: {
-      basic: env.DODO_PAYMENTS_PRODUCT_BASIC || 'NOT SET',
-      standard: env.DODO_PAYMENTS_PRODUCT_STANDARD || 'NOT SET',
-      premium: env.DODO_PAYMENTS_PRODUCT_PREMIUM || 'NOT SET',
+    planCodes: {
+      basic: env.PAYSTACK_PLAN_BASIC || 'NOT SET',
+      standard: env.PAYSTACK_PLAN_STANDARD || 'NOT SET',
+      premium: env.PAYSTACK_PLAN_PREMIUM || 'NOT SET',
     },
-    webhookSecretPresent: !!env.DODO_PAYMENTS_WEBHOOK_SECRET,
-    sdkClientInitialized: !!dodoClient,
+    sdkClientInitialized: !!paystackClient,
   };
   
-  console.log('🔍 Dodo Payments Configuration Check:', config);
+  console.log('🔍 Paystack Configuration Check:', config);
   
   res.json(config);
 });
 
-// Type definitions for Dodo Payments API responses
-interface DodoPaymentResponse {
-  payment_id?: string;
-  payment_url?: string;
-  checkout_url?: string;
+// Type definitions for Paystack API responses
+interface PaystackTransaction {
+  reference?: string;
   status?: string;
   amount?: number;
   currency?: string;
+  customer?: {
+    email?: string;
+    customer_code?: string;
+  };
   metadata?: {
     planId?: string;
     userId?: string;
     planName?: string;
-    tokens?: string;
+    tokens?: string | number;
+    custom_fields?: any[];
     [key: string]: any;
+  };
+  authorization_url?: string;
+  access_code?: string;
+  [key: string]: any;
+}
+
+interface PaystackSubscription {
+  subscription_code?: string;
+  email_token?: string;
+  amount?: number;
+  cron_expression?: string;
+  next_payment_date?: string;
+  status?: string;
+  customer?: {
+    email?: string;
+    customer_code?: string;
+  };
+  plan?: {
+    plan_code?: string;
+    name?: string;
   };
   [key: string]: any;
 }
 
-interface DodoErrorResponse {
-  message?: string;
-  error?: string;
-  [key: string]: any;
-}
-
 /**
- * Helper function to create/update subscription from subscription event data
+ * Helper function to create/update subscription from payment data
  */
 async function createSubscriptionFromPayment(
-  paymentId: string,
+  reference: string,
   planId: string,
   userId: string,
   planName: string,
   tokens: number,
   price: number,
-  subscriptionId?: string,
-  customerId?: string
+  subscriptionCode?: string,
+  customerCode?: string
 ): Promise<boolean> {
   const now = new Date();
   const nextRenewalDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
@@ -93,14 +108,14 @@ async function createSubscriptionFromPayment(
     tokensUsed: 0,
     totalTokens: tokens,
     purchaseDate: now.toISOString(),
-    expiryDate: nextRenewalDate.toISOString(), // When current period ends
+    expiryDate: nextRenewalDate.toISOString(),
     isActive: true,
     price,
-    paymentId: paymentId,
+    paymentId: reference,
     paymentStatus: 'completed',
     // Subscription-specific fields
-    subscriptionId: subscriptionId || undefined,
-    customerId: customerId || undefined,
+    subscriptionCode: subscriptionCode || undefined,
+    customerCode: customerCode || undefined,
     subscriptionStatus: 'active' as const,
     monthlyTokens: tokens, // Store monthly allocation for renewals
     nextRenewalDate: nextRenewalDate.toISOString(),
@@ -119,14 +134,14 @@ async function createSubscriptionFromPayment(
   adminStorage.subscriptions.set(userId, merged);
   
   // Update purchase status to completed
-  await updatePurchaseStatus(paymentId, 'completed');
+  await updatePurchaseStatus(reference, 'completed');
   
   // Update payment session status
-  await updatePaymentSessionStatus(paymentId, 'completed');
+  await updatePaymentSessionStatus(reference, 'completed');
   
   console.log(`✅ Subscription created for user ${userId}: ${planName} - $${price}/month - ${tokens} tokens/month`);
-  if (subscriptionId) {
-    console.log(`📋 Subscription ID: ${subscriptionId}, Customer ID: ${customerId}`);
+  if (subscriptionCode) {
+    console.log(`📋 Subscription Code: ${subscriptionCode}, Customer Code: ${customerCode}`);
   }
   return true;
 }
@@ -135,7 +150,7 @@ async function createSubscriptionFromPayment(
  * Helper function to handle subscription renewals (monthly token grants)
  */
 async function handleSubscriptionRenewal(
-  subscriptionId: string,
+  subscriptionCode: string,
   userId: string,
   monthlyTokens: number
 ): Promise<boolean> {
@@ -181,15 +196,15 @@ async function handleSubscriptionRenewal(
 }
 
 /**
- * Create a checkout session for a subscription plan (monthly recurring)
+ * Create a payment transaction for a subscription plan
  * POST /api/payment/create-link
  */
 router.post('/payment/create-link', async (req: Request, res: Response) => {
-  // Map plan IDs to Dodo Payments product IDs (these should be recurring subscription products)
-  const productIdMap: Record<string, string | undefined> = {
-    'basic': env.DODO_PAYMENTS_PRODUCT_BASIC,
-    'standard': env.DODO_PAYMENTS_PRODUCT_STANDARD,
-    'premium': env.DODO_PAYMENTS_PRODUCT_PREMIUM,
+  // Map plan IDs to Paystack plan codes
+  const planCodeMap: Record<string, string | undefined> = {
+    'basic': env.PAYSTACK_PLAN_BASIC,
+    'standard': env.PAYSTACK_PLAN_STANDARD,
+    'premium': env.PAYSTACK_PLAN_PREMIUM,
   };
 
   try {
@@ -202,87 +217,102 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       });
     }
 
-    if (!dodoClient) {
-      console.error('❌ Dodo Payments client not initialized');
-      return res.status(500).json({ 
-        error: 'Dodo Payments API key not configured' 
-      });
-    }
-
-    const productId = productIdMap[planId];
-    
-    if (!productId) {
+    if (!userEmail) {
       return res.status(400).json({ 
-        error: `Product ID not configured for plan: ${planId}. Please configure DODO_PAYMENTS_PRODUCT_${planId.toUpperCase()} in environment variables.` 
+        error: 'Email is required for Paystack payments' 
       });
     }
 
-    console.log(`🔗 Creating subscription checkout session for plan ${planId} (product: ${productId}) for user ${userId}`);
-    console.log(`💰 Monthly: $${price}, Monthly Tokens: ${tokens}`);
+    if (!paystackClient) {
+      console.error('❌ Paystack client not initialized');
+      return res.status(500).json({ 
+        error: 'Paystack API key not configured' 
+      });
+    }
 
-    // Create payment link using Dodo Payments SDK with retry logic.
-    // We use payments.create with a recurring product; Dodo will treat it as a subscription.
-    let payment: DodoPaymentResponse | null = null;
+    const planCode = planCodeMap[planId];
+    
+    if (!planCode) {
+      return res.status(400).json({ 
+        error: `Plan code not configured for plan: ${planId}. Please configure PAYSTACK_PLAN_${planId.toUpperCase()} in environment variables.` 
+      });
+    }
+
+    console.log(`🔗 Creating Paystack transaction for plan ${planId} (plan code: ${planCode}) for user ${userId}`);
+    console.log(`💰 Amount: $${price}, Monthly Tokens: ${tokens}`);
+
+    // Generate a unique reference
+    const reference = `mobilaws_${userId}_${Date.now()}`;
+
+    // Create transaction with Paystack
+    let transaction: any;
     let retries = 0;
     const maxRetries = 3;
     
     while (retries < maxRetries) {
       try {
-      // Create a subscription payment link (recurring product)
-      payment = await dodoClient.payments.create({
-        payment_link: true,
-        billing: {
-          country: 'US' as any, // Required field
-        },
-        customer: {
-          email: userEmail || 'customer@example.com',
-          name: userName || 'Customer',
-        },
-        product_cart: [
-          {
-            product_id: productId,
-            quantity: 1
+        // Initialize transaction with Paystack
+        const response = await paystackClient.transaction.initialize({
+          email: userEmail,
+          amount: Math.round(price * 100), // Amount in kobo (cents)
+          currency: 'USD',
+          reference: reference,
+          callback_url: `${env.FRONTEND_URL}/payment/success?reference=${reference}`,
+          plan: planCode, // This makes it a subscription
+          metadata: {
+            planId,
+            userId,
+            planName: planName || planId,
+            monthlyTokens: tokens?.toString() || '0',
+            userName: userName || '',
+            custom_fields: [
+              {
+                display_name: 'Plan',
+                variable_name: 'plan',
+                value: planName || planId
+              },
+              {
+                display_name: 'Tokens',
+                variable_name: 'tokens',
+                value: tokens?.toString() || '0'
+              }
+            ]
           }
-        ],
-        metadata: {
-          planId,
-          userId,
-          planName: planName || planId,
-          monthlyTokens: tokens?.toString() || '0' // Monthly token allocation
-        },
-        return_url: `${env.FRONTEND_URL}/payment/success?payment_id={PAYMENT_ID}`,
-        }) as DodoPaymentResponse;
+        });
         
-        console.log(`✅ Payment link created successfully on attempt ${retries + 1}`);
-        break;
-    } catch (sdkError: any) {
+        if (response.status && response.data) {
+          transaction = response.data;
+          console.log(`✅ Paystack transaction created successfully on attempt ${retries + 1}`);
+          break;
+        } else {
+          throw new Error(response.message || 'Failed to create transaction');
+        }
+      } catch (sdkError: any) {
         retries++;
-        console.error(`❌ SDK Error (attempt ${retries}/${maxRetries}):`, {
-        name: sdkError?.name,
-        message: sdkError?.message,
-        status: sdkError?.status,
-        statusCode: sdkError?.statusCode,
+        console.error(`❌ Paystack SDK Error (attempt ${retries}/${maxRetries}):`, {
+          message: sdkError?.message,
+          status: sdkError?.status,
         });
         
         if (retries >= maxRetries) {
-      throw sdkError;
-    }
+          throw sdkError;
+        }
 
         // Wait before retry (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * retries));
       }
     }
 
-    // Validate that payment_id exists
-    if (!payment?.payment_id) {
-      throw new Error('Payment ID not returned from Dodo Payments API');
+    // Validate that authorization_url exists
+    if (!transaction?.authorization_url || !transaction?.reference) {
+      throw new Error('Authorization URL not returned from Paystack API');
     }
 
-    const sessionId = payment.payment_id;
+    const sessionReference = transaction.reference;
 
-    // Save payment session to Firestore (replaces in-memory storage)
+    // Save payment session to Firestore
     await savePaymentSession({
-      paymentId: sessionId,
+      paymentId: sessionReference,
       userId,
       planId,
       planName: planName || planId,
@@ -294,6 +324,7 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
         userName,
         monthlyTokens: tokens || 0,
         isSubscription: true,
+        accessCode: transaction.access_code,
       }
     });
 
@@ -304,42 +335,34 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       planName: planName || planId,
       tokens: tokens || 0,
       price,
-      paymentId: sessionId,
+      paymentId: sessionReference,
       paymentStatus: 'pending',
-      paymentMethod: 'dodo_payments',
+      paymentMethod: 'paystack',
     });
 
-    console.log(`✅ Subscription payment link created: ${sessionId} for user ${userId}`);
+    console.log(`✅ Paystack transaction created: ${sessionReference} for user ${userId}`);
 
     res.json({
-      paymentLink: payment!.payment_url || payment!.checkout_url,
-      paymentId: sessionId,
-      sessionId: sessionId,
+      paymentLink: transaction.authorization_url,
+      paymentId: sessionReference,
+      sessionId: sessionReference,
+      reference: sessionReference,
+      accessCode: transaction.access_code,
     });
 
   } catch (error: any) {
     console.error('❌ Error creating payment link:', error);
     
-    // Handle Dodo Payments SDK errors
+    // Handle Paystack SDK errors
     let errorMessage = 'Unknown error';
     let errorDetails: any = {};
 
     if (error && typeof error === 'object') {
-      if ('status' in error || 'statusCode' in error) {
-        const status = error.status || error.statusCode;
-        errorMessage = `Dodo Payments API Error (${status}): ${error.message || error.name || 'Unknown'}`;
-        errorDetails = {
-          status,
-          name: error.name,
-          message: error.message,
-        };
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-        errorDetails = {
-          message: error.message,
-          stack: env.NODE_ENV === 'development' ? error.stack : undefined
-        };
-      }
+      errorMessage = error.message || 'Failed to create payment link';
+      errorDetails = {
+        message: error.message,
+        stack: env.NODE_ENV === 'development' ? error.stack : undefined
+      };
     }
 
     res.status(500).json({
@@ -356,25 +379,26 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
  */
 router.post('/payment/verify', async (req: Request, res: Response) => {
   try {
-    const { paymentId } = req.body;
+    const { paymentId, reference } = req.body;
+    const ref = reference || paymentId;
     
-    if (!paymentId) {
-      return res.status(400).json({ error: 'Payment ID is required' });
+    if (!ref) {
+      return res.status(400).json({ error: 'Payment reference is required' });
     }
 
-    if (!dodoClient) {
+    if (!paystackClient) {
       return res.status(500).json({ 
-        error: 'Dodo Payments API key not configured' 
+        error: 'Paystack API key not configured' 
       });
     }
 
     // Idempotency check: prevent duplicate subscription creation
-    const alreadyProcessed = await isPaymentProcessed(paymentId);
+    const alreadyProcessed = await isPaymentProcessed(ref);
     if (alreadyProcessed) {
-      console.log(`⚠️ Payment ${paymentId} already processed, returning existing subscription`);
+      console.log(`⚠️ Payment ${ref} already processed, returning existing subscription`);
       
       // Get existing subscription from payment session
-      const session = await getPaymentSession(paymentId);
+      const session = await getPaymentSession(ref);
       if (session) {
         const existingSub = await getSubscription(session.userId);
         if (existingSub) {
@@ -393,55 +417,61 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       });
     }
 
-    // Retrieve payment from Dodo Payments using SDK
-    let payment: DodoPaymentResponse;
+    // Verify transaction with Paystack
+    let transaction: any;
     try {
-      payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
+      const response = await paystackClient.transaction.verify(ref);
+      if (!response.status || !response.data) {
+        throw new Error(response.message || 'Failed to verify transaction');
+      }
+      transaction = response.data;
     } catch (error: any) {
-      console.error('❌ Error retrieving payment from Dodo Payments:', error);
+      console.error('❌ Error verifying payment with Paystack:', error);
       return res.status(500).json({
-        error: 'Failed to retrieve payment',
+        error: 'Failed to verify payment',
         details: error.message || 'Unknown error'
       });
     }
     
     // Check payment status
-    if (payment.status !== 'succeeded' && payment.status !== 'completed') {
-      await updatePaymentSessionStatus(paymentId, 'failed');
+    if (transaction.status !== 'success') {
+      await updatePaymentSessionStatus(ref, 'failed');
       return res.status(400).json({ 
         error: 'Payment not completed',
-        status: payment.status
+        status: transaction.status
       });
     }
 
     // Get payment session data from Firestore
-    let session = await getPaymentSession(paymentId);
+    let session = await getPaymentSession(ref);
     
-    // If session not found, try to extract from payment metadata
+    // If session not found, try to extract from transaction metadata
     if (!session) {
-      const metadata = payment.metadata || {};
+      const metadata = transaction.metadata || {};
       if (!metadata.userId || !metadata.planId) {
-        console.error(`❌ Payment session not found and metadata incomplete for ${paymentId}`);
+        console.error(`❌ Payment session not found and metadata incomplete for ${ref}`);
         return res.status(400).json({ 
           error: 'Payment session not found and cannot be reconstructed from metadata' 
         });
       }
       
       // Reconstruct session from metadata
-      const price = payment.amount ? payment.amount / 100 : 0;
+      const price = transaction.amount ? transaction.amount / 100 : 0;
       const planId = metadata.planId as string;
       const userId = metadata.userId as string;
       const planName = (metadata.planName || metadata.planId) as string;
-      const tokens = parseInt(metadata.tokens || '0');
+      const tokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
 
       // Create subscription
       const success = await createSubscriptionFromPayment(
-        paymentId,
+        ref,
         planId,
         userId,
         planName,
         tokens,
-        price
+        price,
+        transaction.plan_object?.subscription_code,
+        transaction.customer?.customer_code
       );
 
       if (!success) {
@@ -465,7 +495,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     const { planId, userId, price, tokens, planName } = session;
 
     // Double-check idempotency
-    const processed = await isPaymentProcessed(paymentId);
+    const processed = await isPaymentProcessed(ref);
     if (processed) {
       const existingSub = await getSubscription(userId);
       return res.json({
@@ -478,12 +508,14 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 
     // Create subscription
     const success = await createSubscriptionFromPayment(
-      paymentId,
+      ref,
       planId,
       userId,
       planName,
       tokens,
-      price
+      price,
+      transaction.plan_object?.subscription_code,
+      transaction.customer?.customer_code
     );
 
     if (!success) {
@@ -494,7 +526,7 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     }
 
     // Get the created subscription
-    const subscription = await require('../lib/subscription-storage').getSubscription(userId);
+    const subscription = await getSubscription(userId);
     
     console.log(`✅ Payment verified for user ${userId}: ${planName} - $${price}`);
 
@@ -515,31 +547,38 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 
 /**
  * Get payment status
- * GET /api/payment/status/:paymentId
+ * GET /api/payment/status/:reference
  */
-router.get('/payment/status/:paymentId', async (req: Request, res: Response) => {
+router.get('/payment/status/:reference', async (req: Request, res: Response) => {
   try {
-    const { paymentId } = req.params;
+    const { reference } = req.params;
     
-    if (!dodoClient) {
+    if (!paystackClient) {
       return res.status(500).json({ 
-        error: 'Dodo Payments API key not configured' 
+        error: 'Paystack API key not configured' 
       });
     }
 
-    // Retrieve payment from Dodo Payments using SDK
-    const payment = await dodoClient.payments.retrieve(paymentId) as DodoPaymentResponse;
+    // Verify transaction with Paystack
+    const response = await paystackClient.transaction.verify(reference);
+    
+    if (!response.status || !response.data) {
+      throw new Error(response.message || 'Failed to get transaction status');
+    }
+
+    const transaction = response.data;
     
     // Also get session status from Firestore
-    const session = await getPaymentSession(paymentId);
+    const session = await getPaymentSession(reference);
     
     res.json({
-      status: payment.status,
-      amount: payment.amount,
-      currency: payment.currency || 'USD',
-      metadata: payment.metadata || {},
+      status: transaction.status,
+      amount: transaction.amount / 100, // Convert from kobo to dollars
+      currency: transaction.currency || 'USD',
+      metadata: transaction.metadata || {},
       sessionStatus: session?.status,
-      isProcessed: await isPaymentProcessed(paymentId)
+      isProcessed: await isPaymentProcessed(reference),
+      reference: transaction.reference,
     });
 
   } catch (error) {
@@ -553,34 +592,19 @@ router.get('/payment/status/:paymentId', async (req: Request, res: Response) => 
 
 /**
  * Verify webhook signature
- * Dodo Payments typically uses HMAC SHA256 with the webhook secret
+ * Paystack uses HMAC SHA512 with the secret key
  */
-function verifyWebhookSignature(
-  payload: string | object,
+function verifyPaystackSignature(
+  payload: string,
   signature: string,
   secret: string
 ): boolean {
   try {
-    const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
-    const expectedSignature = createHmac('sha256', secret)
-      .update(payloadString)
+    const hash = createHmac('sha512', secret)
+      .update(payload)
       .digest('hex');
     
-    // Some providers use a prefix like "sha256="
-    const cleanSignature = signature.replace(/^sha256=/, '');
-    const cleanExpected = expectedSignature.replace(/^sha256=/, '');
-    
-    // Use timing-safe comparison to prevent timing attacks
-    if (cleanSignature.length !== cleanExpected.length) {
-      return false;
-    }
-    
-    let result = 0;
-    for (let i = 0; i < cleanSignature.length; i++) {
-      result |= cleanSignature.charCodeAt(i) ^ cleanExpected.charCodeAt(i);
-    }
-    
-    return result === 0;
+    return hash === signature;
   } catch (error) {
     console.error('❌ Error verifying webhook signature:', error);
     return false;
@@ -588,106 +612,96 @@ function verifyWebhookSignature(
 }
 
 /**
- * Webhook endpoint for Dodo Payments events
+ * Webhook endpoint for Paystack events
  * POST /api/payment/webhook
  */
 router.post('/payment/webhook', async (req: Request, res: Response) => {
   const startTime = Date.now();
   
   try {
-    const signature = req.headers['dodo-signature'] || 
-                     req.headers['x-dodo-signature'] || 
-                     req.headers['x-signature'];
-    const webhookSecret = env.DODO_PAYMENTS_WEBHOOK_SECRET;
+    const signature = req.headers['x-paystack-signature'] as string;
+    const secret = env.PAYSTACK_SECRET_KEY;
 
-    // Verify webhook signature if secret is configured
-    if (webhookSecret) {
+    // Verify webhook signature
+    if (secret) {
       if (!signature) {
         console.error('❌ Webhook signature missing');
         return res.status(401).json({ error: 'Missing signature' });
       }
 
       // Get raw body for signature verification
-      // Note: You may need to configure Express to capture raw body
       const rawBody = JSON.stringify(req.body);
-      const isValid = verifyWebhookSignature(rawBody, signature as string, webhookSecret);
+      const isValid = verifyPaystackSignature(rawBody, signature, secret);
       
       if (!isValid) {
         console.error('❌ Webhook signature verification failed');
-        console.error('Received signature:', signature);
         return res.status(401).json({ error: 'Invalid signature' });
       }
       
       console.log('✅ Webhook signature verified');
     } else {
-      console.warn('⚠️ Webhook secret not configured, skipping signature verification');
+      console.warn('⚠️ Paystack secret not configured, skipping signature verification');
     }
 
-    const event = req.body as { 
-      type?: string; 
-      event_type?: string; 
-      event?: string;
-      data?: DodoPaymentResponse; 
-      payment?: DodoPaymentResponse;
-      [key: string]: any;
-    };
-
-    const eventType = event.type || event.event_type || event.event;
+    const event = req.body;
+    const eventType = event.event;
+    
     console.log(`📨 Webhook received: ${eventType}`);
 
     // Handle the event
     switch (eventType) {
-      case 'payment.succeeded':
-      case 'payment.completed':
-      case 'payment.success':
-        const payment = (event.data || event.payment || event) as DodoPaymentResponse;
-        const paymentId = payment.payment_id || (payment as any).id || (event as any).payment_id;
+      case 'charge.success':
+        // Payment successful
+        const chargeData = event.data;
+        const reference = chargeData.reference;
         
-        if (!paymentId) {
-          console.error('❌ Payment ID not found in webhook event');
-          return res.status(400).json({ error: 'Payment ID not found' });
+        if (!reference) {
+          console.error('❌ Reference not found in webhook event');
+          return res.status(400).json({ error: 'Reference not found' });
         }
         
-        console.log(`✅ Payment succeeded webhook: ${paymentId}`);
+        console.log(`✅ Charge succeeded webhook: ${reference}`);
         
         // Idempotency check
-        const alreadyProcessed = await isPaymentProcessed(paymentId);
+        const alreadyProcessed = await isPaymentProcessed(reference);
         if (alreadyProcessed) {
-          console.log(`⚠️ Payment ${paymentId} already processed, skipping`);
+          console.log(`⚠️ Payment ${reference} already processed, skipping`);
           return res.json({ received: true, message: 'Already processed' });
         }
         
         // Get payment session
-        let session = await getPaymentSession(paymentId);
+        let session = await getPaymentSession(reference);
         
         // If no session, try to extract from metadata
         if (!session) {
-          const metadata = payment.metadata || {};
+          const metadata = chargeData.metadata || {};
           if (!metadata.userId || !metadata.planId) {
-            console.error(`❌ Cannot process webhook: session and metadata incomplete for ${paymentId}`);
+            console.error(`❌ Cannot process webhook: session and metadata incomplete for ${reference}`);
             return res.status(400).json({ error: 'Insufficient data to process payment' });
           }
           
           // Reconstruct from metadata
-          const price = payment.amount ? payment.amount / 100 : 0;
+          const price = chargeData.amount ? chargeData.amount / 100 : 0;
           const planId = metadata.planId as string;
           const userId = metadata.userId as string;
           const planName = (metadata.planName || metadata.planId) as string;
-          const tokens = parseInt(metadata.tokens || '0');
+          const tokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
 
           const success = await createSubscriptionFromPayment(
-            paymentId,
+            reference,
             planId,
             userId,
             planName,
             tokens,
-            price
+            price,
+            chargeData.plan_object?.subscription_code,
+            chargeData.customer?.customer_code
           );
 
           if (success) {
             console.log(`✅ Subscription created via webhook (from metadata) for user ${userId}`);
           } else {
-            console.error(`❌ Failed to create subscription via webhook for ${paymentId}`);
+            console.error(`❌ Failed to create subscription via webhook for ${reference}`);
           }
           
           return res.json({ received: true, processed: success });
@@ -697,170 +711,127 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
         const { planId, userId, price, tokens, planName } = session;
         
         const success = await createSubscriptionFromPayment(
-          paymentId,
+          reference,
           planId,
           userId,
           planName,
           tokens,
-          price
+          price,
+          chargeData.plan_object?.subscription_code,
+          chargeData.customer?.customer_code
         );
 
         if (success) {
           console.log(`✅ Subscription created via webhook for user ${userId}`);
         } else {
-          console.error(`❌ Failed to create subscription via webhook for ${paymentId}`);
+          console.error(`❌ Failed to create subscription via webhook for ${reference}`);
         }
         
         break;
         
-      case 'payment.failed':
-      case 'payment.failure':
-        const failedPayment = (event.data || event.payment || event) as DodoPaymentResponse;
-        const failedPaymentId = failedPayment.payment_id || (failedPayment as any).id || (event as any).payment_id;
-        console.log(`❌ Payment failed webhook: ${failedPaymentId}`);
+      case 'charge.failed':
+        // Payment failed
+        const failedCharge = event.data;
+        const failedRef = failedCharge.reference;
+        console.log(`❌ Charge failed webhook: ${failedRef}`);
         
-        if (failedPaymentId) {
-          await updatePurchaseStatus(failedPaymentId, 'failed');
-          await updatePaymentSessionStatus(failedPaymentId, 'failed');
-        }
-        break;
-        
-      case 'payment.cancelled':
-      case 'payment.canceled':
-        const cancelledPayment = (event.data || event.payment || event) as DodoPaymentResponse;
-        const cancelledPaymentId = cancelledPayment.payment_id || (cancelledPayment as any).id || (event as any).payment_id;
-        console.log(`⚠️ Payment cancelled webhook: ${cancelledPaymentId}`);
-        
-        if (cancelledPaymentId) {
-          await updatePaymentSessionStatus(cancelledPaymentId, 'cancelled');
+        if (failedRef) {
+          await updatePurchaseStatus(failedRef, 'failed');
+          await updatePaymentSessionStatus(failedRef, 'failed');
         }
         break;
         
       // ========== SUBSCRIPTION LIFECYCLE EVENTS ==========
       
-      case 'subscription.active':
-      case 'subscription.activated':
-        // New subscription activated - grant initial tokens
-        const activatedSub = event.data || event.subscription || event;
-        const activatedSubId = activatedSub.subscription_id || activatedSub.id;
-        const activatedCustomerId = activatedSub.customer_id;
-        const activatedUserId = activatedSub.metadata?.userId;
+      case 'subscription.create':
+        // New subscription created
+        const newSub = event.data;
+        const newSubCode = newSub.subscription_code;
+        const newSubEmail = newSub.customer?.email;
         
-        console.log(`✅ Subscription activated: ${activatedSubId} for user ${activatedUserId}`);
-        
-        if (activatedUserId && activatedSubId) {
-          const metadata = activatedSub.metadata || {};
-          const monthlyTokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
-          const planId = metadata.planId;
-          const planName = metadata.planName || planId;
-          const price = activatedSub.amount ? activatedSub.amount / 100 : 0;
-          
-          await createSubscriptionFromPayment(
-            activatedSubId,
-            planId,
-            activatedUserId,
-            planName,
-            monthlyTokens,
-            price,
-            activatedSubId,
-            activatedCustomerId
-          );
-        }
+        console.log(`✅ Subscription created: ${newSubCode} for ${newSubEmail}`);
         break;
         
-      case 'subscription.renewed':
-      case 'subscription.renewal':
-        // Monthly subscription renewed - grant new tokens
-        const renewedSub = event.data || event.subscription || event;
-        const renewedSubId = renewedSub.subscription_id || renewedSub.id;
-        const renewedUserId = renewedSub.metadata?.userId;
+      case 'subscription.not_renew':
+        // Subscription will not renew (cancelled by user)
+        const cancelledSub = event.data;
+        const cancelledSubCode = cancelledSub.subscription_code;
         
-        console.log(`🔄 Subscription renewed: ${renewedSubId} for user ${renewedUserId}`);
+        console.log(`🚫 Subscription cancelled: ${cancelledSubCode}`);
         
-        if (renewedUserId && renewedSubId) {
-          const metadata = renewedSub.metadata || {};
-          const monthlyTokens = parseInt(metadata.monthlyTokens || metadata.tokens || '0');
-          
-          const renewed = await handleSubscriptionRenewal(
-            renewedSubId,
-            renewedUserId,
-            monthlyTokens
-          );
-          
-          if (renewed) {
-            console.log(`✅ Monthly tokens granted for user ${renewedUserId}: ${monthlyTokens} tokens`);
-          } else {
-            console.error(`❌ Failed to grant renewal tokens for user ${renewedUserId}`);
-          }
-        }
-        break;
-        
-      case 'subscription.on_hold':
-      case 'subscription.paused':
-        // Subscription payment failed, put on hold
-        const onHoldSub = event.data || event.subscription || event;
-        const onHoldUserId = onHoldSub.metadata?.userId;
-        
-        console.log(`⚠️ Subscription on hold for user ${onHoldUserId}`);
-        
-        if (onHoldUserId) {
-          const subscription = await getSubscription(onHoldUserId);
-          if (subscription) {
+        // Find user by subscription code and deactivate
+        for (const [userId, sub] of adminStorage.subscriptions.entries()) {
+          if (sub.subscriptionCode === cancelledSubCode) {
             const updatedSub = {
-              ...subscription,
-              subscriptionStatus: 'on_hold' as const,
-              isActive: false, // Pause token usage
-            };
-            await saveSubscription(updatedSub);
-            adminStorage.subscriptions.set(onHoldUserId, updatedSub);
-            console.log(`⏸️ Subscription paused for user ${onHoldUserId} due to payment failure`);
-          }
-        }
-        break;
-        
-      case 'subscription.cancelled':
-      case 'subscription.canceled':
-        // User or system cancelled subscription
-        const cancelledSub = event.data || event.subscription || event;
-        const cancelledUserId = cancelledSub.metadata?.userId;
-        
-        console.log(`🚫 Subscription cancelled for user ${cancelledUserId}`);
-        
-        if (cancelledUserId) {
-          const subscription = await getSubscription(cancelledUserId);
-          if (subscription) {
-            const updatedSub = {
-              ...subscription,
+              ...sub,
               subscriptionStatus: 'cancelled' as const,
-              isActive: false, // Stop token usage
+              isActive: false,
             };
             await saveSubscription(updatedSub);
-            adminStorage.subscriptions.set(cancelledUserId, updatedSub);
-            console.log(`❌ Subscription cancelled for user ${cancelledUserId}`);
+            adminStorage.subscriptions.set(userId, updatedSub);
+            console.log(`❌ Subscription cancelled for user ${userId}`);
+            break;
           }
         }
         break;
         
-      case 'subscription.expired':
-        // Subscription expired (not renewed)
-        const expiredSub = event.data || event.subscription || event;
-        const expiredUserId = expiredSub.metadata?.userId;
+      case 'subscription.disable':
+        // Subscription disabled (payment failed repeatedly)
+        const disabledSub = event.data;
+        const disabledSubCode = disabledSub.subscription_code;
         
-        console.log(`⏰ Subscription expired for user ${expiredUserId}`);
+        console.log(`⚠️ Subscription disabled: ${disabledSubCode}`);
         
-        if (expiredUserId) {
-          const subscription = await getSubscription(expiredUserId);
-          if (subscription) {
+        // Find user by subscription code and deactivate
+        for (const [userId, sub] of adminStorage.subscriptions.entries()) {
+          if (sub.subscriptionCode === disabledSubCode) {
             const updatedSub = {
-              ...subscription,
-              subscriptionStatus: 'expired' as const,
-              isActive: false, // Stop token usage
+              ...sub,
+              subscriptionStatus: 'disabled' as const,
+              isActive: false,
             };
             await saveSubscription(updatedSub);
-            adminStorage.subscriptions.set(expiredUserId, updatedSub);
-            console.log(`⌛ Subscription expired for user ${expiredUserId}`);
+            adminStorage.subscriptions.set(userId, updatedSub);
+            console.log(`⏸️ Subscription disabled for user ${userId}`);
+            break;
           }
         }
+        break;
+        
+      case 'subscription.enable':
+        // Subscription re-enabled
+        const enabledSub = event.data;
+        const enabledSubCode = enabledSub.subscription_code;
+        
+        console.log(`✅ Subscription enabled: ${enabledSubCode}`);
+        
+        // Find user by subscription code and reactivate
+        for (const [userId, sub] of adminStorage.subscriptions.entries()) {
+          if (sub.subscriptionCode === enabledSubCode) {
+            const updatedSub = {
+              ...sub,
+              subscriptionStatus: 'active' as const,
+              isActive: true,
+            };
+            await saveSubscription(updatedSub);
+            adminStorage.subscriptions.set(userId, updatedSub);
+            console.log(`✅ Subscription re-enabled for user ${userId}`);
+            break;
+          }
+        }
+        break;
+        
+      case 'invoice.create':
+      case 'invoice.update':
+        // Subscription invoice created/updated (for recurring charges)
+        const invoice = event.data;
+        console.log(`📄 Invoice ${eventType}: ${invoice.invoice_code}`);
+        break;
+        
+      case 'invoice.payment_failed':
+        // Subscription payment failed
+        const failedInvoice = event.data;
+        console.log(`❌ Invoice payment failed: ${failedInvoice.invoice_code}`);
         break;
         
       default:
