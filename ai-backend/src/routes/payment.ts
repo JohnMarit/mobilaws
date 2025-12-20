@@ -328,11 +328,11 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
       tokens: tokens || 0,
       status: 'pending',
       metadata: {
-        userEmail,
-        userName,
+        userEmail: userEmail || '',
+        userName: userName || '',
         monthlyTokens: tokens || 0,
         isSubscription: true,
-        accessCode: transaction.access_code,
+        accessCode: transaction.access_code || '',
       }
     });
 
