@@ -91,30 +91,13 @@ function PaymentForm({ planId, onSuccess, onError }: PaymentFormProps) {
         </CardContent>
       </Card>
 
-      {/* Payment Information */}
+      {/* Payment Note */}
       <Card>
-        <CardHeader>
-          <CardTitle>Payment Information</CardTitle>
-          <CardDescription>
-            You will be redirected to Paystack to complete your purchase securely
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 border rounded-lg bg-blue-50 text-center">
-              <CreditCard className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-sm text-gray-700 font-medium">Secure Payment</p>
-              <p className="text-xs text-gray-600 mt-1">Powered by Paystack</p>
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Secure payment processing</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>Multiple payment methods supported</span>
-            </div>
+        <CardContent className="pt-6">
+          <div className="p-4 border rounded-lg bg-blue-50">
+            <p className="text-sm text-gray-700 text-center">
+              <span className="font-medium">Note:</span> You will make checkout in Kenya Shillings but no additional charges.
+            </p>
           </div>
         </CardContent>
       </Card>
