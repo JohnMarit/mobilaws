@@ -43,6 +43,7 @@ const envSchema = z.object({
   PAYSTACK_SECRET_KEY: z.string().optional(),
   PAYSTACK_PUBLIC_KEY: z.string().optional(),
   PAYSTACK_ENVIRONMENT: z.enum(['test', 'live']).default('live'), // Default to LIVE for production
+  PAYSTACK_CURRENCY: z.string().default('KES'), // Kenyan Shillings
   // Paystack Plan Codes (from your Paystack dashboard)
   PAYSTACK_PLAN_BASIC: z.string().optional(),
   PAYSTACK_PLAN_STANDARD: z.string().optional(),

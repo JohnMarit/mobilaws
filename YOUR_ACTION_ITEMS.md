@@ -149,6 +149,7 @@ Open two terminals:
 ```bash
 cd ai-backend
 npm install
+npm run build  # Verify TypeScript build works
 npm run dev
 ```
 
@@ -157,6 +158,8 @@ You should see:
 Server running on port 8000
 ✅ Firebase Admin initialized successfully
 ```
+
+**Note**: The build includes custom TypeScript types for Paystack (in `src/types/paystack.d.ts`)
 
 ### Terminal 2 - Frontend
 ```bash

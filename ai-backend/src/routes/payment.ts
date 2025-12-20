@@ -30,6 +30,7 @@ router.get('/payment/config-check', (req: Request, res: Response) => {
     apiKeyPrefix: env.PAYSTACK_SECRET_KEY?.substring(0, 10) || 'NOT SET',
     publicKeyPresent: !!env.PAYSTACK_PUBLIC_KEY,
     environment: env.PAYSTACK_ENVIRONMENT,
+    currency: env.PAYSTACK_CURRENCY,
     frontendUrl: env.FRONTEND_URL,
     planCodes: {
       basic: env.PAYSTACK_PLAN_BASIC || 'NOT SET',
@@ -252,10 +253,17 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     while (retries < maxRetries) {
       try {
         // Initialize transaction with Paystack
+        // Convert price to smallest currency unit (cents)
+        // For KES: multiply by 100 (e.g., KSh 500 = 50000 cents)
+        // For NGN: multiply by 100 (e.g., ₦5 = 500 kobo)
+        // For USD: multiply by 100 (e.g., $5 = 500 cents)
+        const currency = env.PAYSTACK_CURRENCY || 'KES';
+        const amountInSubunits = Math.round(price * 100);
+        
         const response = await paystackClient.transaction.initialize({
           email: userEmail,
-          amount: Math.round(price * 100), // Amount in kobo (cents)
-          currency: 'USD',
+          amount: amountInSubunits,
+          currency: currency,
           reference: reference,
           callback_url: `${env.FRONTEND_URL}/payment/success?reference=${reference}`,
           plan: planCode, // This makes it a subscription
@@ -573,8 +581,8 @@ router.get('/payment/status/:reference', async (req: Request, res: Response) => 
     
     res.json({
       status: transaction.status,
-      amount: transaction.amount / 100, // Convert from kobo to dollars
-      currency: transaction.currency || 'USD',
+      amount: transaction.amount / 100, // Convert from subunits to main currency
+      currency: transaction.currency || env.PAYSTACK_CURRENCY || 'KES',
       metadata: transaction.metadata || {},
       sessionStatus: session?.status,
       isProcessed: await isPaymentProcessed(reference),
