@@ -242,8 +242,9 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     console.log(`🔗 Creating Paystack transaction for plan ${planId} (plan code: ${planCode}) for user ${userId}`);
     console.log(`💰 Amount: $${price}, Monthly Tokens: ${tokens}`);
 
-    // Generate a unique reference
-    const reference = `mobilaws_${userId}_${Date.now()}`;
+    // Generate a unique reference with random component to avoid duplicates
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const reference = `mobilaws_${userId}_${Date.now()}_${randomSuffix}`;
 
     // Create transaction with Paystack
     let transaction: any;
