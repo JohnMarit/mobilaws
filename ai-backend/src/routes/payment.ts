@@ -253,7 +253,19 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     }
 
     console.log(`🔗 Creating Paystack transaction for plan ${planId} (plan code: ${planCode}) for user ${userId}`);
-    console.log(`💰 Amount: $${price}, Monthly Tokens: ${tokens}`);
+    console.log(`💰 Frontend price: $${price} USD, Monthly Tokens: ${tokens}`);
+
+    // Convert USD to KES based on plan
+    // Frontend shows: $5, $10, $30
+    // Backend converts to: KSh 600, KSh 1,350, KSh 4,000
+    const usdToKesMap: Record<string, number> = {
+      'basic': 600,      // $5 → KSh 600
+      'standard': 1350,  // $10 → KSh 1,350
+      'premium': 4000,   // $30 → KSh 4,000
+    };
+    
+    const priceInKes = usdToKesMap[planId] || (price * 120); // Fallback: ~120 KES per USD
+    console.log(`💱 Currency conversion: $${price} USD → KSh ${priceInKes}`);
 
     // Generate a unique reference with random component to avoid duplicates
     const randomSuffix = Math.random().toString(36).substring(2, 10);
@@ -267,12 +279,12 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
     while (retries < maxRetries) {
       try {
         // Initialize transaction with Paystack
-        // Convert price to smallest currency unit (cents)
-        // For KES: multiply by 100 (e.g., KSh 500 = 50000 cents)
-        // For NGN: multiply by 100 (e.g., ₦5 = 500 kobo)
-        // For USD: multiply by 100 (e.g., $5 = 500 cents)
+        // Convert KES price to smallest currency unit (cents)
+        // KSh 600 = 60000 cents
         const currency = env.PAYSTACK_CURRENCY || 'KES';
-        const amountInSubunits = Math.round(price * 100);
+        const amountInSubunits = Math.round(priceInKes * 100);
+        
+        console.log(`💳 Paystack amount: ${amountInSubunits} cents (KSh ${priceInKes})`);
         
         const response = await paystackClient.transaction.initialize({
           email: userEmail,
@@ -287,6 +299,8 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
             planName: planName || planId,
             monthlyTokens: tokens?.toString() || '0',
             userName: userName || '',
+            priceUsd: price, // Store original USD price for reference
+            priceKes: priceInKes, // Store KES price
             custom_fields: [
               {
                 display_name: 'Plan',
@@ -297,6 +311,16 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
                 display_name: 'Tokens',
                 variable_name: 'tokens',
                 value: tokens?.toString() || '0'
+              },
+              {
+                display_name: 'Price (USD)',
+                variable_name: 'price_usd',
+                value: `$${price}`
+              },
+              {
+                display_name: 'Price (KES)',
+                variable_name: 'price_kes',
+                value: `KSh ${priceInKes}`
               }
             ]
           }

@@ -55,12 +55,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { user, isAuthenticated } = useAuth();
 
-  // Define subscription plans (prices in Kenya Shillings)
+  // Define subscription plans (prices shown in USD, converted to KES for Paystack)
+  // Exchange rate: $1 ≈ KSh 120-135 (using ~120 for Basic, ~135 for Standard/Premium)
   const plans: SubscriptionPlan[] = [
     {
       id: 'basic',
       name: 'Basic',
-      price: 600, // KSh 600
+      price: 5, // Shown as $5 to user
       tokens: 50,
       description: 'Perfect for occasional legal queries',
       features: [
@@ -73,7 +74,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'standard',
       name: 'Standard',
-      price: 1350, // KSh 1,350
+      price: 10, // Shown as $10 to user
       tokens: 120,
       description: 'Great for regular legal assistance',
       features: [
@@ -88,7 +89,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     {
       id: 'premium',
       name: 'Premium',
-      price: 4000, // KSh 4,000
+      price: 30, // Shown as $30 to user
       tokens: 500,
       description: 'Best value for heavy legal research',
       features: [
