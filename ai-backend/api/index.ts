@@ -18,6 +18,8 @@ import usersRouter from '../src/routes/users';
 import authRouter from '../src/routes/auth';
 import firebaseSyncRouter from '../src/routes/firebase-sync';
 import adminGrantRouter from '../src/routes/admin-grant';
+import leaderboardRouter from '../src/routes/leaderboard';
+import learningRouter from '../src/routes/learning';
 
 const app = express();
 
@@ -57,6 +59,8 @@ app.use('/api', usersRouter);
 app.use('/api', authRouter);
 app.use('/api', firebaseSyncRouter);
 app.use('/api', adminGrantRouter);
+app.use('/api', leaderboardRouter);
+app.use('/api', learningRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -79,6 +83,12 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'POST', path: '/api/auth/admin/google', description: 'Admin Google OAuth' },
       { method: 'GET', path: '/api/firebase-sync/users', description: 'Sync all Firebase Auth users to backend' },
       { method: 'POST', path: '/api/admin/grant-tokens', description: 'Admin grant tokens to users' },
+      { method: 'GET', path: '/api/leaderboard', description: 'Get leaderboard entries' },
+      { method: 'POST', path: '/api/leaderboard/update', description: 'Update leaderboard entry' },
+      { method: 'POST', path: '/api/leaderboard/init', description: 'Initialize leaderboard entry' },
+      { method: 'POST', path: '/api/leaderboard/populate', description: 'Populate leaderboard' },
+      { method: 'GET', path: '/api/learning/progress/:userId', description: 'Get learning progress' },
+      { method: 'POST', path: '/api/learning/progress', description: 'Save learning progress' },
     ],
   });
 });
@@ -88,7 +98,7 @@ app.get('/api/env-check', (_req: Request, res: Response) => {
   const openaiKeyExists = !!process.env.OPENAI_API_KEY;
   const openaiKeyLength = process.env.OPENAI_API_KEY?.length || 0;
   const openaiKeyPrefix = process.env.OPENAI_API_KEY?.substring(0, 7) || 'NOT_SET';
-  
+
   // Check vector backend configuration
   const vectorBackend = process.env.VECTOR_BACKEND || 'chroma';
   const vectorConfig: any = {
@@ -107,7 +117,7 @@ app.get('/api/env-check', (_req: Request, res: Response) => {
     vectorConfig.configured = !!process.env.PINECONE_API_KEY;
     vectorConfig.status = 'Temporarily disabled in code';
   }
-  
+
   res.json({
     status: 'Environment Check',
     openai: {
@@ -132,7 +142,7 @@ app.use((_req: Request, res: Response) => {
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('❌ Server error:', err);
-  
+
   res.status(500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred',
