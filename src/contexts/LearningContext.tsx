@@ -3,6 +3,7 @@ import { useSubscription } from './SubscriptionContext';
 import { useAuth } from './FirebaseAuthContext';
 import { getLearningModules, type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
 import { updateLeaderboardEntry, initLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
+import { getApiUrl } from '@/lib/api';
 
 type Tier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -68,28 +69,68 @@ function daysBetween(dateA: string, dateB: string): number {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-const STORAGE_PREFIX = 'learning-progress';
-
-function storageKey(userId?: string | null): string {
-  return `${STORAGE_PREFIX}:${userId || 'anonymous'}`;
-}
-
-function loadState(key: string): LearningState | null {
+/**
+ * Load learning state from Firebase
+ */
+async function loadStateFromFirebase(userId: string): Promise<LearningState | null> {
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as LearningState;
+    const apiUrl = getApiUrl(`learning/progress/${userId}`);
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      console.warn('Failed to fetch learning progress from Firebase');
+      return null;
+    }
+    const data = await response.json();
+    return data as LearningState;
   } catch (err) {
-    console.warn('Failed to load learning state', err);
+    console.warn('Failed to load learning state from Firebase', err);
     return null;
   }
 }
 
-function saveState(key: string, state: LearningState) {
+/**
+ * Save learning state to Firebase
+ */
+async function saveStateToFirebase(userId: string, state: LearningState): Promise<void> {
   try {
+    const apiUrl = getApiUrl('learning/progress');
+    await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        ...state
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to save learning state to Firebase', err);
+  }
+}
+
+/**
+ * Load state from localStorage (fallback/cache)
+ */
+function loadStateFromLocal(userId: string): LearningState | null {
+  try {
+    const key = `learning-progress:${userId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as LearningState;
+  } catch (err) {
+    console.warn('Failed to load learning state from localStorage', err);
+    return null;
+  }
+}
+
+/**
+ * Save state to localStorage (fallback/cache)
+ */
+function saveStateToLocal(userId: string, state: LearningState): void {
+  try {
+    const key = `learning-progress:${userId}`;
     localStorage.setItem(key, JSON.stringify(state));
   } catch (err) {
-    console.warn('Failed to save learning state', err);
+    console.warn('Failed to save learning state to localStorage', err);
   }
 }
 
@@ -130,18 +171,42 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { userSubscription } = useSubscription();
   const tier = normalizeTier(userSubscription?.planId);
-  const key = useMemo(() => storageKey(user?.id), [user]);
+  const [state, setState] = useState<LearningState>(defaultState);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [state, setState] = useState<LearningState>(() => {
-    const loaded = loadState(key);
-    return loaded ? { ...defaultState, ...loaded } : defaultState;
-  });
-
-  // Reload state when user changes
+  // Load state when user changes
   useEffect(() => {
-    const loaded = loadState(key);
-    setState(loaded ? { ...defaultState, ...loaded } : defaultState);
-  }, [key]);
+    if (!user?.id) {
+      setState(defaultState);
+      setIsLoading(false);
+      return;
+    }
+
+    const loadUserProgress = async () => {
+      setIsLoading(true);
+      
+      // Try loading from localStorage first (instant)
+      const localState = loadStateFromLocal(user.id);
+      if (localState) {
+        setState({ ...defaultState, ...localState });
+      }
+
+      // Then load from Firebase (authoritative)
+      const firebaseState = await loadStateFromFirebase(user.id);
+      if (firebaseState) {
+        setState({ ...defaultState, ...firebaseState });
+        // Update localStorage cache
+        saveStateToLocal(user.id, firebaseState);
+      } else if (!localState) {
+        // No data anywhere, use defaults
+        setState(defaultState);
+      }
+
+      setIsLoading(false);
+    };
+
+    loadUserProgress();
+  }, [user?.id]);
 
   // Initialize user in leaderboard when they log in
   useEffect(() => {
@@ -169,10 +234,20 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, user?.picture, state.xp, state.level, state.modulesProgress]); // Update when progress changes
 
-  // Persist on change
+  // Persist state changes to both localStorage and Firebase
   useEffect(() => {
-    saveState(key, state);
-  }, [key, state]);
+    if (!user?.id || isLoading) return;
+
+    // Save to localStorage immediately (fast)
+    saveStateToLocal(user.id, state);
+
+    // Debounce Firebase saves (slower, more expensive)
+    const timeoutId = setTimeout(() => {
+      saveStateToFirebase(user.id, state);
+    }, 2000); // Save to Firebase 2 seconds after last change
+
+    return () => clearTimeout(timeoutId);
+  }, [user?.id, state, isLoading]);
 
   // Update level when XP changes
   useEffect(() => {

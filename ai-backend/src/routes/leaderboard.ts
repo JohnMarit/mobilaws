@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getFirebaseAuth, admin } from '../lib/firebase-admin';
+import { getFirebaseAuth, admin, getAllFirebaseAuthUsers } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -26,6 +26,49 @@ function getFirestore(): admin.firestore.Firestore | null {
 }
 
 /**
+ * Auto-populate leaderboard with recent users from Firebase Auth
+ * This ensures all users appear in the leaderboard, even with 0 XP
+ */
+async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<void> {
+  try {
+    // Get all Firebase Auth users
+    const authUsers = await getAllFirebaseAuthUsers(50); // Get up to 50 recent users
+    
+    if (authUsers.length === 0) return;
+
+    // Check which users are not in leaderboard yet
+    const batch = db.batch();
+    let addedCount = 0;
+
+    for (const authUser of authUsers) {
+      const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(authUser.uid);
+      const existingDoc = await entryRef.get();
+
+      if (!existingDoc.exists) {
+        const entryData: LeaderboardEntry = {
+          userId: authUser.uid,
+          userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
+          userPicture: authUser.photoURL || undefined,
+          xp: 0,
+          level: 1,
+          lessonsCompleted: 0,
+          lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
+        };
+        batch.set(entryRef, entryData);
+        addedCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      await batch.commit();
+      console.log(`✅ Auto-populated ${addedCount} users to leaderboard`);
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to auto-populate leaderboard:', error);
+  }
+}
+
+/**
  * Get all leaderboard entries, sorted by XP (descending), then by lastUpdated (descending)
  * GET /api/leaderboard
  */
@@ -35,6 +78,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     if (!db) {
       return res.status(500).json({ error: 'Firebase Admin not initialized' });
     }
+
+    // Auto-populate leaderboard with recent users (non-blocking)
+    autoPopulateLeaderboard(db).catch(err => 
+      console.warn('Background leaderboard population failed:', err)
+    );
 
     // Order by XP only (Firestore composite index not needed)
     // Secondary sort by lastUpdated will be done client-side
@@ -56,11 +104,12 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       };
     });
 
-    // Sort again client-side to ensure proper ordering (XP first, then lastUpdated)
+    // Sort client-side: Primary by XP (desc), secondary by lastUpdated (desc for recency)
     entries.sort((a, b) => {
       if (b.xp !== a.xp) {
-        return b.xp - a.xp;
+        return b.xp - a.xp; // Higher XP first
       }
+      // For same XP, show more recently active users first
       return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
     });
 
