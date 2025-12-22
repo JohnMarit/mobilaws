@@ -26,7 +26,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<boolean[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
   const [showRetakeMessage, setShowRetakeMessage] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   
@@ -55,7 +55,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       setQuizAnswers([]);
       setSelectedOption(null);
       setShowExplanation(false);
-      setCurrentWordIndex(-1);
+      setCurrentSentenceIndex(-1);
       setShowRetakeMessage(false);
       setFinalScore(null);
       // Stop any playing audio when lesson changes
@@ -129,7 +129,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               <AudioPlayer
                 text={lesson.content}
                 enabled={audioEnabled}
-                onHighlight={setCurrentWordIndex}
+                onHighlight={setCurrentSentenceIndex}
               />
             </div>
           )}
@@ -137,7 +137,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
             {audioEnabled ? (
               <HighlightedText
                 text={lesson.content}
-                currentWordIndex={currentWordIndex}
+                currentSentenceIndex={currentSentenceIndex}
                 className="text-sm sm:text-base"
               />
             ) : (

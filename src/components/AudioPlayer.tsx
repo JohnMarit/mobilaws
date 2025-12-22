@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,26 +7,51 @@ interface AudioPlayerProps {
   text: string;
   enabled: boolean;
   className?: string;
-  onHighlight?: (wordIndex: number) => void;
+  onHighlight?: (sentenceIndex: number) => void;
 }
 
 export default function AudioPlayer({ text, enabled, className, onHighlight }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
   const [isSupported, setIsSupported] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const wordsRef = useRef<string[]>([]);
   const highlightIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pausedWordIndexRef = useRef<number>(-1);
+  const pausedSentenceIndexRef = useRef<number>(-1);
   const startTimeRef = useRef<number>(0);
   const totalDurationRef = useRef<number>(0);
+  const sentencesRef = useRef<string[]>([]);
 
   useEffect(() => {
     // Check if browser supports Web Speech API
     if ('speechSynthesis' in window) {
       setIsSupported(true);
-      wordsRef.current = text.split(/\s+/);
+      // Split text into sentences for better highlighting
+      // Handle multiple sentence endings and preserve punctuation
+      const sentenceEndings = /([.!?]+\s*)/;
+      const parts = text.split(sentenceEndings);
+      const sentences: string[] = [];
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i].trim();
+        if (!part) continue;
+        
+        // If it's a sentence ending, attach to previous sentence
+        if (/^[.!?]+$/.test(part)) {
+          if (sentences.length > 0) {
+            sentences[sentences.length - 1] += part;
+          }
+        } else if (part.length > 0) {
+          sentences.push(part);
+        }
+      }
+      
+      // If no sentences found (no punctuation), split by line breaks or use whole text
+      if (sentences.length === 0) {
+        sentences.push(text);
+      }
+      
+      sentencesRef.current = sentences;
     }
   }, [text]);
 
@@ -51,22 +76,21 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
       setIsPlaying(true);
       setIsPaused(false);
       
-      // Resume highlighting with time-based calculation
-      const words = text.split(/\s+/);
-      const totalWords = words.length;
-      const elapsedTime = Date.now() - startTimeRef.current;
+      // Resume highlighting with sentence-based calculation
+      const sentences = sentencesRef.current;
+      const totalSentences = sentences.length;
       
       highlightIntervalRef.current = setInterval(() => {
         const currentTime = Date.now();
         const elapsed = currentTime - startTimeRef.current;
         const progress = Math.min(1, elapsed / totalDurationRef.current);
-        const wordIndex = Math.floor(progress * totalWords);
+        const sentenceIndex = Math.floor(progress * totalSentences);
         
-        if (wordIndex < totalWords) {
-          setCurrentWordIndex(wordIndex);
-          pausedWordIndexRef.current = wordIndex;
+        if (sentenceIndex < totalSentences && elapsed < totalDurationRef.current * 1.1) {
+          setCurrentSentenceIndex(sentenceIndex);
+          pausedSentenceIndexRef.current = sentenceIndex;
           if (onHighlight) {
-            onHighlight(wordIndex);
+            onHighlight(sentenceIndex);
           }
         } else {
           if (highlightIntervalRef.current) {
@@ -74,7 +98,7 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
             highlightIntervalRef.current = null;
           }
         }
-      }, 50); // Update every 50ms for smooth highlighting
+      }, 100); // Update every 100ms for sentence highlighting
       
       return;
     }
@@ -86,37 +110,37 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    // Calculate estimated total duration more accurately
+    // Calculate estimated total duration using sentence-based approach
     // Average reading speed: ~150 words per minute at rate 1.0 = 2.5 words/second
     // At rate 0.85: ~127.5 words per minute = ~2.125 words per second
-    // But also account for character count (longer words take more time)
-    const words = text.split(/\s+/);
-    const totalWords = words.length;
-    const avgWordLength = text.length / totalWords;
-    // Adjust: longer words = slower, shorter words = faster
-    // Base: 2.5 words/sec at rate 1.0, adjusted for rate and word length
-    const baseWordsPerSecond = 2.5 * utterance.rate;
-    const lengthAdjustment = Math.max(0.7, Math.min(1.3, 5 / avgWordLength)); // Adjust for word length
-    const wordsPerSecond = baseWordsPerSecond * lengthAdjustment;
+    const sentences = sentencesRef.current;
+    const totalSentences = sentences.length;
+    
+    // Calculate total words for duration estimation
+    const totalWords = text.split(/\s+/).length;
+    const wordsPerSecond = 2.5 * utterance.rate;
     const estimatedTotalDuration = (totalWords / wordsPerSecond) * 1000; // milliseconds
     
     totalDurationRef.current = estimatedTotalDuration;
     startTimeRef.current = Date.now();
-    pausedWordIndexRef.current = -1;
+    pausedSentenceIndexRef.current = -1;
 
-    // Use time-based highlighting with frequent updates for smooth sync
+    // Use sentence-based highlighting with Apple Music-style sync
+    // Update more frequently and use better timing calculation
     highlightIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
       const progress = Math.min(1, elapsed / totalDurationRef.current);
-      // Use a slight offset to account for speech delay (speech starts slightly after we start timing)
-      const adjustedProgress = Math.min(1, progress * 1.05); // 5% ahead to compensate for speech delay
-      const wordIndex = Math.min(totalWords - 1, Math.floor(adjustedProgress * totalWords));
       
-      if (wordIndex < totalWords && elapsed < totalDurationRef.current * 1.1) {
-        setCurrentWordIndex(wordIndex);
-        pausedWordIndexRef.current = wordIndex;
+      // Calculate sentence index based on progress
+      // Use a slight lead to ensure highlighting stays ahead of speech
+      const adjustedProgress = Math.min(1, progress * 1.08); // 8% ahead for better sync
+      const sentenceIndex = Math.min(totalSentences - 1, Math.floor(adjustedProgress * totalSentences));
+      
+      if (sentenceIndex < totalSentences && elapsed < totalDurationRef.current * 1.1) {
+        setCurrentSentenceIndex(sentenceIndex);
+        pausedSentenceIndexRef.current = sentenceIndex;
         if (onHighlight) {
-          onHighlight(wordIndex);
+          onHighlight(sentenceIndex);
         }
       } else {
         if (highlightIntervalRef.current) {
@@ -124,7 +148,7 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
           highlightIntervalRef.current = null;
         }
       }
-    }, 30); // Update every 30ms for very responsive highlighting
+    }, 80); // Update every 80ms for sentence-level highlighting (faster than word-level)
 
     utterance.onend = () => {
       if (highlightIntervalRef.current) {
@@ -133,7 +157,7 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
       }
       setIsPlaying(false);
       setIsPaused(false);
-      setCurrentWordIndex(-1);
+      setCurrentSentenceIndex(-1);
       utteranceRef.current = null;
     };
 
@@ -144,7 +168,7 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
       }
       setIsPlaying(false);
       setIsPaused(false);
-      setCurrentWordIndex(-1);
+      setCurrentSentenceIndex(-1);
       utteranceRef.current = null;
     };
 
@@ -174,8 +198,8 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
     window.speechSynthesis.cancel();
     setIsPlaying(false);
     setIsPaused(false);
-    setCurrentWordIndex(-1);
-    pausedWordIndexRef.current = -1;
+    setCurrentSentenceIndex(-1);
+    pausedSentenceIndexRef.current = -1;
     startTimeRef.current = 0;
     totalDurationRef.current = 0;
     utteranceRef.current = null;
@@ -236,33 +260,61 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
 }
 
 /**
- * Component to render text with word highlighting for read-along
+ * Component to render text with sentence highlighting for read-along (Apple Music style)
  */
 export function HighlightedText({ 
   text, 
-  currentWordIndex, 
+  currentSentenceIndex, 
   className 
 }: { 
   text: string; 
-  currentWordIndex: number;
+  currentSentenceIndex: number;
   className?: string;
 }) {
-  const words = text.split(/\s+/);
+  // Split text into sentences for highlighting (same logic as AudioPlayer)
+  const sentences = useMemo(() => {
+    const sentenceEndings = /([.!?]+\s*)/;
+    const parts = text.split(sentenceEndings);
+    const result: string[] = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i].trim();
+      if (!part) continue;
+      
+      // If it's a sentence ending, attach to previous sentence
+      if (/^[.!?]+$/.test(part)) {
+        if (result.length > 0) {
+          result[result.length - 1] += part;
+        }
+      } else if (part.length > 0) {
+        result.push(part);
+      }
+    }
+    
+    // If no sentences found, use whole text
+    if (result.length === 0) {
+      result.push(text);
+    }
+    
+    return result;
+  }, [text]);
   
   return (
     <div className={cn('whitespace-pre-line leading-relaxed', className)}>
-      {words.map((word, index) => {
-        const isHighlighted = index === currentWordIndex;
+      {sentences.map((sentence, index) => {
+        const isHighlighted = index === currentSentenceIndex;
         
         return (
           <span
             key={index}
             className={cn(
-              'transition-colors duration-150',
-              isHighlighted && 'bg-yellow-200 dark:bg-yellow-900 rounded px-1 font-medium'
+              'transition-all duration-150 ease-in-out inline-block',
+              isHighlighted 
+                ? 'bg-yellow-200 dark:bg-yellow-900 rounded-md px-2 py-1 font-semibold text-foreground shadow-sm' 
+                : 'opacity-70'
             )}
           >
-            {word}{' '}
+            {sentence}{' '}
           </span>
         );
       })}
