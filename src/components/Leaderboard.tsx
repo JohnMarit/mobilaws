@@ -45,7 +45,7 @@ export default function Leaderboard({ className }: LeaderboardProps) {
       console.log('🔄 Loading leaderboard data...');
       const top = await getTopLearners(10);
       console.log(`📊 Retrieved ${top.length} top learners`);
-      
+
       if (top.length > 0) {
         console.log('✅ Leaderboard entries:', top.map(e => ({ name: e.userName, xp: e.xp })));
         setTopLearners(top);
@@ -53,7 +53,7 @@ export default function Leaderboard({ className }: LeaderboardProps) {
         console.warn('⚠️ No leaderboard entries found');
         setTopLearners([]);
       }
-      
+
       if (user) {
         const rankInfo = await getUserRankInfo(user.id);
         console.log('👤 User rank info:', rankInfo);
@@ -70,10 +70,10 @@ export default function Leaderboard({ className }: LeaderboardProps) {
   useEffect(() => {
     // Load immediately - try to populate first time
     loadLeaderboard(true);
-    
+
     // Refresh every 10 seconds to catch new users
     const interval = setInterval(() => loadLeaderboard(), 10000);
-    
+
     return () => {
       clearInterval(interval);
     };
@@ -156,13 +156,12 @@ export default function Leaderboard({ className }: LeaderboardProps) {
             topLearners.map((learner, index) => {
               const rank = index + 1;
               const isCurrentUser = user && learner.userId === user.id;
-              
+
               return (
                 <div
                   key={learner.userId}
-                  className={`flex items-center justify-between p-2 sm:p-3 rounded-md border ${
-                    getRankColor(rank)
-                  } ${isCurrentUser ? 'ring-2 ring-primary' : ''}`}
+                  className={`flex items-center justify-between p-2 sm:p-3 rounded-md border ${getRankColor(rank)
+                    } ${isCurrentUser ? 'ring-2 ring-primary' : ''}`}
                 >
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                     <div className="flex-shrink-0 w-6 sm:w-8 flex items-center justify-center">
@@ -183,8 +182,13 @@ export default function Leaderboard({ className }: LeaderboardProps) {
                           <Badge variant="secondary" className="ml-2 text-xs">You</Badge>
                         )}
                       </div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">
-                        Level {learner.level} • {learner.xp} XP
+                      <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
+                        <span>Level {learner.level} • {learner.xp} XP</span>
+                        {learner.streak > 0 && (
+                          <span className="flex items-center gap-1 text-orange-500">
+                            🔥 {learner.streak}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

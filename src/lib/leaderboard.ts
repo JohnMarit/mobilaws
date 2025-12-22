@@ -12,6 +12,7 @@ export interface LeaderboardEntry {
   userPicture?: string;
   xp: number;
   level: number;
+  streak: number;
   lessonsCompleted: number;
   lastUpdated: string;
 }
@@ -44,6 +45,7 @@ export async function updateLeaderboardEntry(
   userName: string,
   xp: number,
   level: number,
+  streak: number,
   lessonsCompleted: number,
   userPicture?: string
 ): Promise<void> {
@@ -57,6 +59,7 @@ export async function updateLeaderboardEntry(
         userName,
         xp,
         level,
+        streak,
         lessonsCompleted,
         userPicture,
       }),
@@ -73,33 +76,33 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
     const apiUrl = getApiUrl('leaderboard');
     console.log('📡 Fetching leaderboard from:', apiUrl);
-    
+
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    
+
     console.log('📨 Response status:', response.status);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Failed to fetch leaderboard:', response.status, errorText);
       // Return empty array instead of throwing
       return [];
     }
-    
+
     const data = await response.json();
     console.log('✅ Leaderboard data received:', {
       entryCount: data.entries?.length || 0,
       entries: data.entries?.slice(0, 3) // Log first 3 for debugging
     });
-    
+
     // Ensure we always return an array
     const entries = Array.isArray(data.entries) ? data.entries : [];
     console.log(`📊 Returning ${entries.length} entries`);
-    
+
     return entries;
   } catch (err) {
     console.error('❌ Failed to load leaderboard:', err);
@@ -113,7 +116,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
  */
 export async function getTopLearners(limit: number = 10): Promise<LeaderboardEntry[]> {
   const entries = await getLeaderboard();
-  
+
   // Sort: 1) Highest XP first, 2) If same XP, most recently active first
   const sorted = [...entries].sort((a, b) => {
     if (b.xp !== a.xp) {
@@ -141,10 +144,10 @@ export async function getUserRankInfo(userId: string): Promise<{
     }
     return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
   });
-  
+
   const userIndex = sorted.findIndex(e => e.userId === userId);
   const userEntry = userIndex >= 0 ? sorted[userIndex] : null;
-  
+
   if (!userEntry) {
     // User not in leaderboard yet
     if (sorted.length < 10) {

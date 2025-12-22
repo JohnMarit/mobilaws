@@ -11,6 +11,7 @@ interface LeaderboardEntry {
   userPicture?: string;
   xp: number;
   level: number;
+  streak: number;
   lessonsCompleted: number;
   lastUpdated: string;
 }
@@ -21,7 +22,7 @@ interface LeaderboardEntry {
 function getFirestore(): admin.firestore.Firestore | null {
   const auth = getFirebaseAuth();
   if (!auth) return null;
-  
+
   return admin.firestore();
 }
 
@@ -32,21 +33,21 @@ function getFirestore(): admin.firestore.Firestore | null {
 async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<number> {
   try {
     console.log('🔄 Auto-populating leaderboard with Firebase Auth users...');
-    
+
     // First check if leaderboard already has entries
     const existingSnapshot = await db.collection(LEADERBOARD_COLLECTION).limit(1).get();
     if (existingSnapshot.size > 0) {
       console.log('✅ Leaderboard already has entries, skipping full population');
       return existingSnapshot.size;
     }
-    
+
     console.log('📊 Leaderboard is empty, populating from Firebase Auth...');
-    
+
     // Get Firebase Auth users (up to 100)
     const authUsers = await getAllFirebaseAuthUsers(100);
-    
+
     console.log(`📊 Found ${authUsers.length} users in Firebase Auth`);
-    
+
     if (authUsers.length === 0) {
       console.warn('⚠️ No users found in Firebase Auth');
       return 0;
@@ -59,13 +60,14 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<n
 
     for (const authUser of authUsers) {
       const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(authUser.uid);
-      
+
       const entryData: LeaderboardEntry = {
         userId: authUser.uid,
         userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
         userPicture: authUser.photoURL || undefined,
         xp: 0,
         level: 1,
+        streak: 0,
         lessonsCompleted: 0,
         lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
       };
@@ -136,6 +138,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
         userPicture: data.userPicture,
         xp: data.xp || 0,
         level: data.level || 1,
+        streak: data.streak || 0,
         lessonsCompleted: data.lessonsCompleted || 0,
         lastUpdated: data.lastUpdated || new Date().toISOString(),
       };
@@ -156,6 +159,7 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
             userPicture: authUser.photoURL || undefined,
             xp: 0,
             level: 1,
+            streak: 0,
             lessonsCompleted: 0,
             lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
           }));
@@ -209,7 +213,7 @@ router.post('/leaderboard/update', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Firebase Admin not initialized' });
     }
 
-    const { userId, userName, xp, level, lessonsCompleted, userPicture } = req.body;
+    const { userId, userName, xp, level, streak, lessonsCompleted, userPicture } = req.body;
 
     if (!userId || !userName || typeof xp !== 'number' || typeof level !== 'number') {
       return res.status(400).json({ error: 'Missing required fields: userId, userName, xp, level' });
@@ -224,6 +228,7 @@ router.post('/leaderboard/update', async (req: Request, res: Response) => {
       userPicture: userPicture || existingDoc.data()?.userPicture,
       xp: xp || 0,
       level: level || 1,
+      streak: streak !== undefined ? streak : (existingDoc.data()?.streak || 0),
       lessonsCompleted: lessonsCompleted || 0,
       lastUpdated: new Date().toISOString(),
     };
@@ -267,13 +272,14 @@ router.post('/leaderboard/init', async (req: Request, res: Response) => {
       userPicture: userPicture || existingDoc.data()?.userPicture,
       xp: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).xp : 0,
       level: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).level : 1,
+      streak: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).streak || 0 : 0,
       lessonsCompleted: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).lessonsCompleted : 0,
       lastUpdated: new Date().toISOString(),
     };
 
     await entryRef.set(entryData, { merge: true });
     console.log(`✅ Leaderboard entry ${existingDoc.exists ? 'updated' : 'created'} for: ${userId}`);
-    
+
     return res.json({ success: true, entry: entryData });
   } catch (error) {
     console.error('❌ Error initializing leaderboard entry:', error);
@@ -301,8 +307,8 @@ router.post('/leaderboard/populate', async (req: Request, res: Response) => {
 
     console.log(`✅ Leaderboard now has ${count} entries`);
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: `Leaderboard populated with ${count} users`,
       totalEntries: count
     });

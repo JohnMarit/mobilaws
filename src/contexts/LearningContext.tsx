@@ -152,17 +152,17 @@ function getTodayString(): string {
 
 function getDailyLessonsRemaining(state: LearningState, tier: Tier): number {
   const today = getTodayString();
-  
+
   // Reset if it's a new day
   if (state.dailyLimit.date !== today) {
     return tier === 'free' ? 2 : Infinity;
   }
-  
+
   // Free tier has 2 lessons per day limit
   if (tier === 'free') {
     return Math.max(0, 2 - state.dailyLimit.lessonsCompleted);
   }
-  
+
   // Paid tiers have unlimited lessons
   return Infinity;
 }
@@ -184,7 +184,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
     const loadUserProgress = async () => {
       setIsLoading(true);
-      
+
       // Try loading from localStorage first (instant)
       const localState = loadStateFromLocal(user.id);
       if (localState) {
@@ -228,11 +228,12 @@ export function LearningProvider({ children }: { children: ReactNode }) {
         user.name || user.email?.split('@')[0] || 'User',
         state.xp,
         state.level,
+        state.streak,
         lessonsCompleted,
         user.picture
       ).catch(err => console.warn('Failed to update leaderboard', err));
     }
-  }, [user?.id, user?.picture, state.xp, state.level, state.modulesProgress]); // Update when progress changes
+  }, [user?.id, user?.picture, state.xp, state.level, state.streak, state.modulesProgress]); // Update when progress changes
 
   // Persist state changes to both localStorage and Firebase
   useEffect(() => {
@@ -316,7 +317,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
       }
 
       touchActivity();
-      
+
       // Find the lesson to get XP reward
       const module = gatedModules.find(m => m.id === moduleId);
       const lesson = module?.lessons.find(l => l.id === lessonId);
@@ -326,7 +327,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
       setState((prev) => {
         const today = getTodayString();
-        
+
         // Check if lesson was already completed today
         const moduleProg = prev.modulesProgress[moduleId];
         const existingProgress = moduleProg?.lessonsCompleted[lessonId];
@@ -335,15 +336,15 @@ export function LearningProvider({ children }: { children: ReactNode }) {
         // Update daily limit only for new completions
         const newDailyLimit = prev.dailyLimit.date === today
           ? {
-              date: today,
-              lessonsCompleted: isNewCompletion 
-                ? prev.dailyLimit.lessonsCompleted + 1 
-                : prev.dailyLimit.lessonsCompleted
-            }
+            date: today,
+            lessonsCompleted: isNewCompletion
+              ? prev.dailyLimit.lessonsCompleted + 1
+              : prev.dailyLimit.lessonsCompleted
+          }
           : {
-              date: today,
-              lessonsCompleted: 1
-            };
+            date: today,
+            lessonsCompleted: 1
+          };
 
         const newState = {
           ...prev,
@@ -376,6 +377,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
             user.name || user.email?.split('@')[0] || 'User',
             newXp,
             newLevel,
+            prev.streak,
             lessonsCompleted,
             user.picture
           ).catch(err => console.warn('Failed to update leaderboard', err));
