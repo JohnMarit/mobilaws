@@ -22,6 +22,7 @@ import paymentRouter from './routes/payment';
 import adminRouter from './routes/admin';
 import usersRouter from './routes/users';
 import authRouter from './routes/auth';
+import leaderboardRouter from './routes/leaderboard';
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.use('/api', paymentRouter);
 app.use('/api', adminRouter);
 app.use('/api', usersRouter);
 app.use('/api', authRouter);
+app.use('/api', leaderboardRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trophy, Medal, Award, TrendingUp, User } from 'lucide-react';
-import { getTopLearners, getUserRankInfo } from '@/lib/leaderboard';
+import { getTopLearners, getUserRankInfo, LeaderboardEntry } from '@/lib/leaderboard';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useLearning } from '@/contexts/LearningContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -17,18 +17,30 @@ interface LeaderboardProps {
 export default function Leaderboard({ className }: LeaderboardProps) {
   const { user } = useAuth();
   const { progress } = useLearning();
-  const [topLearners, setTopLearners] = useState<ReturnType<typeof getTopLearners>>([]);
-  const [userRankInfo, setUserRankInfo] = useState<ReturnType<typeof getUserRankInfo> | null>(null);
+  const [topLearners, setTopLearners] = useState<LeaderboardEntry[]>([]);
+  const [userRankInfo, setUserRankInfo] = useState<Awaited<ReturnType<typeof getUserRankInfo>> | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Refresh leaderboard data
-    const top = getTopLearners(10);
-    setTopLearners(top);
+    const loadLeaderboard = async () => {
+      setLoading(true);
+      try {
+        const top = await getTopLearners(10);
+        setTopLearners(top);
+        
+        if (user) {
+          const rankInfo = await getUserRankInfo(user.id);
+          setUserRankInfo(rankInfo);
+        }
+      } catch (err) {
+        console.error('Failed to load leaderboard', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (user) {
-      const rankInfo = getUserRankInfo(user.id);
-      setUserRankInfo(rankInfo);
-    }
+    loadLeaderboard();
   }, [user, progress.xp]); // Refresh when XP changes
 
   const getRankIcon = (rank: number) => {
@@ -63,7 +75,11 @@ export default function Leaderboard({ className }: LeaderboardProps) {
       <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
         {/* Top 10 List */}
         <div className="space-y-2">
-          {topLearners.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              Loading leaderboard...
+            </div>
+          ) : topLearners.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No learners yet. Be the first!
             </div>

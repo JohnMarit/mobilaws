@@ -1,7 +1,10 @@
 /**
  * Leaderboard management for learning system
  * Tracks top learners by XP and provides ranking information
+ * Uses Firestore backend for shared leaderboard across all users
  */
+
+import { getApiUrl } from './api';
 
 export interface LeaderboardEntry {
   userId: string;
@@ -13,16 +16,68 @@ export interface LeaderboardEntry {
   lastUpdated: string;
 }
 
-const LEADERBOARD_STORAGE_KEY = 'mobilaws-leaderboard';
+/**
+ * Initialize a user in the leaderboard (called when they first log in)
+ */
+export async function initLeaderboardEntry(
+  userId: string,
+  userName: string,
+  userPicture?: string
+): Promise<void> {
+  try {
+    const apiUrl = getApiUrl('leaderboard/init');
+    await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, userName, userPicture }),
+    });
+  } catch (err) {
+    console.warn('Failed to initialize leaderboard entry', err);
+  }
+}
 
 /**
- * Get all leaderboard entries from storage
+ * Update or add a user's leaderboard entry
  */
-export function getLeaderboard(): LeaderboardEntry[] {
+export async function updateLeaderboardEntry(
+  userId: string,
+  userName: string,
+  xp: number,
+  level: number,
+  lessonsCompleted: number,
+  userPicture?: string
+): Promise<void> {
   try {
-    const raw = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as LeaderboardEntry[];
+    const apiUrl = getApiUrl('leaderboard/update');
+    await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        userName,
+        xp,
+        level,
+        lessonsCompleted,
+        userPicture,
+      }),
+    });
+  } catch (err) {
+    console.warn('Failed to update leaderboard entry', err);
+  }
+}
+
+/**
+ * Get all leaderboard entries from the API
+ */
+export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  try {
+    const apiUrl = getApiUrl('leaderboard');
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.entries || [];
   } catch (err) {
     console.warn('Failed to load leaderboard', err);
     return [];
@@ -30,68 +85,12 @@ export function getLeaderboard(): LeaderboardEntry[] {
 }
 
 /**
- * Save leaderboard entries to storage
- */
-export function saveLeaderboard(entries: LeaderboardEntry[]): void {
-  try {
-    localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
-  } catch (err) {
-    console.warn('Failed to save leaderboard', err);
-  }
-}
-
-/**
- * Update or add a user's leaderboard entry
- */
-export function updateLeaderboardEntry(
-  userId: string,
-  userName: string,
-  xp: number,
-  level: number,
-  lessonsCompleted: number,
-  userPicture?: string
-): void {
-  const entries = getLeaderboard();
-  const existingIndex = entries.findIndex(e => e.userId === userId);
-  const existingEntry = existingIndex >= 0 ? entries[existingIndex] : null;
-  
-  const entry: LeaderboardEntry = {
-    userId,
-    userName,
-    // Preserve existing picture if new one not provided, otherwise use new one
-    userPicture: userPicture || existingEntry?.userPicture,
-    xp,
-    level,
-    lessonsCompleted,
-    lastUpdated: new Date().toISOString()
-  };
-
-  if (existingIndex >= 0) {
-    entries[existingIndex] = entry;
-  } else {
-    entries.push(entry);
-  }
-
-  // Sort primarily by XP (descending), then by most recent activity
-  entries.sort((a, b) => {
-    if (b.xp !== a.xp) {
-      return b.xp - a.xp;
-    }
-    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-  });
-
-  saveLeaderboard(entries);
-}
-
-/**
  * Get top N learners
  */
-export function getTopLearners(limit: number = 10): LeaderboardEntry[] {
-  const entries = getLeaderboard();
-
-  // Sort again defensively in case storage order changed:
-  // 1) Highest XP first
-  // 2) If same XP, most recently active first
+export async function getTopLearners(limit: number = 10): Promise<LeaderboardEntry[]> {
+  const entries = await getLeaderboard();
+  
+  // Sort: 1) Highest XP first, 2) If same XP, most recently active first
   const sorted = [...entries].sort((a, b) => {
     if (b.xp !== a.xp) {
       return b.xp - a.xp;
@@ -105,13 +104,13 @@ export function getTopLearners(limit: number = 10): LeaderboardEntry[] {
 /**
  * Get user's rank and information about reaching top 10
  */
-export function getUserRankInfo(userId: string): {
+export async function getUserRankInfo(userId: string): Promise<{
   rank: number | null;
   isInTop10: boolean;
   xpNeededForTop10: number;
   completionRate: number;
-} {
-  const entries = getLeaderboard();
+}> {
+  const entries = await getLeaderboard();
   const sorted = [...entries].sort((a, b) => {
     if (b.xp !== a.xp) {
       return b.xp - a.xp;

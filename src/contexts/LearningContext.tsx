@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { useSubscription } from './SubscriptionContext';
 import { useAuth } from './FirebaseAuthContext';
 import { getLearningModules, type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
-import { updateLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
+import { updateLeaderboardEntry, initLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
 
 type Tier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -143,6 +143,17 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     setState(loaded ? { ...defaultState, ...loaded } : defaultState);
   }, [key]);
 
+  // Initialize user in leaderboard when they log in
+  useEffect(() => {
+    if (user) {
+      initLeaderboardEntry(
+        user.id,
+        user.name || user.email?.split('@')[0] || 'User',
+        user.picture
+      ).catch(err => console.warn('Failed to initialize leaderboard entry', err));
+    }
+  }, [user?.id]); // Only run when user ID changes (on login)
+
   // Update leaderboard entry when user progress changes
   useEffect(() => {
     if (user) {
@@ -154,7 +165,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
         state.level,
         lessonsCompleted,
         user.picture
-      );
+      ).catch(err => console.warn('Failed to update leaderboard', err));
     }
   }, [user?.id, user?.picture, state.xp, state.level, state.modulesProgress]); // Update when progress changes
 
@@ -292,7 +303,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
             newLevel,
             lessonsCompleted,
             user.picture
-          );
+          ).catch(err => console.warn('Failed to update leaderboard', err));
         }
 
         return newState;
