@@ -30,6 +30,7 @@ export interface Lesson {
   completed: boolean;
   pdfSource?: string;
   tier: 'basic' | 'standard' | 'premium';
+  hasAudio?: boolean; // Whether this lesson has audio/read-along feature
 }
 
 export interface Module {
@@ -251,6 +252,298 @@ const quizDatabase: Record<string, QuizQuestion[]> = {
       explanation: 'Self-defense is a valid defense, along with consent, force majeure, distress, and necessity under strict conditions.'
     }
   ],
+  'intl-un-charter': [
+    {
+      id: 'q-intl-1',
+      question: 'What is the primary purpose of the United Nations according to the Charter?',
+      options: [
+        'Economic development',
+        'Maintain international peace and security',
+        'Cultural exchange',
+        'Sports competitions'
+      ],
+      correctAnswer: 1,
+      explanation: 'The primary purpose of the UN is to maintain international peace and security, as stated in Article 1 of the Charter.'
+    },
+    {
+      id: 'q-intl-2',
+      question: 'How many members does the UN Security Council have?',
+      options: ['10', '15', '20', '25'],
+      correctAnswer: 1,
+      explanation: 'The Security Council has 15 members: 5 permanent members (China, France, Russia, UK, USA) and 10 elected members.'
+    }
+  ],
+  'intl-icj-statute': [
+    {
+      id: 'q-intl-3',
+      question: 'How many judges serve on the International Court of Justice?',
+      options: ['9', '12', '15', '18'],
+      correctAnswer: 2,
+      explanation: 'The ICJ has 15 judges elected by the UN General Assembly and Security Council for 9-year terms.'
+    },
+    {
+      id: 'q-intl-4',
+      question: 'What is required for the ICJ to have jurisdiction over a dispute?',
+      options: [
+        'Both states must be UN members',
+        'States must consent to jurisdiction',
+        'Dispute must involve human rights',
+        'One state must be wealthy'
+      ],
+      correctAnswer: 1,
+      explanation: 'The ICJ can only hear cases when states have consented to its jurisdiction, through special agreements, optional clause declarations, or treaty provisions.'
+    }
+  ],
+  'intl-vienna-treaties': [
+    {
+      id: 'q-intl-5',
+      question: 'What does "pacta sunt servanda" mean in treaty law?',
+      options: [
+        'Treaties can be broken',
+        'Every treaty in force must be performed in good faith',
+        'Only some treaties are binding',
+        'Treaties expire after 10 years'
+      ],
+      correctAnswer: 1,
+      explanation: 'Pacta sunt servanda means every treaty in force is binding upon the parties and must be performed by them in good faith.'
+    },
+    {
+      id: 'q-intl-6',
+      question: 'When can a state terminate a treaty due to material breach?',
+      options: [
+        'Never',
+        'Only with consent of all parties',
+        'When another party commits material breach',
+        'Anytime it wants'
+      ],
+      correctAnswer: 2,
+      explanation: 'A state can terminate or suspend a treaty if another party commits a material breach, but only in relation to that party.'
+    }
+  ],
+  'intl-treaty-succession': [
+    {
+      id: 'q-intl-7',
+      question: 'What is the "clean slate" principle for newly independent states?',
+      options: [
+        'They must accept all predecessor treaties',
+        'They are not automatically bound by predecessor treaties',
+        'They can only sign new treaties',
+        'They lose all rights'
+      ],
+      correctAnswer: 1,
+      explanation: 'The clean slate principle means newly independent states start fresh and are not automatically bound by the treaties of their predecessor state, though they may choose to succeed to some.'
+    }
+  ],
+  'intl-subjects-states': [
+    {
+      id: 'q-intl-8',
+      question: 'What are the four criteria for statehood under the Montevideo Convention?',
+      options: [
+        'Population, territory, government, recognition',
+        'Population, territory, government, capacity to enter relations',
+        'Wealth, military, population, territory',
+        'UN membership, territory, government, population'
+      ],
+      correctAnswer: 1,
+      explanation: 'The four criteria are: permanent population, defined territory, government, and capacity to enter into relations with other states.'
+    },
+    {
+      id: 'q-intl-9',
+      question: 'What is state immunity?',
+      options: [
+        'States never have to follow laws',
+        'States are generally immune from jurisdiction of other states\' courts',
+        'States cannot be sued',
+        'States are above all law'
+      ],
+      correctAnswer: 1,
+      explanation: 'State immunity means states are generally immune from the jurisdiction of other states\' courts, though there are exceptions for commercial activities and certain torts.'
+    }
+  ],
+  'intl-subjects-orgs': [
+    {
+      id: 'q-intl-10',
+      question: 'Why do international organizations have privileges and immunities?',
+      options: [
+        'To avoid taxes',
+        'Functional necessity - to exercise their functions independently',
+        'Because they are above the law',
+        'To protect diplomats only'
+      ],
+      correctAnswer: 1,
+      explanation: 'International organizations have immunities based on functional necessity - they need to be able to exercise their functions independently without interference from host states.'
+    }
+  ],
+  'intl-diplomatic-relations': [
+    {
+      id: 'q-intl-11',
+      question: 'What is the main function of a diplomatic mission?',
+      options: [
+        'Only to issue visas',
+        'To represent the sending state and protect its interests',
+        'To spy on the receiving state',
+        'To collect taxes'
+      ],
+      correctAnswer: 1,
+      explanation: 'The main functions include representing the sending state, protecting its interests and nationals, negotiating, and promoting friendly relations.'
+    },
+    {
+      id: 'q-intl-12',
+      question: 'What does "persona non grata" mean?',
+      options: [
+        'Welcome person',
+        'Unacceptable person - can be expelled',
+        'Diplomatic immunity',
+        'Head of mission'
+      ],
+      correctAnswer: 1,
+      explanation: 'Persona non grata means an unacceptable person. The receiving state can declare a diplomat persona non grata and require their removal.'
+    }
+  ],
+  'intl-consular-relations': [
+    {
+      id: 'q-intl-13',
+      question: 'What is a key difference between diplomatic and consular immunities?',
+      options: [
+        'Consular officers have more immunities',
+        'Diplomatic officers have broader immunities than consular officers',
+        'They are the same',
+        'Only diplomats have immunities'
+      ],
+      correctAnswer: 1,
+      explanation: 'Diplomatic officers have broader immunities, including complete immunity from criminal jurisdiction. Consular officers have more limited immunities, mainly for official acts.'
+    },
+    {
+      id: 'q-intl-14',
+      question: 'What is the right of consular officers regarding detained nationals?',
+      options: [
+        'No rights',
+        'Right to visit and communicate with detained nationals',
+        'Right to release them',
+        'Right to represent them in court automatically'
+      ],
+      correctAnswer: 1,
+      explanation: 'Consular officers have the right to visit and communicate with their detained nationals, and to arrange legal representation for them.'
+    }
+  ],
+  'intl-responsibility': [
+    {
+      id: 'q-intl-15',
+      question: 'What must a state do when it commits an internationally wrongful act?',
+      options: [
+        'Nothing',
+        'Cease the act, offer non-repetition, and make reparation',
+        'Only apologize',
+        'Only pay money'
+      ],
+      correctAnswer: 1,
+      explanation: 'A state must cease the wrongful act (if continuing), offer assurances of non-repetition, and make full reparation for any injury caused.'
+    }
+  ],
+  'intl-dispute-settlement': [
+    {
+      id: 'q-intl-16',
+      question: 'What is the difference between mediation and conciliation?',
+      options: [
+        'No difference',
+        'Mediation is less formal; conciliation involves a commission making recommendations',
+        'Mediation is binding; conciliation is not',
+        'Only states use mediation'
+      ],
+      correctAnswer: 1,
+      explanation: 'Mediation involves a third party facilitating negotiations. Conciliation is more formal, with a commission investigating and proposing settlement recommendations.'
+    },
+    {
+      id: 'q-intl-17',
+      question: 'What is required for the International Court of Justice to hear a case?',
+      options: [
+        'Both states must be UN members',
+        'States must consent to ICJ jurisdiction',
+        'The dispute must be about human rights',
+        'One state must be from Europe'
+      ],
+      correctAnswer: 1,
+      explanation: 'The ICJ requires consent to jurisdiction, which can be given through special agreements, optional clause declarations, treaty provisions, or forum prorogatum.'
+    }
+  ],
+  'intl-peace-security': [
+    {
+      id: 'q-intl-18',
+      question: 'What is the general rule on use of force in international law?',
+      options: [
+        'States can use force freely',
+        'Threat or use of force is prohibited, except in self-defense or with UN authorization',
+        'Only major powers can use force',
+        'Force is allowed in economic disputes'
+      ],
+      correctAnswer: 1,
+      explanation: 'Article 2(4) of the UN Charter prohibits threat or use of force, with exceptions for self-defense (Article 51) and UN Security Council authorization.'
+    },
+    {
+      id: 'q-intl-19',
+      question: 'What is the primary responsibility of the UN Security Council?',
+      options: [
+        'Economic development',
+        'Maintain international peace and security',
+        'Cultural preservation',
+        'Sports coordination'
+      ],
+      correctAnswer: 1,
+      explanation: 'The Security Council has primary responsibility for maintaining international peace and security under the UN Charter.'
+    }
+  ],
+  'intl-human-rights': [
+    {
+      id: 'q-intl-20',
+      question: 'What are the two main international human rights covenants?',
+      options: [
+        'Civil Rights and Political Rights',
+        'ICCPR (Civil and Political) and ICESCR (Economic, Social, Cultural)',
+        'Universal Declaration and Regional Charters',
+        'UN Charter and Geneva Conventions'
+      ],
+      correctAnswer: 1,
+      explanation: 'The two main covenants are the International Covenant on Civil and Political Rights (ICCPR) and the International Covenant on Economic, Social and Cultural Rights (ICESCR).'
+    },
+    {
+      id: 'q-intl-21',
+      question: 'What is the principle of non-refoulement?',
+      options: [
+        'States can return anyone',
+        'Cannot return person to country where they face persecution',
+        'Must return all refugees',
+        'Only applies to criminals'
+      ],
+      correctAnswer: 1,
+      explanation: 'Non-refoulement prohibits returning a person to a country where they would face persecution, torture, or other serious harm.'
+    }
+  ],
+  'intl-migration-refugees': [
+    {
+      id: 'q-intl-22',
+      question: 'What is the difference between a refugee and an internally displaced person?',
+      options: [
+        'No difference',
+        'Refugee crosses international border; IDP remains in own country',
+        'Refugee has more rights',
+        'IDP has more rights'
+      ],
+      correctAnswer: 1,
+      explanation: 'A refugee has crossed an international border and is protected by refugee law. An IDP is forced to flee but remains within their own country.'
+    },
+    {
+      id: 'q-intl-23',
+      question: 'What is statelessness?',
+      options: [
+        'Having two nationalities',
+        'Not being recognized as a national by any state',
+        'Living abroad',
+        'Being a refugee'
+      ],
+      correctAnswer: 1,
+      explanation: 'A stateless person is someone who is not considered a national by any state under its laws, leaving them without the protection of any state.'
+    }
+  ],
   'penal-intro': [
     {
       id: 'q15',
@@ -466,9 +759,24 @@ const xpByTier: Record<string, number> = {
 /**
  * Convert extracted PDF topics to lessons
  */
-function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard' | 'premium'): Lesson {
+function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard' | 'premium', lessonIndex: number, totalLessons: number): Lesson {
   const accessible = isTopicAccessible(topic.id, userTier);
   const quiz = quizDatabase[topic.id] || [];
+  
+  // Determine if lesson should have audio
+  let hasAudio = false;
+  if (accessible) {
+    if (userTier === 'premium') {
+      // Premium: All lessons have audio
+      hasAudio = true;
+    } else if (userTier === 'standard') {
+      // Standard: 30% of lessons have audio (approximately every 3rd lesson)
+      // Calculate which lessons get audio (30% = roughly 1 in 3)
+      const audioInterval = Math.ceil(totalLessons / (totalLessons * 0.3));
+      hasAudio = (lessonIndex + 1) % audioInterval === 0 || lessonIndex === 0; // First lesson + every Nth
+    }
+    // Basic and free: No audio
+  }
   
   return {
     id: topic.id,
@@ -479,7 +787,8 @@ function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard
     locked: !accessible,
     completed: false,
     pdfSource: topic.pdfSource,
-    tier: topic.tier
+    tier: topic.tier,
+    hasAudio: hasAudio
   };
 }
 
@@ -489,15 +798,31 @@ function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard
 export function getLearningModules(userTier: 'free' | 'basic' | 'standard' | 'premium' = 'free'): Module[] {
   const extractedModules = getModulesForTier(userTier === 'free' ? 'basic' : userTier);
   
-  return extractedModules.map(module => ({
-    id: module.id,
-    title: module.title,
-    description: module.description,
-    icon: moduleIcons[module.id] || '📚',
-    requiredTier: module.tier as 'free' | 'basic' | 'standard' | 'premium',
-    locked: false, // Module visibility is handled by getModulesForTier
-    lessons: module.topics.map(topic => topicToLesson(topic, userTier))
-  }));
+  return extractedModules.map(module => {
+    const accessibleTopics = module.topics.filter(topic => {
+      const tierHierarchy: Record<string, number> = {
+        free: 0,
+        basic: 1,
+        standard: 2,
+        premium: 3
+      };
+      const userTierLevel = tierHierarchy[userTier] || 0;
+      const topicTierLevel = tierHierarchy[topic.tier] || 0;
+      return topicTierLevel <= userTierLevel;
+    });
+    
+    return {
+      id: module.id,
+      title: module.title,
+      description: module.description,
+      icon: moduleIcons[module.id] || '📚',
+      requiredTier: module.tier as 'free' | 'basic' | 'standard' | 'premium',
+      locked: false, // Module visibility is handled by getModulesForTier
+      lessons: accessibleTopics.map((topic, index) => 
+        topicToLesson(topic, userTier, index, accessibleTopics.length)
+      )
+    };
+  });
 }
 
 /**

@@ -118,7 +118,8 @@ Important: Constitutional remedies have strict time limits and procedural requir
 ];
 
 /**
- * International Law topics
+ * International Law topics from International Law Handbook (book_1.pdf)
+ * Comprehensive university-level course content
  */
 export const internationalLawTopics: LegalTopic[] = [
   {
@@ -184,6 +185,775 @@ Important South Sudan Treaties:
 • Geneva Conventions (humanitarian law)
 • International human rights treaties`,
     tier: 'standard'
+  },
+  {
+    id: 'intl-un-charter',
+    title: 'Chapter I: Charter of the United Nations',
+    description: 'Foundational principles and structure of the UN Charter',
+    pdfSource: 'book_1.pdf',
+    content: `The Charter of the United Nations is the foundational treaty establishing the United Nations organization.
+
+Key Principles of the UN Charter:
+• Maintain international peace and security
+• Develop friendly relations among nations
+• Achieve international cooperation
+• Be a center for harmonizing actions of nations
+
+Main Organs:
+1. General Assembly - All member states, deliberative body
+2. Security Council - 15 members, maintains peace and security
+3. Economic and Social Council - Coordinates economic and social work
+4. Trusteeship Council - Supervised trust territories (now largely inactive)
+5. International Court of Justice - Principal judicial organ
+6. Secretariat - Administrative functions
+
+Purposes of the United Nations:
+1. To maintain international peace and security
+2. To develop friendly relations among nations
+3. To achieve international cooperation
+4. To be a center for harmonizing actions of nations
+
+Principles:
+• Sovereign equality of all members
+• Fulfill obligations in good faith
+• Settle disputes by peaceful means
+• Refrain from threat or use of force
+• Assist UN in actions it takes
+• Non-intervention in domestic jurisdiction (except enforcement measures)
+
+South Sudan became a UN member state on 14 July 2011, accepting all obligations under the Charter.`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-icj-statute',
+    title: 'Statute of the International Court of Justice',
+    description: 'Structure, jurisdiction, and procedures of the ICJ',
+    pdfSource: 'book_1.pdf',
+    content: `The International Court of Justice (ICJ) is the principal judicial organ of the United Nations.
+
+Composition:
+• 15 judges elected by UN General Assembly and Security Council
+• Judges serve 9-year terms
+• No two judges from same nationality
+• Represents main forms of civilization and principal legal systems
+
+Jurisdiction:
+1. Contentious Cases - Disputes between states
+   • States must consent to jurisdiction
+   • Optional clause declarations
+   • Special agreements
+   • Treaty-based jurisdiction
+
+2. Advisory Opinions
+   • Requested by UN organs or specialized agencies
+   • Not binding but highly authoritative
+
+Sources of Law Applied:
+• International conventions
+• International custom
+• General principles of law
+• Judicial decisions and teachings (subsidiary means)
+
+Procedures:
+• Written and oral proceedings
+• Public hearings (unless otherwise decided)
+• Judgment is final and binding on parties
+• No appeal, but revision possible in exceptional circumstances
+
+Enforcement:
+• UN Security Council can enforce ICJ judgments
+• States generally comply voluntarily
+
+South Sudan can:
+• Bring cases against other states (with consent)
+• Be subject to cases brought by other states
+• Request advisory opinions through UN organs`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-vienna-treaties',
+    title: 'Chapter II: Vienna Convention on the Law of Treaties',
+    description: 'Comprehensive rules governing treaty formation, interpretation, and termination',
+    pdfSource: 'book_1.pdf',
+    content: `The Vienna Convention on the Law of Treaties (1969) codifies customary international law on treaties.
+
+Definition of Treaty:
+A treaty is an international agreement concluded between States in written form and governed by international law.
+
+Conclusion of Treaties:
+1. Capacity to conclude treaties
+   • Every state possesses capacity
+   • Full powers required for representatives
+   • Heads of state, heads of government, foreign ministers have full powers
+
+2. Consent to be bound
+   • Signature
+   • Exchange of instruments
+   • Ratification
+   • Acceptance or approval
+   • Accession
+
+3. Reservations
+   • State may formulate reservation unless:
+     - Reservation prohibited by treaty
+     - Treaty provides only specified reservations
+     - Reservation incompatible with object and purpose
+
+4. Entry into force
+   • In accordance with treaty provisions
+   • Or when consent established by all negotiating states
+
+Observance of Treaties:
+• Pacta sunt servanda: Every treaty in force is binding and must be performed in good faith
+• Internal law cannot justify failure to perform
+
+Application of Treaties:
+• Binding on parties
+• No retroactive effect unless otherwise intended
+• Territorial scope as specified
+
+Interpretation:
+• Good faith
+• Ordinary meaning in context
+• Object and purpose
+• Subsequent practice
+• Preparatory work (travaux préparatoires) as supplementary means
+
+Invalidity:
+• Error (if fundamental)
+• Fraud
+• Corruption
+• Coercion of representative
+• Coercion of state by threat or use of force
+• Conflict with peremptory norm (jus cogens)
+
+Termination and Suspension:
+• In accordance with treaty provisions
+• By consent of all parties
+• Material breach
+• Supervening impossibility of performance
+• Fundamental change of circumstances (rebus sic stantibus)
+• Emergence of new peremptory norm
+
+Consequences of Invalidity, Termination, or Suspension:
+• Release from obligations
+• No effect on rights, obligations, or situation created prior to termination
+• Separation of treaty provisions`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-treaty-succession',
+    title: 'Vienna Convention on Succession of States in Respect of Treaties',
+    description: 'Rules when states merge, split, or gain independence',
+    pdfSource: 'book_1.pdf',
+    content: `This Convention governs what happens to treaties when states undergo succession (merger, separation, independence).
+
+Types of Succession:
+1. Newly Independent States
+   • Clean slate principle: Not bound by predecessor's treaties
+   • May notify succession to multilateral treaties
+   • Bilateral treaties require consent of other party
+
+2. Unification of States
+   • Treaties of predecessor states continue in force
+   • Limited to territory where treaty applied
+   • May be terminated or modified by agreement
+
+3. Separation of States
+   • Treaties continue for each successor state
+   • Unless parties agree otherwise or incompatible with object and purpose
+
+4. Transfer of Territory
+   • Treaties cease to apply to transferred territory
+   • Unless otherwise agreed
+
+South Sudan Context:
+As a newly independent state (2011), South Sudan:
+• Started with clean slate (not automatically bound by Sudan's treaties)
+• Could choose to succeed to treaties beneficial to it
+• Had to negotiate new bilateral treaties
+• Could accede to multilateral treaties
+
+Notification of Succession:
+• Must be in writing
+• Communicated to depositary or other parties
+• Expresses intention to be bound
+
+Effects:
+• Succession takes effect on date indicated
+• Or on date of receipt of notification
+• Other parties may object within 12 months`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-subjects-states',
+    title: 'Chapter III: Subjects of International Law - States',
+    description: 'Statehood, recognition, rights and duties of states',
+    pdfSource: 'book_1.pdf',
+    content: `States are the primary subjects of international law.
+
+Criteria for Statehood (Montevideo Convention):
+1. Permanent population
+2. Defined territory
+3. Government
+4. Capacity to enter into relations with other states
+
+Rights of States:
+• Sovereignty and independence
+• Territorial integrity
+• Jurisdiction over territory and nationals
+• Equality with other states
+• Right to self-defense
+• Right to enter into treaties
+
+Duties of States:
+• Not to intervene in affairs of other states
+• Not to foment civil strife in other states
+• To respect human rights
+• To fulfill treaty obligations in good faith
+• To settle disputes peacefully
+• To refrain from threat or use of force
+
+State Recognition:
+• Declaratory theory: State exists when criteria met (regardless of recognition)
+• Constitutive theory: Recognition creates statehood
+• Modern practice: Recognition is political act, not legal requirement
+
+State Succession:
+• Rights and obligations may pass to successor state
+• Depends on type of succession (unification, separation, independence)
+• Treaties, property, archives, debts, nationality issues
+
+State Immunity:
+• States generally immune from jurisdiction of other states' courts
+• Exceptions: Commercial activities, torts in forum state
+• UN Convention on Jurisdictional Immunities codifies rules
+
+South Sudan:
+• Met all criteria for statehood upon independence (2011)
+• Recognized by UN and most states
+• Succeeded to some treaties, started fresh with others
+• Has full international legal personality`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-subjects-orgs',
+    title: 'Subjects of International Law - International Organizations',
+    description: 'Legal personality, privileges, and immunities of international organizations',
+    pdfSource: 'book_1.pdf',
+    content: `International organizations can have international legal personality.
+
+Criteria for Legal Personality:
+• Established by treaty
+• Permanent organs
+• Independent will
+• Functions on international plane
+
+Privileges and Immunities:
+1. United Nations Convention on Privileges and Immunities
+   • Immunity from legal process
+   • Inviolability of premises, archives, documents
+   • Freedom from taxation
+   • Communications privileges
+   • Representatives of members enjoy privileges
+
+2. Specialized Agencies Convention
+   • Similar immunities for UN specialized agencies
+   • Examples: WHO, UNESCO, ILO, FAO, etc.
+
+Scope of Immunities:
+• Functional necessity: Immunities necessary for exercise of functions
+• Not absolute: Can be waived
+• Staff enjoy immunities for official acts
+• Property and assets immune from legal process
+
+Liability:
+• Organizations can be held responsible for wrongful acts
+• Can enter into contracts
+• Can be party to disputes
+• Can make claims for injury to staff or property
+
+South Sudan's Relationship:
+• Member of UN and specialized agencies
+• Bound by obligations under their charters
+• Entitled to participate in decision-making
+• Must respect immunities of organizations and their staff`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-diplomatic-relations',
+    title: 'Chapter IV: Vienna Convention on Diplomatic Relations',
+    description: 'Rules governing diplomatic missions, immunities, and privileges',
+    pdfSource: 'book_1.pdf',
+    content: `The Vienna Convention on Diplomatic Relations (1961) codifies rules for diplomatic relations.
+
+Establishment of Diplomatic Relations:
+• By mutual consent
+• No obligation to establish relations
+• Can be done without agreement on level
+
+Functions of Diplomatic Mission:
+1. Representing sending state
+2. Protecting interests of sending state and nationals
+3. Negotiating with receiving state
+4. Ascertaining conditions and developments
+5. Promoting friendly relations
+6. Developing economic, cultural, and scientific relations
+
+Diplomatic Agents:
+• Head of mission and members of diplomatic staff
+• Must be acceptable to receiving state (agrément)
+• Receiving state can declare persona non grata
+
+Privileges and Immunities:
+
+1. Inviolability of Mission
+   • Premises inviolable
+   • Receiving state cannot enter without consent
+   • Special duty to protect premises
+   • Archives and documents inviolable
+
+2. Personal Inviolability
+   • Cannot be arrested or detained
+   • Receiving state must treat with respect
+   • Take all appropriate steps to prevent attack
+
+3. Immunity from Jurisdiction
+   • Complete immunity from criminal jurisdiction
+   • Immunity from civil and administrative jurisdiction (with exceptions):
+     - Real property actions (unless held for mission)
+     - Succession matters
+     - Professional or commercial activities outside official functions
+
+4. Inviolability of Residence and Property
+   • Private residence inviolable
+   • Papers, correspondence, property inviolable
+
+5. Fiscal Privileges
+   • Exempt from all dues and taxes (with exceptions)
+   • Exempt from customs duties
+
+6. Freedom of Movement
+   • Freedom to travel within receiving state
+
+Duties:
+• Respect laws and regulations of receiving state
+• Not interfere in internal affairs
+• Use premises only for official purposes
+• Not engage in professional or commercial activities
+
+Termination:
+• End of functions
+• Notification by sending state
+• Declaration of persona non grata
+• Breaking of diplomatic relations
+• Outbreak of war
+
+South Sudan:
+• Maintains diplomatic missions in various countries
+• Hosts diplomatic missions in Juba
+• Must respect immunities of foreign diplomats
+• Its diplomats enjoy immunities abroad`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-consular-relations',
+    title: 'Vienna Convention on Consular Relations',
+    description: 'Consular functions, immunities, and protection of nationals',
+    pdfSource: 'book_1.pdf',
+    content: `The Vienna Convention on Consular Relations (1963) governs consular relations.
+
+Consular Functions:
+1. Protecting interests of sending state and nationals
+2. Furthering commercial, economic, cultural, and scientific relations
+3. Issuing passports and travel documents
+4. Helping and assisting nationals
+5. Acting as notary and civil registrar
+6. Safeguarding interests of minors and incapacitated persons
+7. Supervising and assisting vessels and aircraft
+8. Other functions permitted by receiving state
+
+Consular Officers:
+• Head of consular post and consular officials
+• Must be acceptable to receiving state (exequatur)
+• Can be declared unacceptable
+
+Privileges and Immunities (More Limited than Diplomatic):
+
+1. Inviolability of Consular Premises
+   • Premises inviolable (but can enter in case of fire or disaster)
+   • Archives and documents inviolable
+
+2. Personal Inviolability
+   • Cannot be arrested or detained except for grave crimes
+   • Must be treated with respect
+
+3. Immunity from Jurisdiction
+   • Immunity for official acts
+   • Can be subject to civil jurisdiction for:
+     - Contractual disputes (not official)
+     - Third-party damage from vehicle/aircraft accident
+     - Private immovable property
+     - Succession matters
+     - Professional or commercial activities
+
+4. Fiscal Privileges
+   • Exempt from taxes (with more exceptions than diplomats)
+   • Exempt from customs duties on personal effects
+
+5. Freedom of Movement and Communication
+   • Freedom to communicate with nationals
+   • Right to visit nationals in detention
+
+Protection of Nationals:
+• Right to communicate with nationals
+• Right to visit detained nationals
+• Right to arrange legal representation
+• Notification of arrest or detention
+• Assistance in legal proceedings
+
+Termination:
+• End of functions
+• Withdrawal of exequatur
+• Closure of consular post
+• Breaking of consular relations
+
+South Sudan:
+• Operates consulates to assist South Sudanese nationals abroad
+• Foreign consulates in South Sudan assist their nationals
+• Important for protection of citizens traveling or living abroad`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-responsibility',
+    title: 'Chapter V: International Responsibility of States',
+    description: 'When states commit wrongful acts and consequences',
+    pdfSource: 'book_1.pdf',
+    content: `States are responsible for internationally wrongful acts.
+
+Internationally Wrongful Act:
+1. Conduct attributable to the state
+2. Constitutes breach of international obligation
+
+Attribution of Conduct:
+• Conduct of state organs (legislative, executive, judicial)
+• Conduct of persons exercising governmental authority
+• Conduct directed or controlled by state
+• Conduct of insurrectional movements (if successful)
+• Conduct acknowledged and adopted by state
+
+Breach of International Obligation:
+• Occurs when state's conduct does not conform to obligation
+• Can be by act or omission
+• Must be in force at time of conduct
+• Can be breach of treaty or customary law
+
+Circumstances Precluding Wrongfulness:
+1. Consent - Valid consent by injured state
+2. Self-defense - Lawful measures of self-defense
+3. Countermeasures - Lawful response to prior breach
+4. Force majeure - Irresistible force or unforeseen event
+5. Distress - Saving life in peril
+6. Necessity - Safeguarding essential interest against grave and imminent peril
+
+Consequences:
+1. Cessation - Must cease wrongful act if continuing
+2. Non-repetition - Offer assurances of non-repetition
+3. Reparation - Must make full reparation
+
+Forms of Reparation:
+1. Restitution - Re-establish situation before breach
+2. Compensation - Monetary payment for damage
+3. Satisfaction - Acknowledgment, apology, or other appropriate satisfaction
+
+Serious Breaches:
+• Breach of peremptory norm (jus cogens)
+• Widespread and systematic breach
+• Special consequences:
+  - Cooperation to end breach
+  - No recognition of situation as lawful
+  - No aid or assistance in maintaining situation
+
+Invocation of Responsibility:
+• Injured state can invoke responsibility
+• States other than injured state can invoke if:
+  - Obligation owed to international community as whole
+  - Breach of peremptory norm
+
+South Sudan:
+• Bound by rules of state responsibility
+• Can bring claims against other states
+• Can be subject to claims for its wrongful acts
+• Must provide reparation for breaches`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-dispute-settlement',
+    title: 'Chapter VI: Peaceful Settlement of International Disputes',
+    description: 'Methods for resolving disputes without use of force',
+    pdfSource: 'book_1.pdf',
+    content: `States must settle disputes by peaceful means (UN Charter obligation).
+
+Methods of Settlement:
+
+1. Negotiation
+   • Direct discussions between parties
+   • Most common method
+   • Flexible and confidential
+   • No third party involved
+
+2. Mediation
+   • Third party facilitates negotiations
+   • Mediator suggests solutions
+   • Non-binding
+   • Parties retain control
+
+3. Conciliation
+   • Commission investigates and proposes settlement
+   • More formal than mediation
+   • Recommendations non-binding
+   • UN Model Rules provide framework
+
+4. Arbitration
+   • Binding decision by arbitral tribunal
+   • Parties choose arbitrators
+   • Procedure agreed by parties
+   • Permanent Court of Arbitration provides services
+   • Model Rules on Arbitral Procedure available
+
+5. Judicial Settlement
+   • International Court of Justice (ICJ)
+   • Binding judgments
+   • Requires consent to jurisdiction
+   • Can be through:
+     - Special agreement (compromis)
+     - Optional clause declaration
+     - Treaty provision
+     - Forum prorogatum (tacit consent)
+
+6. Regional Mechanisms
+   • African Court on Human and Peoples' Rights
+   • Regional economic community courts
+   • Specialized tribunals
+
+Principles:
+• Manila Declaration on Peaceful Settlement (1982)
+• States should negotiate in good faith
+• Should consider using multiple methods
+• Should not allow disputes to endanger peace
+
+Institutional Support:
+• UN Secretary-General can offer good offices
+• Security Council can recommend methods
+• General Assembly can make recommendations
+• Regional organizations can assist
+
+South Sudan:
+• Should use peaceful means for all disputes
+• Can bring cases to ICJ (with consent)
+• Can use regional mechanisms
+• Can negotiate directly with other states
+• Should avoid threat or use of force`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-peace-security',
+    title: 'Chapter VII: International Peace and Security',
+    description: 'UN Security Council, use of force, and maintaining peace',
+    pdfSource: 'book_1.pdf',
+    content: `Maintaining international peace and security is primary UN purpose.
+
+UN Security Council:
+• 15 members: 5 permanent (P5) + 10 elected
+• Primary responsibility for peace and security
+• Can make binding decisions
+• Can authorize use of force
+• Can impose sanctions
+
+Prohibition of Use of Force:
+• UN Charter Article 2(4): Prohibits threat or use of force
+• Exception: Self-defense (Article 51)
+• Exception: UN Security Council authorization
+
+Self-Defense:
+• Individual self-defense
+• Collective self-defense
+• Must be necessary and proportional
+• Must report to Security Council
+• Can be anticipatory if attack imminent
+
+Security Council Actions:
+1. Recommendations
+2. Binding decisions
+3. Sanctions (economic, travel, arms)
+4. Authorization of use of force
+5. Peacekeeping operations
+6. Peace enforcement
+
+Uniting for Peace Resolution:
+• If Security Council deadlocked, General Assembly can act
+• Emergency special sessions
+• Can make recommendations for collective measures
+
+Definition of Aggression:
+• Use of armed force against sovereignty, territorial integrity, or political independence
+• First use of force is prima facie evidence of aggression
+• Includes: invasion, bombardment, blockade, attack on forces, violation of agreements
+
+Friendly Relations Declaration:
+• Principles of international law concerning friendly relations
+• Sovereign equality
+• Non-intervention
+• Peaceful settlement
+• Cooperation
+• Equal rights and self-determination
+• Good faith fulfillment of obligations
+
+Prevention of Disputes:
+• Early warning systems
+• Preventive diplomacy
+• Confidence-building measures
+• Disarmament
+• Development
+
+South Sudan:
+• Subject to Security Council decisions
+• Must refrain from use of force
+• Can exercise self-defense if attacked
+• Can participate in peacekeeping
+• Should settle disputes peacefully`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-human-rights',
+    title: 'Chapter VIII: International Human Rights Law',
+    description: 'Core human rights instruments and protection mechanisms',
+    pdfSource: 'book_1.pdf',
+    content: `International human rights law protects fundamental rights of all persons.
+
+Core Instruments:
+
+1. Universal Declaration of Human Rights (1948)
+   • Not legally binding but authoritative
+   • Foundation of international human rights law
+   • Civil, political, economic, social, cultural rights
+
+2. International Covenant on Civil and Political Rights (ICCPR)
+   • Legally binding
+   • Civil and political rights
+   • Human Rights Committee monitors
+   • Optional Protocol allows individual complaints
+
+3. International Covenant on Economic, Social and Cultural Rights (ICESCR)
+   • Legally binding
+   • Economic, social, cultural rights
+   • Progressive realization
+   • Committee on Economic, Social and Cultural Rights monitors
+
+4. Convention on Elimination of Racial Discrimination
+   • Prohibits racial discrimination
+   • Committee on Elimination of Racial Discrimination
+
+5. Convention on Elimination of Discrimination Against Women (CEDAW)
+   • Women's rights
+   • CEDAW Committee monitors
+
+6. Convention Against Torture
+   • Prohibits torture absolutely
+   • Committee Against Torture monitors
+   • Optional Protocol establishes preventive visits
+
+Implementation:
+• State reporting
+• Individual complaints (where applicable)
+• Inquiry procedures
+• Inter-state complaints
+• Universal Periodic Review (UN Human Rights Council)
+
+Regional Systems:
+• African Charter on Human and Peoples' Rights
+• African Commission on Human and Peoples' Rights
+• African Court on Human and Peoples' Rights
+
+Key Principles:
+• Universality - Rights apply to all
+• Indivisibility - All rights equally important
+• Interdependence - Rights interconnected
+• Non-discrimination
+• State obligations: Respect, protect, fulfill
+
+South Sudan:
+• Party to core human rights treaties
+• Must submit periodic reports
+• Must implement rights domestically
+• Can be subject to complaints
+• Should cooperate with monitoring bodies`,
+    tier: 'premium'
+  },
+  {
+    id: 'intl-migration-refugees',
+    title: 'Chapter IX: Movement of Persons and International Migration Law',
+    description: 'Refugee law, statelessness, internally displaced persons, and migrant workers',
+    pdfSource: 'book_1.pdf',
+    content: `International law governs movement of persons across borders.
+
+Refugees:
+• 1951 Convention Relating to Status of Refugees
+• 1967 Protocol
+• Definition: Well-founded fear of persecution
+• Grounds: Race, religion, nationality, political opinion, membership in particular social group
+• Non-refoulement: Cannot return to country of persecution
+• Rights: Work, education, movement, documentation
+• UNHCR provides protection and assistance
+
+Statelessness:
+• 1954 Convention on Status of Stateless Persons
+• 1961 Convention on Reduction of Statelessness
+• Stateless person: Not recognized as national by any state
+• Rights similar to refugees
+• States should grant nationality to prevent statelessness
+
+Internally Displaced Persons (IDPs):
+• Guiding Principles on Internal Displacement
+• Persons forced to flee but remain in own country
+• Not covered by refugee law (no cross-border)
+• Protection during displacement
+• Right to return, resettlement, or local integration
+• Special protection needs
+
+Migrant Workers:
+• International Convention on Protection of Rights of All Migrant Workers and Members of Their Families
+• Rights of migrant workers and families
+• Regular and irregular migrants
+• Protection from exploitation
+• Right to family unity
+• Access to education, health
+
+Key Principles:
+• Human dignity
+• Non-discrimination
+• Family unity
+• Best interests of child
+• Protection from exploitation
+• Right to seek asylum
+
+South Sudan Context:
+• Large numbers of refugees (from conflicts)
+• Many IDPs (internal conflicts)
+• South Sudanese refugees in neighboring countries
+• Hosts refugees from other countries
+• Must respect refugee and migrant rights
+• Should prevent statelessness
+• Should protect IDPs
+
+Practical Application:
+• Refugee status determination
+• Asylum procedures
+• Documentation
+• Integration or return
+• Protection from refoulement
+• Access to services`,
+    tier: 'premium'
   },
   {
     id: 'intl-state-responsibility',
