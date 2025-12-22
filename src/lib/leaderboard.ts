@@ -72,8 +72,14 @@ export function updateLeaderboardEntry(
     entries.push(entry);
   }
 
-  // Sort by XP (descending) and keep only top entries
-  entries.sort((a, b) => b.xp - a.xp);
+  // Sort primarily by XP (descending), then by most recent activity
+  entries.sort((a, b) => {
+    if (b.xp !== a.xp) {
+      return b.xp - a.xp;
+    }
+    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+  });
+
   saveLeaderboard(entries);
 }
 
@@ -82,7 +88,18 @@ export function updateLeaderboardEntry(
  */
 export function getTopLearners(limit: number = 10): LeaderboardEntry[] {
   const entries = getLeaderboard();
-  return entries.slice(0, limit);
+
+  // Sort again defensively in case storage order changed:
+  // 1) Highest XP first
+  // 2) If same XP, most recently active first
+  const sorted = [...entries].sort((a, b) => {
+    if (b.xp !== a.xp) {
+      return b.xp - a.xp;
+    }
+    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+  });
+
+  return sorted.slice(0, limit);
 }
 
 /**
@@ -95,7 +112,12 @@ export function getUserRankInfo(userId: string): {
   completionRate: number;
 } {
   const entries = getLeaderboard();
-  const sorted = [...entries].sort((a, b) => b.xp - a.xp);
+  const sorted = [...entries].sort((a, b) => {
+    if (b.xp !== a.xp) {
+      return b.xp - a.xp;
+    }
+    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+  });
   
   const userIndex = sorted.findIndex(e => e.userId === userId);
   const userEntry = userIndex >= 0 ? sorted[userIndex] : null;
