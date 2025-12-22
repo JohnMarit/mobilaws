@@ -738,13 +738,13 @@ const quizDatabase: Record<string, QuizQuestion[]> = {
 };
 
 /**
- * Module icons by category
+ * Module icons by category - using FontAwesome icon names
  */
 const moduleIcons: Record<string, string> = {
-  constitution: '📜',
-  'international-law': '🌍',
-  'criminal-law': '⚖️',
-  'public-law': '🏛️'
+  constitution: 'faScroll',
+  'international-law': 'faGlobe',
+  'criminal-law': 'faScaleBalanced',
+  'public-law': 'faLandmark'
 };
 
 /**

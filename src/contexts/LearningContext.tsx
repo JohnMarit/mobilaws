@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, R
 import { useSubscription } from './SubscriptionContext';
 import { useAuth } from './FirebaseAuthContext';
 import { getLearningModules, type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
+import { updateLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
 
 type Tier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -142,6 +143,21 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     setState(loaded ? { ...defaultState, ...loaded } : defaultState);
   }, [key]);
 
+  // Update leaderboard entry when user progress changes
+  useEffect(() => {
+    if (user) {
+      const lessonsCompleted = calculateLessonsCompleted(state.modulesProgress);
+      updateLeaderboardEntry(
+        user.id,
+        user.name || user.email?.split('@')[0] || 'User',
+        state.xp,
+        state.level,
+        lessonsCompleted,
+        user.picture
+      );
+    }
+  }, [user?.id, user?.picture, state.xp, state.level, state.modulesProgress]); // Update when progress changes
+
   // Persist on change
   useEffect(() => {
     saveState(key, state);
@@ -207,6 +223,12 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const completeLesson = useCallback(
     (moduleId: string, lessonId: string, score: number) => {
+      // Only complete lesson if score is 70% or higher
+      if (score < 70) {
+        console.log(`Lesson not completed: Score ${score}% is below minimum requirement of 70%`);
+        return; // Don't mark as complete if score is below 70%
+      }
+
       touchActivity();
       
       // Find the lesson to get XP reward
@@ -237,7 +259,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
               lessonsCompleted: 1
             };
 
-        return {
+        const newState = {
           ...prev,
           dailyLimit: newDailyLimit,
           modulesProgress: {
@@ -257,6 +279,23 @@ export function LearningProvider({ children }: { children: ReactNode }) {
             }
           }
         };
+
+        // Update leaderboard with new XP and lessons completed
+        if (user) {
+          const newXp = prev.xp + earnedXp;
+          const newLevel = computeLevel(newXp);
+          const lessonsCompleted = calculateLessonsCompleted(newState.modulesProgress);
+          updateLeaderboardEntry(
+            user.id,
+            user.name || user.email?.split('@')[0] || 'User',
+            newXp,
+            newLevel,
+            lessonsCompleted,
+            user.picture
+          );
+        }
+
+        return newState;
       });
     },
     [awardXp, touchActivity, gatedModules]

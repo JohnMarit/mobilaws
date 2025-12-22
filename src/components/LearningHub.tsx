@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2 } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import LessonRunner from './LessonRunner';
+import Leaderboard from './Leaderboard';
 import { Lesson, Module } from '@/lib/learningContent';
 
 interface LearningHubProps {
@@ -60,6 +64,13 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs defaultValue="lessons" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="lessons">Lessons</TabsTrigger>
+            <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="lessons" className="space-y-4 sm:space-y-6">
         <div className="grid gap-4 sm:gap-6">
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
@@ -117,7 +128,12 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                   {tier === 'free' 
                     ? dailyLessonsRemaining > 0 
                       ? `${dailyLessonsRemaining} lesson${dailyLessonsRemaining === 1 ? '' : 's'} left today` 
-                      : 'Come back tomorrow! 🎉'
+                      :                       (
+                        <span className="flex items-center gap-1">
+                          Come back tomorrow! 
+                          <FontAwesomeIcon icon={faStar} className="h-4 w-4 text-yellow-500" />
+                        </span>
+                      )
                     : 'Complete lessons to hit your goal.'}
                 </div>
               </CardContent>
@@ -140,7 +156,16 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                     <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
                       <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
                         <div className="flex items-center gap-1.5 sm:gap-2">
-                          <span className="text-xl sm:text-2xl">{module.icon}</span>
+                          <FontAwesomeIcon 
+                            icon={
+                              module.icon === 'faScroll' ? faScroll :
+                              module.icon === 'faGlobe' ? faGlobe :
+                              module.icon === 'faScaleBalanced' ? faScaleBalanced :
+                              module.icon === 'faLandmark' ? faLandmark :
+                              faBook
+                            }
+                            className="text-xl sm:text-2xl text-primary"
+                          />
                           <span className="leading-tight">{module.title}</span>
                         </div>
                         {done ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" /> : null}
@@ -176,9 +201,14 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                     <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" title="Audio available" />
                                   )}
                                 </div>
-                                <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
-                                  {lesson.xpReward} XP • {lesson.quiz.length} Q
-                                  {lesson.hasAudio && <span className="ml-1 text-blue-500">🎧 Listen</span>}
+                                <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+                                  <span>{lesson.xpReward} XP • {lesson.quiz.length} Q</span>
+                                  {lesson.hasAudio && (
+                                    <span className="ml-1 text-blue-500 flex items-center gap-1">
+                                      <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
+                                      Listen
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               {isLocked ? (
@@ -208,6 +238,12 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
             </div>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="leaderboard">
+            <Leaderboard />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
 
       {activeLesson && (

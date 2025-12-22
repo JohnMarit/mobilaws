@@ -27,6 +27,8 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [quizAnswers, setQuizAnswers] = useState<boolean[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [showRetakeMessage, setShowRetakeMessage] = useState(false);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
   
   // Determine if audio is enabled for this lesson
   const audioEnabled = useMemo(() => {
@@ -54,6 +56,8 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       setSelectedOption(null);
       setShowExplanation(false);
       setCurrentWordIndex(-1);
+      setShowRetakeMessage(false);
+      setFinalScore(null);
       // Stop any playing audio when lesson changes
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -80,12 +84,31 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       setSelectedOption(null);
       setShowExplanation(false);
     } else {
-      // Complete lesson
+      // Calculate final score
       const correctAnswers = quizAnswers.filter(a => a).length + (selectedOption === lesson.quiz[currentQuizIndex].correctAnswer ? 1 : 0);
       const score = Math.round((correctAnswers / lesson.quiz.length) * 100);
-      completeLesson(module.id, lesson.id, score);
-      onClose();
+      setFinalScore(score);
+      
+      // Check if score meets minimum requirement (70%)
+      if (score >= 70) {
+        // Score is sufficient - complete lesson
+        completeLesson(module.id, lesson.id, score);
+        onClose();
+      } else {
+        // Score is below 70% - show retake message
+        setShowRetakeMessage(true);
+      }
     }
+  };
+
+  const handleRetakeQuiz = () => {
+    // Reset quiz state to retake
+    setCurrentQuizIndex(0);
+    setQuizAnswers([]);
+    setSelectedOption(null);
+    setShowExplanation(false);
+    setShowRetakeMessage(false);
+    setFinalScore(null);
   };
 
   const renderContent = () => {
@@ -177,12 +200,32 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
             </Alert>
           )}
 
+          {showRetakeMessage && finalScore !== null && (
+            <Alert variant="destructive" className="touch-manipulation">
+              <div className="flex items-start gap-2">
+                <XCircle className="h-5 w-5 sm:h-6 sm:w-6 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold mb-1 text-sm sm:text-base">
+                    Score: {finalScore}% - Retake Required
+                  </div>
+                  <AlertDescription className="text-sm sm:text-base leading-relaxed">
+                    You scored {finalScore}%, but you need at least 70% to complete this lesson. Please review the content and retake the quiz.
+                  </AlertDescription>
+                </div>
+              </div>
+            </Alert>
+          )}
+
           <div className="flex justify-between items-center pt-2 gap-2 flex-wrap sm:flex-nowrap">
             <Button variant="outline" size="sm" onClick={onClose} className="h-9 sm:h-10 text-sm sm:text-base touch-manipulation">
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
               Exit
             </Button>
-            {!showExplanation ? (
+            {showRetakeMessage ? (
+              <Button onClick={handleRetakeQuiz} className="h-9 sm:h-10 text-sm sm:text-base touch-manipulation">
+                Retake Quiz
+              </Button>
+            ) : !showExplanation ? (
               <Button
                 onClick={handleQuizSubmit}
                 disabled={selectedOption === null}
