@@ -182,13 +182,13 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     // Sort XP levels descending
     const sortedXpLevels = Array.from(groupedByXp.keys()).sort((a, b) => b - a);
 
-    // Flatten: for each XP level, shuffle users randomly
+    // Flatten: for each XP level, sort users alphabetically
     const sortedEntries: LeaderboardEntry[] = [];
     sortedXpLevels.forEach(xpLevel => {
       const usersAtThisLevel = groupedByXp.get(xpLevel)!;
-      // Shuffle users at the same XP level randomly
-      const shuffled = usersAtThisLevel.sort(() => Math.random() - 0.5);
-      sortedEntries.push(...shuffled);
+      // Sort users at the same XP level alphabetically by userName
+      const sorted = usersAtThisLevel.sort((a, b) => a.userName.localeCompare(b.userName));
+      sortedEntries.push(...sorted);
     });
 
     console.log(`✅ Returning ${sortedEntries.length} sorted entries`);

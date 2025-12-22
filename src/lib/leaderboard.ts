@@ -117,12 +117,12 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
 export async function getTopLearners(limit: number = 10): Promise<LeaderboardEntry[]> {
   const entries = await getLeaderboard();
 
-  // Sort: 1) Highest XP first, 2) If same XP, most recently active first
+  // Sort: 1) Highest XP first, 2) If same XP, alphabetically by userName
   const sorted = [...entries].sort((a, b) => {
     if (b.xp !== a.xp) {
       return b.xp - a.xp;
     }
-    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+    return a.userName.localeCompare(b.userName);
   });
 
   return sorted.slice(0, limit);
@@ -142,7 +142,7 @@ export async function getUserRankInfo(userId: string): Promise<{
     if (b.xp !== a.xp) {
       return b.xp - a.xp;
     }
-    return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+    return a.userName.localeCompare(b.userName);
   });
 
   const userIndex = sorted.findIndex(e => e.userId === userId);
