@@ -26,50 +26,72 @@ function getFirestore(): admin.firestore.Firestore | null {
 }
 
 /**
- * Auto-populate leaderboard with recent users from Firebase Auth
+ * Auto-populate leaderboard with ALL users from Firebase Auth
  * This ensures all users appear in the leaderboard, even with 0 XP
  */
 async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<void> {
   try {
-    // Get all Firebase Auth users
-    const authUsers = await getAllFirebaseAuthUsers(50); // Get up to 50 recent users
+    console.log('🔄 Auto-populating leaderboard with Firebase Auth users...');
+    
+    // Get ALL Firebase Auth users (up to 1000)
+    const authUsers = await getAllFirebaseAuthUsers(1000);
+    
+    console.log(`📊 Found ${authUsers.length} users in Firebase Auth`);
     
     if (authUsers.length === 0) return;
 
-    // Check which users are not in leaderboard yet
-    const batch = db.batch();
+    // Use batched writes for efficiency (max 500 per batch)
+    let batch = db.batch();
+    let batchCount = 0;
     let addedCount = 0;
+    let updatedCount = 0;
 
     for (const authUser of authUsers) {
       const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(authUser.uid);
       const existingDoc = await entryRef.get();
 
+      const entryData: LeaderboardEntry = {
+        userId: authUser.uid,
+        userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
+        userPicture: authUser.photoURL || undefined,
+        xp: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).xp : 0,
+        level: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).level : 1,
+        lessonsCompleted: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).lessonsCompleted : 0,
+        lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
+      };
+
       if (!existingDoc.exists) {
-        const entryData: LeaderboardEntry = {
-          userId: authUser.uid,
-          userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
-          userPicture: authUser.photoURL || undefined,
-          xp: 0,
-          level: 1,
-          lessonsCompleted: 0,
-          lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
-        };
         batch.set(entryRef, entryData);
         addedCount++;
+      } else {
+        // Update name/picture if changed
+        batch.set(entryRef, entryData, { merge: true });
+        updatedCount++;
+      }
+
+      batchCount++;
+
+      // Commit batch every 500 operations
+      if (batchCount >= 500) {
+        await batch.commit();
+        batch = db.batch();
+        batchCount = 0;
       }
     }
 
-    if (addedCount > 0) {
+    // Commit remaining operations
+    if (batchCount > 0) {
       await batch.commit();
-      console.log(`✅ Auto-populated ${addedCount} users to leaderboard`);
     }
+
+    console.log(`✅ Leaderboard populated: ${addedCount} added, ${updatedCount} updated`);
   } catch (error) {
-    console.warn('⚠️ Failed to auto-populate leaderboard:', error);
+    console.error('❌ Failed to auto-populate leaderboard:', error);
   }
 }
 
 /**
- * Get all leaderboard entries, sorted by XP (descending), then by lastUpdated (descending)
+ * Get all leaderboard entries, sorted by XP (descending), then randomly for same XP
  * GET /api/leaderboard
  */
 router.get('/leaderboard', async (req: Request, res: Response) => {
@@ -79,16 +101,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Firebase Admin not initialized' });
     }
 
-    // Auto-populate leaderboard with recent users (non-blocking)
-    autoPopulateLeaderboard(db).catch(err => 
-      console.warn('Background leaderboard population failed:', err)
-    );
+    // Auto-populate leaderboard with ALL users (blocking to ensure users are visible)
+    await autoPopulateLeaderboard(db);
 
-    // Order by XP only (Firestore composite index not needed)
-    // Secondary sort by lastUpdated will be done client-side
+    // Get ALL leaderboard entries (no limit initially)
     const snapshot = await db.collection(LEADERBOARD_COLLECTION)
-      .orderBy('xp', 'desc')
-      .limit(100) // Get top 100 for flexibility
       .get();
 
     const entries: LeaderboardEntry[] = snapshot.docs.map(doc => {
@@ -104,16 +121,31 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
       };
     });
 
-    // Sort client-side: Primary by XP (desc), secondary by lastUpdated (desc for recency)
-    entries.sort((a, b) => {
-      if (b.xp !== a.xp) {
-        return b.xp - a.xp; // Higher XP first
-      }
-      // For same XP, show more recently active users first
-      return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+    console.log(`📊 Retrieved ${entries.length} entries from leaderboard`);
+
+    // Group by XP level
+    const groupedByXp = new Map<number, LeaderboardEntry[]>();
+    entries.forEach(entry => {
+      const xpGroup = groupedByXp.get(entry.xp) || [];
+      xpGroup.push(entry);
+      groupedByXp.set(entry.xp, xpGroup);
     });
 
-    return res.json({ entries });
+    // Sort XP levels descending
+    const sortedXpLevels = Array.from(groupedByXp.keys()).sort((a, b) => b - a);
+
+    // Flatten: for each XP level, shuffle users randomly
+    const sortedEntries: LeaderboardEntry[] = [];
+    sortedXpLevels.forEach(xpLevel => {
+      const usersAtThisLevel = groupedByXp.get(xpLevel)!;
+      // Shuffle users at the same XP level randomly
+      const shuffled = usersAtThisLevel.sort(() => Math.random() - 0.5);
+      sortedEntries.push(...shuffled);
+    });
+
+    console.log(`✅ Returning ${sortedEntries.length} sorted entries`);
+
+    return res.json({ entries: sortedEntries });
   } catch (error) {
     console.error('❌ Error fetching leaderboard:', error);
     return res.status(500).json({ error: 'Failed to fetch leaderboard' });
@@ -179,39 +211,59 @@ router.post('/leaderboard/init', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields: userId, userName' });
     }
 
+    console.log(`🆕 Initializing leaderboard entry for user: ${userId} (${userName})`);
+
     const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(userId);
     const existingDoc = await entryRef.get();
 
-    // Only create if doesn't exist
-    if (!existingDoc.exists) {
-      const entryData: LeaderboardEntry = {
-        userId,
-        userName,
-        userPicture,
-        xp: 0,
-        level: 1,
-        lessonsCompleted: 0,
-        lastUpdated: new Date().toISOString(),
-      };
+    const entryData: LeaderboardEntry = {
+      userId,
+      userName,
+      userPicture: userPicture || existingDoc.data()?.userPicture,
+      xp: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).xp : 0,
+      level: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).level : 1,
+      lessonsCompleted: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).lessonsCompleted : 0,
+      lastUpdated: new Date().toISOString(),
+    };
 
-      await entryRef.set(entryData);
-      console.log(`✅ Leaderboard entry initialized for user: ${userId}`);
-      return res.json({ success: true, entry: entryData });
-    } else {
-      // Update name/picture if provided
-      const existingData = existingDoc.data() as LeaderboardEntry;
-      const entryData: LeaderboardEntry = {
-        ...existingData,
-        userName: userName || existingData.userName,
-        userPicture: userPicture || existingData.userPicture,
-        lastUpdated: new Date().toISOString(),
-      };
-      await entryRef.set(entryData, { merge: true });
-      return res.json({ success: true, entry: entryData });
-    }
+    await entryRef.set(entryData, { merge: true });
+    console.log(`✅ Leaderboard entry ${existingDoc.exists ? 'updated' : 'created'} for: ${userId}`);
+    
+    return res.json({ success: true, entry: entryData });
   } catch (error) {
     console.error('❌ Error initializing leaderboard entry:', error);
     return res.status(500).json({ error: 'Failed to initialize leaderboard entry' });
+  }
+});
+
+/**
+ * Manually trigger leaderboard population with all Firebase Auth users
+ * POST /api/leaderboard/populate
+ */
+router.post('/leaderboard/populate', async (req: Request, res: Response) => {
+  try {
+    const db = getFirestore();
+    if (!db) {
+      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+    }
+
+    console.log('🔧 Manual leaderboard population triggered');
+    await autoPopulateLeaderboard(db);
+
+    // Get count of entries
+    const snapshot = await db.collection(LEADERBOARD_COLLECTION).get();
+    const count = snapshot.size;
+
+    console.log(`✅ Leaderboard now has ${count} entries`);
+
+    return res.json({ 
+      success: true, 
+      message: `Leaderboard populated with ${count} users`,
+      totalEntries: count
+    });
+  } catch (error) {
+    console.error('❌ Error populating leaderboard:', error);
+    return res.status(500).json({ error: 'Failed to populate leaderboard' });
   }
 });
 

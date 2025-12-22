@@ -26,15 +26,18 @@ export default function Leaderboard({ className }: LeaderboardProps) {
     const loadLeaderboard = async () => {
       setLoading(true);
       try {
+        console.log('🔄 Loading leaderboard data...');
         const top = await getTopLearners(10);
+        console.log(`📊 Retrieved ${top.length} top learners:`, top);
         setTopLearners(top);
         
         if (user) {
           const rankInfo = await getUserRankInfo(user.id);
+          console.log('👤 User rank info:', rankInfo);
           setUserRankInfo(rankInfo);
         }
       } catch (err) {
-        console.error('Failed to load leaderboard', err);
+        console.error('❌ Failed to load leaderboard', err);
       } finally {
         setLoading(false);
       }

@@ -72,14 +72,23 @@ export async function updateLeaderboardEntry(
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   try {
     const apiUrl = getApiUrl('leaderboard');
+    console.log('📡 Fetching leaderboard from:', apiUrl);
+    
     const response = await fetch(apiUrl);
+    console.log('📨 Response status:', response.status);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Failed to fetch leaderboard:', errorText);
       throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
     }
+    
     const data = await response.json();
+    console.log('✅ Leaderboard data received:', data);
+    
     return data.entries || [];
   } catch (err) {
-    console.warn('Failed to load leaderboard', err);
+    console.error('❌ Failed to load leaderboard', err);
     return [];
   }
 }
