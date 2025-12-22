@@ -8,6 +8,7 @@ import { env } from '../env';
 import { adminStorage } from './admin';
 import { processImage, isImageFile } from '../utils/image-processor';
 import { loadFile } from '../rag/loaders';
+import { getSubscription } from '../lib/subscription-storage';
 
 const router = Router();
 
@@ -176,12 +177,32 @@ router.post('/chat', verifyApiKey, upload.any(), async (req: Request, res: Respo
     // Send metadata event
     writeEvent(res, 'metadata', { convoId: convoId || null, timestamp: new Date().toISOString() });
 
+    // Fetch subscription tier for learning path restrictions
+    let subscriptionTier: 'basic' | 'standard' | 'premium' | 'free' = 'free';
+    if (userId) {
+      try {
+        const subscription = await getSubscription(userId);
+        if (subscription && subscription.isActive) {
+          // Map planId to subscription tier
+          const planId = subscription.planId.toLowerCase();
+          if (planId === 'basic') subscriptionTier = 'basic';
+          else if (planId === 'standard') subscriptionTier = 'standard';
+          else if (planId === 'premium') subscriptionTier = 'premium';
+          else subscriptionTier = 'free'; // free or unknown plans
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not fetch subscription tier, defaulting to free:', error);
+        // Default to 'free' if subscription fetch fails
+      }
+    }
+
     // Stream the response (use processed content which includes file analysis)
     // Pass previousResponse if available for modification requests
     // Pass conversationHistory for context-aware responses
+    // Pass subscriptionTier for learning path restrictions
     const result = await ask(processedContent, (token: string) => {
       writeEvent(res, 'token', { text: token });
-    }, previousResponse, conversationHistory);
+    }, previousResponse, conversationHistory, subscriptionTier);
 
     // Send citations and done event
     writeEvent(res, 'done', { citations: result.citations });

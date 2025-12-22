@@ -116,10 +116,11 @@ export async function ask(
   message: string,
   onToken: (token: string) => void,
   previousResponse?: string,
-  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>,
+  subscriptionTier?: 'basic' | 'standard' | 'premium' | 'free'
 ): Promise<{ citations: Array<{ source: string; page: number | string }> }> {
   try {
-    const result = await askQuestion(message, onToken, previousResponse, conversationHistory);
+    const result = await askQuestion(message, onToken, previousResponse, conversationHistory, subscriptionTier);
     return { citations: result.citations };
   } catch (error) {
     console.error('❌ Question answering failed:', error);

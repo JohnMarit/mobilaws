@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Menu, HelpCircle, RotateCcw } from 'lucide-react';
+import { Loader2, Menu, HelpCircle, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
@@ -82,8 +82,8 @@ const Index = () => {
     // This will be handled by the ChatInterface component
   };
 
-  const handleMobileClearChat = () => {
-    // This will be handled by the ChatInterface component
+  const handleMobileOpenLearningPath = () => {
+    window.dispatchEvent(new Event('open-learning-path'));
   };
 
   return (
@@ -135,16 +135,16 @@ const Index = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleMobileClearChat}
+              onClick={handleMobileOpenLearningPath}
               className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              title="Learning Paths"
             >
-              <RotateCcw className="h-4 w-4" />
+              <GraduationCap className="h-4 w-4" />
             </Button>
           </div>
         </div>
         <ChatInterface
           onShowHelp={handleMobileShowHelp}
-          onClearChat={handleMobileClearChat}
         />
       </div>
     </div>

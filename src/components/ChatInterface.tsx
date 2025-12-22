@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { HelpCircle, RotateCcw, Bot, Bug } from 'lucide-react';
+import { HelpCircle, GraduationCap, Bot, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
@@ -9,6 +9,7 @@ import CountrySelector from './CountrySelector';
 import UserProfileNav from './UserProfileNav';
 import LoginModal from './LoginModal';
 import AnimatedCounselIntroduction from './AnimatedCounselIntroduction';
+import LearningHub from './LearningHub';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useCounselName } from '@/contexts/CounselNameContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
@@ -23,11 +24,11 @@ import SubscriptionManager from './SubscriptionManager';
 interface ChatInterfaceProps {
   className?: string;
   onShowHelp?: () => void;
-  onClearChat?: () => void;
   onToggleDebug?: () => void;
+  onOpenLearningPath?: () => void;
 }
 
-export default function ChatInterface({ className = '', onShowHelp, onClearChat, onToggleDebug }: ChatInterfaceProps) {
+export default function ChatInterface({ className = '', onShowHelp, onToggleDebug, onOpenLearningPath }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
@@ -37,6 +38,7 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
   });
   const [aiConnected, setAiConnected] = useState(false);
   const [showAnimatedIntro, setShowAnimatedIntro] = useState(false);
+  const [showLearningHub, setShowLearningHub] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
@@ -137,6 +139,13 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
       }
     };
     testConnection();
+  }, []);
+
+  // Open learning path modal when triggered externally (e.g., mobile header button)
+  useEffect(() => {
+    const handleOpenLearningPath = () => setShowLearningHub(true);
+    window.addEventListener('open-learning-path', handleOpenLearningPath);
+    return () => window.removeEventListener('open-learning-path', handleOpenLearningPath);
   }, []);
 
   // No longer needed - backend handles RAG context automatically
@@ -423,27 +432,6 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
     setExpandedArticles(newExpanded);
   };
 
-  const handleClearChat = () => {
-    // Reset messages to show only welcome message
-    const welcomeMessage: ChatMessageType = {
-      id: 'welcome',
-      type: 'assistant',
-      content: conversationalLawSearch.getWelcomeMessage(selectedName),
-      timestamp: new Date(),
-    };
-    setMessages([welcomeMessage]);
-
-    // Reset conversation context
-    setConversationContext({
-      previousQueries: [],
-      mentionedArticles: [],
-    });
-    conversationalLawSearch.clearConversationContext();
-
-    // Reset expanded articles
-    setExpandedArticles(new Set());
-  };
-
   const handleShowHelp = () => {
     const helpMessage: ChatMessageType = {
       id: `help-${Date.now()}`,
@@ -509,10 +497,17 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClearChat || handleClearChat}
+            onClick={() => {
+              if (onOpenLearningPath) {
+                onOpenLearningPath();
+              } else {
+                setShowLearningHub(true);
+              }
+            }}
             className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            title="Open Learning Paths"
           >
-            <RotateCcw className="h-4 w-4" />
+            <GraduationCap className="h-4 w-4" />
           </Button>
           <UserProfileNav
             onManageSubscription={() => setShowSubscriptionModal(true)}
@@ -597,6 +592,8 @@ export default function ChatInterface({ className = '', onShowHelp, onClearChat,
           </div>
         </>
       )}
+
+      <LearningHub open={showLearningHub} onOpenChange={setShowLearningHub} />
 
       {/* Login Modal */}
       {showLoginModal && (

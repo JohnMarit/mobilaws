@@ -344,4 +344,82 @@ router.get('/subscription/plans', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Admin: Grant plan to user
+ * POST /api/admin/grant-plan
+ * Body: { userEmail, planId, durationDays }
+ */
+router.post('/admin/grant-plan', async (req: Request, res: Response) => {
+  try {
+    const { userEmail, planId, durationDays } = req.body;
+
+    if (!userEmail || !planId || !durationDays) {
+      return res.status(400).json({ error: 'userEmail, planId, and durationDays are required' });
+    }
+
+    // Validate planId
+    if (!['basic', 'standard', 'premium'].includes(planId)) {
+      return res.status(400).json({ error: 'Invalid plan ID. Must be basic, standard, or premium' });
+    }
+
+    // Find user by email (you'll need to implement this based on your auth system)
+    // For now, we'll use email as userId (adjust based on your user system)
+    const userId = userEmail; // Replace with actual user ID lookup if needed
+
+    // Calculate expiry date
+    const purchaseDate = new Date();
+    const expiryDate = new Date(purchaseDate);
+    expiryDate.setDate(expiryDate.getDate() + parseInt(durationDays));
+
+    // Token allocation based on plan
+    const tokenAllocation: Record<string, number> = {
+      basic: 100,
+      standard: 500,
+      premium: -1 // unlimited
+    };
+
+    const totalTokens = tokenAllocation[planId];
+
+    // Create subscription record
+    const subscription: Partial<Subscription> = {
+      userId,
+      planId,
+      tokensRemaining: totalTokens === -1 ? 999999 : totalTokens,
+      tokensUsed: 0,
+      totalTokens,
+      purchaseDate: purchaseDate.toISOString(),
+      expiryDate: expiryDate.toISOString(),
+      isActive: true,
+      price: 0, // Admin granted - no charge
+      isFree: false,
+      grantedByAdmin: true,
+      grantDetails: {
+        grantedAt: new Date().toISOString(),
+        durationDays: parseInt(durationDays),
+        grantedBy: 'admin' // You can add actual admin user ID here
+      }
+    };
+
+    // Save to Firestore
+    await saveSubscription(subscription);
+
+    // Also update in-memory
+    const savedSub = await getSubscription(userId);
+    if (savedSub) {
+      subscriptions.set(userId, savedSub);
+    }
+
+    console.log(`✅ Admin granted ${planId} plan to ${userEmail} for ${durationDays} days`);
+
+    res.json({
+      success: true,
+      message: `${planId.toUpperCase()} plan granted successfully to ${userEmail}`,
+      subscription: savedSub
+    });
+  } catch (error) {
+    console.error('❌ Error granting plan:', error);
+    res.status(500).json({ error: 'Failed to grant plan' });
+  }
+});
+
 export default router;

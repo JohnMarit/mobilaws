@@ -1,0 +1,301 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { useSubscription } from './SubscriptionContext';
+import { useAuth } from './FirebaseAuthContext';
+import { getLearningModules, type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
+
+type Tier = 'free' | 'basic' | 'standard' | 'premium';
+
+interface LessonProgress {
+  completed: boolean;
+  score: number;
+  completedAt?: string;
+}
+
+interface DailyLimitTracking {
+  date: string; // YYYY-MM-DD format
+  lessonsCompleted: number;
+}
+
+interface ModuleProgress {
+  lessonsCompleted: Record<string, LessonProgress>;
+  xpEarned: number;
+  lastCompletedAt?: string;
+}
+
+interface LearningState {
+  xp: number;
+  streak: number;
+  level: number;
+  lastActiveDate?: string;
+  dailyGoal: number;
+  modulesProgress: Record<string, ModuleProgress>;
+  dailyLimit: DailyLimitTracking;
+}
+
+interface LearningContextValue {
+  tier: Tier;
+  modules: Module[];
+  progress: LearningState;
+  dailyLessonsRemaining: number;
+  canTakeLesson: boolean;
+  startLesson: (moduleId: string, lessonId: string) => void;
+  completeLesson: (moduleId: string, lessonId: string, score: number) => void;
+  getModuleProgress: (moduleId: string) => ModuleProgress | undefined;
+  getLessonProgress: (moduleId: string, lessonId: string) => LessonProgress | undefined;
+}
+
+const LearningContext = createContext<LearningContextValue | undefined>(undefined);
+
+function normalizeTier(planId?: string | null): Tier {
+  if (!planId) return 'free';
+  const normalized = planId.toLowerCase();
+  if (normalized === 'premium') return 'premium';
+  if (normalized === 'standard') return 'standard';
+  if (normalized === 'basic') return 'basic';
+  return 'free'; // treat free/admin_granted as free
+}
+
+function computeLevel(xp: number): number {
+  // Simple curve: every 120 XP is a level; start at level 1
+  return Math.max(1, Math.floor(xp / 120) + 1);
+}
+
+function daysBetween(dateA: string, dateB: string): number {
+  const a = new Date(dateA);
+  const b = new Date(dateB);
+  const diff = b.getTime() - a.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+const STORAGE_PREFIX = 'learning-progress';
+
+function storageKey(userId?: string | null): string {
+  return `${STORAGE_PREFIX}:${userId || 'anonymous'}`;
+}
+
+function loadState(key: string): LearningState | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as LearningState;
+  } catch (err) {
+    console.warn('Failed to load learning state', err);
+    return null;
+  }
+}
+
+function saveState(key: string, state: LearningState) {
+  try {
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch (err) {
+    console.warn('Failed to save learning state', err);
+  }
+}
+
+const defaultState: LearningState = {
+  xp: 0,
+  streak: 0,
+  level: 1,
+  dailyGoal: 40, // XP goal for a day
+  modulesProgress: {},
+  dailyLimit: {
+    date: new Date().toISOString().split('T')[0],
+    lessonsCompleted: 0
+  }
+};
+
+function getTodayString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getDailyLessonsRemaining(state: LearningState, tier: Tier): number {
+  const today = getTodayString();
+  
+  // Reset if it's a new day
+  if (state.dailyLimit.date !== today) {
+    return tier === 'free' ? 2 : Infinity;
+  }
+  
+  // Free tier has 2 lessons per day limit
+  if (tier === 'free') {
+    return Math.max(0, 2 - state.dailyLimit.lessonsCompleted);
+  }
+  
+  // Paid tiers have unlimited lessons
+  return Infinity;
+}
+
+export function LearningProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { userSubscription } = useSubscription();
+  const tier = normalizeTier(userSubscription?.planId);
+  const key = useMemo(() => storageKey(user?.id), [user]);
+
+  const [state, setState] = useState<LearningState>(() => {
+    const loaded = loadState(key);
+    return loaded ? { ...defaultState, ...loaded } : defaultState;
+  });
+
+  // Reload state when user changes
+  useEffect(() => {
+    const loaded = loadState(key);
+    setState(loaded ? { ...defaultState, ...loaded } : defaultState);
+  }, [key]);
+
+  // Persist on change
+  useEffect(() => {
+    saveState(key, state);
+  }, [key, state]);
+
+  // Update level when XP changes
+  useEffect(() => {
+    setState((prev) => ({ ...prev, level: computeLevel(prev.xp) }));
+  }, [state.xp]);
+
+  const gatedModules = useMemo(() => getLearningModules(tier), [tier]);
+
+  const dailyLessonsRemaining = useMemo(() => getDailyLessonsRemaining(state, tier), [state, tier]);
+  const canTakeLesson = dailyLessonsRemaining > 0;
+
+  const touchActivity = useCallback(() => {
+    setState((prev) => {
+      const today = new Date().toDateString();
+      if (!prev.lastActiveDate) {
+        return { ...prev, streak: 1, lastActiveDate: today };
+      }
+      const diff = daysBetween(prev.lastActiveDate, today);
+      if (diff === 0) return prev; // already active today
+      if (diff === 1) {
+        return { ...prev, streak: prev.streak + 1, lastActiveDate: today };
+      }
+      // missed a day - reset streak but mark active
+      return { ...prev, streak: 1, lastActiveDate: today };
+    });
+  }, []);
+
+  const awardXp = useCallback((amount: number) => {
+    setState((prev) => ({ ...prev, xp: prev.xp + amount }));
+  }, []);
+
+  const updateModuleProgress = useCallback(
+    (moduleId: string, updater: (prev: ModuleProgress) => ModuleProgress) => {
+      setState((prev) => {
+        const existing = prev.modulesProgress[moduleId] || {
+          lessonsCompleted: {},
+          xpEarned: 0,
+        };
+        const nextModule = updater(existing);
+        return {
+          ...prev,
+          modulesProgress: {
+            ...prev.modulesProgress,
+            [moduleId]: nextModule,
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const startLesson = useCallback(
+    (moduleId: string, lessonId: string) => {
+      // Touch activity when starting a lesson
+      touchActivity();
+    },
+    [touchActivity]
+  );
+
+  const completeLesson = useCallback(
+    (moduleId: string, lessonId: string, score: number) => {
+      touchActivity();
+      
+      // Find the lesson to get XP reward
+      const module = gatedModules.find(m => m.id === moduleId);
+      const lesson = module?.lessons.find(l => l.id === lessonId);
+      const earnedXp = lesson?.xpReward || 0;
+
+      awardXp(earnedXp);
+
+      setState((prev) => {
+        const today = getTodayString();
+        
+        // Check if lesson was already completed today
+        const moduleProg = prev.modulesProgress[moduleId];
+        const existingProgress = moduleProg?.lessonsCompleted[lessonId];
+        const isNewCompletion = !existingProgress || existingProgress.completedAt?.split('T')[0] !== today;
+
+        // Update daily limit only for new completions
+        const newDailyLimit = prev.dailyLimit.date === today
+          ? {
+              date: today,
+              lessonsCompleted: isNewCompletion 
+                ? prev.dailyLimit.lessonsCompleted + 1 
+                : prev.dailyLimit.lessonsCompleted
+            }
+          : {
+              date: today,
+              lessonsCompleted: 1
+            };
+
+        return {
+          ...prev,
+          dailyLimit: newDailyLimit,
+          modulesProgress: {
+            ...prev.modulesProgress,
+            [moduleId]: {
+              ...(moduleProg || { lessonsCompleted: {}, xpEarned: 0 }),
+              lessonsCompleted: {
+                ...(moduleProg?.lessonsCompleted || {}),
+                [lessonId]: {
+                  completed: true,
+                  score,
+                  completedAt: new Date().toISOString()
+                }
+              },
+              xpEarned: (moduleProg?.xpEarned || 0) + earnedXp,
+              lastCompletedAt: new Date().toISOString()
+            }
+          }
+        };
+      });
+    },
+    [awardXp, touchActivity, gatedModules]
+  );
+
+  const getModuleProgress = useCallback(
+    (moduleId: string): ModuleProgress | undefined => {
+      return state.modulesProgress[moduleId];
+    },
+    [state.modulesProgress]
+  );
+
+  const getLessonProgress = useCallback(
+    (moduleId: string, lessonId: string): LessonProgress | undefined => {
+      const moduleProg = state.modulesProgress[moduleId];
+      if (!moduleProg) return undefined;
+      return moduleProg.lessonsCompleted[lessonId];
+    },
+    [state.modulesProgress]
+  );
+
+  const value: LearningContextValue = {
+    tier,
+    modules: gatedModules,
+    progress: state,
+    dailyLessonsRemaining,
+    canTakeLesson,
+    startLesson,
+    completeLesson,
+    getModuleProgress,
+    getLessonProgress,
+  };
+
+  return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>;
+}
+
+export function useLearning() {
+  const ctx = useContext(LearningContext);
+  if (!ctx) throw new Error('useLearning must be used within LearningProvider');
+  return ctx;
+}
+

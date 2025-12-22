@@ -8,6 +8,7 @@ import { CounselNameProvider } from "@/contexts/CounselNameContext";
 import { CountryProvider } from "@/contexts/CountryContext";
 import { AuthProvider } from "@/contexts/FirebaseAuthContext";
 import { PromptLimitProvider } from "@/contexts/PromptLimitContext";
+import { LearningProvider } from "@/contexts/LearningContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import Index from "./pages/Index";
@@ -26,28 +27,30 @@ const App = () => (
       <AuthProvider>
         <SubscriptionProvider>
           <AdminProvider>
-            <PromptLimitProvider>
-              <CounselNameProvider>
-                <CountryProvider>
-                  <ChatProvider>
-                    <Toaster />
-                    <Sonner />
-                    <BrowserRouter>
-                      <Routes>
-                        <Route path="/" element={<Index />} />
-                        <Route path="/admin/login" element={<AdminLogin />} />
-                        <Route path="/admin/verify" element={<AdminVerify />} />
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                        <Route path="/payment/success" element={<PaymentSuccess />} />
-                        <Route path="/payment/cancel" element={<PaymentCancel />} />
-                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </BrowserRouter>
-                  </ChatProvider>
-                </CountryProvider>
-              </CounselNameProvider>
-            </PromptLimitProvider>
+            <LearningProvider>
+              <PromptLimitProvider>
+                <CounselNameProvider>
+                  <CountryProvider>
+                    <ChatProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BrowserRouter>
+                        <Routes>
+                          <Route path="/" element={<Index />} />
+                          <Route path="/admin/login" element={<AdminLogin />} />
+                          <Route path="/admin/verify" element={<AdminVerify />} />
+                          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                          <Route path="/payment/success" element={<PaymentSuccess />} />
+                          <Route path="/payment/cancel" element={<PaymentCancel />} />
+                          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </BrowserRouter>
+                    </ChatProvider>
+                  </CountryProvider>
+                </CounselNameProvider>
+              </PromptLimitProvider>
+            </LearningProvider>
           </AdminProvider>
         </SubscriptionProvider>
       </AuthProvider>

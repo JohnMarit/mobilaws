@@ -27,6 +27,12 @@ export interface Subscription {
   paymentStatus?: string;
   grantedBy?: string;
   grantedAt?: string;
+  grantedByAdmin?: boolean;
+  grantDetails?: {
+    grantedAt: string;
+    durationDays: number;
+    grantedBy: string;
+  };
   // Subscription-specific fields for Dodo Payments recurring billing
   subscriptionId?: string; // Dodo subscription ID
   customerId?: string; // Dodo customer ID

@@ -1,0 +1,222 @@
+import { useMemo, useState } from 'react';
+import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy } from 'lucide-react';
+import { useLearning } from '@/contexts/LearningContext';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import LessonRunner from './LessonRunner';
+import { Lesson, Module } from '@/lib/learningContent';
+
+interface LearningHubProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
+  const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson } = useLearning();
+  const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
+
+  const xpPercent = useMemo(() => {
+    const remainder = progress.xp % 120;
+    return Math.min(100, Math.round((remainder / 120) * 100));
+  }, [progress.xp]);
+
+  const streakColor = progress.streak >= 7 ? 'text-orange-500' : 'text-orange-400';
+
+  const handleStartLesson = (module: Module, lesson: Lesson) => {
+    if (!canTakeLesson && tier === 'free') {
+      alert('You have reached your daily lesson limit. Come back tomorrow or upgrade for unlimited access!');
+      return;
+    }
+    setActiveLesson({ module, lesson });
+  };
+
+  const closeLesson = () => {
+    setActiveLesson(null);
+  };
+
+  const moduleStatus = (module: Module) => {
+    const modProg = getModuleProgress(module.id);
+    const totalLessons = module.lessons.length;
+    const completedLessons = modProg ? Object.keys(modProg.lessonsCompleted).length : 0;
+    const percent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
+    const done = percent === 100;
+    return { percent, done };
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-2 pb-4">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            Learning Paths
+          </DialogTitle>
+          <DialogDescription className="text-sm sm:text-base">
+            Structured, tier-aware lessons with quizzes, streaks, and XP—tailored for South Sudan law.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 sm:gap-6">
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <Card className="touch-manipulation">
+              <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+                <CardDescription className="text-xs sm:text-sm">Level</CardDescription>
+                <CardTitle className="text-xl sm:text-2xl">Level {progress.level}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <Star className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500" />
+                  {progress.xp} XP total
+                </div>
+                <Progress value={xpPercent} className="mt-2 h-2 sm:h-2.5" />
+                <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Next level at +{120 - (progress.xp % 120)} XP</div>
+              </CardContent>
+            </Card>
+
+            <Card className="touch-manipulation">
+              <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+                <CardDescription className="text-xs sm:text-sm">Streak</CardDescription>
+                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                  <Flame className={`h-4 w-4 sm:h-5 sm:w-5 ${streakColor}`} />
+                  {progress.streak} days
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  Stay active daily to keep your streak.
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="touch-manipulation">
+              <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+                <CardDescription className="text-xs sm:text-sm">
+                  {tier === 'free' ? 'Daily Lessons' : 'Daily Goal'}
+                </CardDescription>
+                <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                  {tier === 'free' ? (
+                    <>
+                      <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                      {dailyLessonsRemaining}/2
+                    </>
+                  ) : (
+                    <>
+                      <Target className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                      {progress.dailyGoal} XP
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-6 pt-0">
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  {tier === 'free' 
+                    ? dailyLessonsRemaining > 0 
+                      ? `${dailyLessonsRemaining} lesson${dailyLessonsRemaining === 1 ? '' : 's'} left today` 
+                      : 'Come back tomorrow! 🎉'
+                    : 'Complete lessons to hit your goal.'}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Separator />
+
+          {/* Modules */}
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-base sm:text-lg font-semibold">Modules</h3>
+              <Badge variant="secondary" className="text-xs sm:text-sm">{tier.toUpperCase()} Plan</Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              {modules.map((module) => {
+                const { percent, done } = moduleStatus(module);
+                return (
+                  <Card key={module.id} className="h-full flex flex-col touch-manipulation">
+                    <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+                      <CardTitle className="text-sm sm:text-base flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <span className="text-lg sm:text-xl">{module.icon}</span>
+                          <span className="leading-tight">{module.title}</span>
+                        </div>
+                        {done ? <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" /> : null}
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">{module.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-2.5 sm:gap-3 p-3 sm:p-6 pt-0">
+                      <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground flex-wrap">
+                        <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
+                          {module.requiredTier}
+                        </Badge>
+                        <span>{module.lessons.length} lessons</span>
+                      </div>
+                      <div>
+                        <Progress value={percent} className="h-2 sm:h-2.5" />
+                        <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">{percent}% complete</div>
+                      </div>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        {module.lessons.map((lesson) => {
+                          const lp = getLessonProgress(module.id, lesson.id);
+                          const isLocked = lesson.locked;
+                          const isCompleted = lp?.completed || false;
+                          return (
+                            <div
+                              key={lesson.id}
+                              className="flex items-center justify-between rounded-md border px-2 sm:px-3 py-2 sm:py-2.5 bg-white touch-manipulation"
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <div className="text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 truncate">
+                                  <span className="truncate">{lesson.title}</span>
+                                  {isCompleted && <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />}
+                                </div>
+                                <div className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 truncate">
+                                  {lesson.xpReward} XP • {lesson.quiz.length} Q
+                                  {lesson.pdfSource && <span className="hidden sm:inline ml-1 text-blue-500">📄</span>}
+                                </div>
+                              </div>
+                              {isLocked ? (
+                                <Badge variant="secondary" className="flex items-center gap-1 text-[10px] sm:text-xs flex-shrink-0">
+                                  <Lock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                  <span className="hidden sm:inline">{lesson.tier.toUpperCase()}</span>
+                                </Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 sm:h-8 px-2 sm:px-3 text-xs flex-shrink-0"
+                                  onClick={() => handleStartLesson(module, lesson)}
+                                >
+                                  <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
+                                  <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:ml-1" />
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+
+      {activeLesson && (
+        <LessonRunner
+          module={activeLesson.module}
+          lesson={activeLesson.lesson}
+          onClose={closeLesson}
+          open={Boolean(activeLesson)}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+
