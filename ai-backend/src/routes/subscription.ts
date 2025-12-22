@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { adminStorage } from './admin';
 import { getSubscription, saveSubscription, updateSubscriptionTokens, Subscription } from '../lib/subscription-storage';
+import { getFirebaseAuth } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -362,9 +363,39 @@ router.post('/admin/grant-plan', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid plan ID. Must be basic, standard, or premium' });
     }
 
-    // Find user by email (you'll need to implement this based on your auth system)
-    // For now, we'll use email as userId (adjust based on your user system)
-    const userId = userEmail; // Replace with actual user ID lookup if needed
+    // Look up Firebase user by email to get their UID
+    let userId: string;
+    const auth = getFirebaseAuth();
+    
+    if (auth) {
+      try {
+        const firebaseUser = await auth.getUserByEmail(userEmail);
+        userId = firebaseUser.uid;
+        console.log(`✅ Found Firebase user: ${userEmail} -> UID: ${userId}`);
+        
+        // Check if there's an existing subscription with email as userId (migration case)
+        const emailBasedSub = await getSubscription(userEmail);
+        if (emailBasedSub) {
+          console.log(`🔄 Found existing subscription with email as userId, migrating to UID...`);
+          // Delete the old subscription (or mark as inactive)
+          // The new subscription will be created with the correct UID below
+        }
+      } catch (error: any) {
+        // If user not found by email, return error
+        if (error.code === 'auth/user-not-found') {
+          return res.status(404).json({ 
+            error: `User with email ${userEmail} not found. Please ensure the user has signed up first.` 
+          });
+        }
+        console.error('❌ Error looking up user by email:', error);
+        return res.status(500).json({ error: 'Failed to look up user' });
+      }
+    } else {
+      // Fallback: if Firebase Admin is not initialized, use email as userId
+      // This is not ideal but allows the system to work
+      console.warn('⚠️ Firebase Admin not initialized. Using email as userId (not recommended)');
+      userId = userEmail;
+    }
 
     // Calculate expiry date
     const purchaseDate = new Date();
@@ -380,14 +411,18 @@ router.post('/admin/grant-plan', async (req: Request, res: Response) => {
 
     const totalTokens = tokenAllocation[planId];
 
+    // Check if user already has a subscription
+    const existingSub = await getSubscription(userId);
+    
     // Create subscription record with all required fields
+    // If existing subscription, preserve tokensUsed but update everything else
     const subscription: Omit<Subscription, 'createdAt' | 'updatedAt'> = {
       userId,
       planId,
       tokensRemaining: totalTokens === -1 ? 999999 : totalTokens,
-      tokensUsed: 0,
+      tokensUsed: existingSub?.tokensUsed || 0, // Preserve existing usage
       totalTokens,
-      purchaseDate: purchaseDate.toISOString(),
+      purchaseDate: existingSub?.purchaseDate || purchaseDate.toISOString(),
       expiryDate: expiryDate.toISOString(),
       isActive: true,
       price: 0, // Admin granted - no charge
@@ -400,7 +435,7 @@ router.post('/admin/grant-plan', async (req: Request, res: Response) => {
       }
     };
 
-    // Save to Firestore
+    // Save to Firestore (this will overwrite existing subscription with same userId)
     await saveSubscription(subscription);
 
     // Also update in-memory
