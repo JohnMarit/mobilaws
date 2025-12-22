@@ -380,8 +380,8 @@ router.post('/admin/grant-plan', async (req: Request, res: Response) => {
 
     const totalTokens = tokenAllocation[planId];
 
-    // Create subscription record
-    const subscription: Partial<Subscription> = {
+    // Create subscription record with all required fields
+    const subscription: Omit<Subscription, 'createdAt' | 'updatedAt'> = {
       userId,
       planId,
       tokensRemaining: totalTokens === -1 ? 999999 : totalTokens,
