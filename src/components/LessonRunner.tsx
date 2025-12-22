@@ -121,11 +121,6 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               <div className="whitespace-pre-line text-sm sm:text-base leading-relaxed">{lesson.content}</div>
             )}
           </div>
-          {lesson.pdfSource && (
-            <Badge variant="outline" className="text-xs sm:text-sm">
-              📄 {lesson.pdfSource}
-            </Badge>
-          )}
           <div className="flex justify-end pt-2 sm:pt-4">
             <Button onClick={handleStartQuiz} className="gap-2 h-10 sm:h-11 text-base">
               Take Quiz

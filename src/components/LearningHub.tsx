@@ -179,7 +179,6 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                 <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
                                   {lesson.xpReward} XP • {lesson.quiz.length} Q
                                   {lesson.hasAudio && <span className="ml-1 text-blue-500">🎧 Listen</span>}
-                                  {lesson.pdfSource && <span className="hidden sm:inline ml-1 text-blue-500">📄</span>}
                                 </div>
                               </div>
                               {isLocked ? (

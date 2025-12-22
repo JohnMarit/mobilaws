@@ -778,15 +778,20 @@ function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard
     // Basic and free: No audio
   }
   
+  // Don't show upgrade message for premium users
+  const lockedContent = userTier === 'premium' 
+    ? `This lesson is available in ${topic.tier.toUpperCase()} subscription.\n\nContent: ${topic.description}`
+    : `🔒 This lesson is available in ${topic.tier.toUpperCase()} subscription.\n\nUpgrade to unlock detailed content about: ${topic.description}`;
+  
   return {
     id: topic.id,
     title: topic.title,
-    content: accessible ? topic.content : `🔒 This lesson is available in ${topic.tier.toUpperCase()} subscription.\n\nUpgrade to unlock detailed content about: ${topic.description}`,
+    content: accessible ? topic.content : lockedContent,
     xpReward: accessible ? xpByTier[topic.tier] : 0,
     quiz: accessible ? quiz : [],
     locked: !accessible,
     completed: false,
-    pdfSource: topic.pdfSource,
+    pdfSource: undefined, // Remove PDF source from lessons
     tier: topic.tier,
     hasAudio: hasAudio
   };

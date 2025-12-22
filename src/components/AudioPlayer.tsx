@@ -19,6 +19,8 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
   const wordsRef = useRef<string[]>([]);
   const highlightIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pausedWordIndexRef = useRef<number>(-1);
+  const startTimeRef = useRef<number>(0);
+  const totalDurationRef = useRef<number>(0);
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -49,27 +51,30 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
       setIsPlaying(true);
       setIsPaused(false);
       
-      // Resume highlighting
+      // Resume highlighting with time-based calculation
       const words = text.split(/\s+/);
       const totalWords = words.length;
-      const estimatedTimePerWord = (text.length / 0.85) / totalWords * 1000;
-      let wordCount = pausedWordIndexRef.current + 1;
+      const elapsedTime = Date.now() - startTimeRef.current;
       
       highlightIntervalRef.current = setInterval(() => {
-        if (wordCount < totalWords) {
-          setCurrentWordIndex(wordCount);
-          pausedWordIndexRef.current = wordCount;
+        const currentTime = Date.now();
+        const elapsed = currentTime - startTimeRef.current;
+        const progress = Math.min(1, elapsed / totalDurationRef.current);
+        const wordIndex = Math.floor(progress * totalWords);
+        
+        if (wordIndex < totalWords) {
+          setCurrentWordIndex(wordIndex);
+          pausedWordIndexRef.current = wordIndex;
           if (onHighlight) {
-            onHighlight(wordCount);
+            onHighlight(wordIndex);
           }
-          wordCount++;
         } else {
           if (highlightIntervalRef.current) {
             clearInterval(highlightIntervalRef.current);
             highlightIntervalRef.current = null;
           }
         }
-      }, estimatedTimePerWord);
+      }, 50); // Update every 50ms for smooth highlighting
       
       return;
     }
@@ -81,28 +86,45 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    // Track word-by-word for highlighting using timing
+    // Calculate estimated total duration more accurately
+    // Average reading speed: ~150 words per minute at rate 1.0 = 2.5 words/second
+    // At rate 0.85: ~127.5 words per minute = ~2.125 words per second
+    // But also account for character count (longer words take more time)
     const words = text.split(/\s+/);
     const totalWords = words.length;
-    const estimatedTimePerWord = (text.length / utterance.rate) / totalWords * 1000; // milliseconds per word
-
-    let wordCount = 0;
+    const avgWordLength = text.length / totalWords;
+    // Adjust: longer words = slower, shorter words = faster
+    // Base: 2.5 words/sec at rate 1.0, adjusted for rate and word length
+    const baseWordsPerSecond = 2.5 * utterance.rate;
+    const lengthAdjustment = Math.max(0.7, Math.min(1.3, 5 / avgWordLength)); // Adjust for word length
+    const wordsPerSecond = baseWordsPerSecond * lengthAdjustment;
+    const estimatedTotalDuration = (totalWords / wordsPerSecond) * 1000; // milliseconds
+    
+    totalDurationRef.current = estimatedTotalDuration;
+    startTimeRef.current = Date.now();
     pausedWordIndexRef.current = -1;
+
+    // Use time-based highlighting with frequent updates for smooth sync
     highlightIntervalRef.current = setInterval(() => {
-      if (wordCount < totalWords) {
-        setCurrentWordIndex(wordCount);
-        pausedWordIndexRef.current = wordCount;
+      const elapsed = Date.now() - startTimeRef.current;
+      const progress = Math.min(1, elapsed / totalDurationRef.current);
+      // Use a slight offset to account for speech delay (speech starts slightly after we start timing)
+      const adjustedProgress = Math.min(1, progress * 1.05); // 5% ahead to compensate for speech delay
+      const wordIndex = Math.min(totalWords - 1, Math.floor(adjustedProgress * totalWords));
+      
+      if (wordIndex < totalWords && elapsed < totalDurationRef.current * 1.1) {
+        setCurrentWordIndex(wordIndex);
+        pausedWordIndexRef.current = wordIndex;
         if (onHighlight) {
-          onHighlight(wordCount);
+          onHighlight(wordIndex);
         }
-        wordCount++;
       } else {
         if (highlightIntervalRef.current) {
           clearInterval(highlightIntervalRef.current);
           highlightIntervalRef.current = null;
         }
       }
-    }, estimatedTimePerWord);
+    }, 30); // Update every 30ms for very responsive highlighting
 
     utterance.onend = () => {
       if (highlightIntervalRef.current) {
@@ -138,6 +160,9 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
       window.speechSynthesis.pause();
       setIsPlaying(false);
       setIsPaused(true);
+      // Keep track of elapsed time for resume
+      const elapsed = Date.now() - startTimeRef.current;
+      startTimeRef.current = Date.now() - elapsed; // Adjust start time to account for pause
       if (highlightIntervalRef.current) {
         clearInterval(highlightIntervalRef.current);
         highlightIntervalRef.current = null;
@@ -151,6 +176,8 @@ export default function AudioPlayer({ text, enabled, className, onHighlight }: A
     setIsPaused(false);
     setCurrentWordIndex(-1);
     pausedWordIndexRef.current = -1;
+    startTimeRef.current = 0;
+    totalDurationRef.current = 0;
     utteranceRef.current = null;
     if (highlightIntervalRef.current) {
       clearInterval(highlightIntervalRef.current);
