@@ -28,7 +28,13 @@ export default function AdminPlanGrant({ onGrantSuccess }: AdminPlanGrantProps) 
     setResult(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/admin/grant-plan`, {
+      // VITE_API_URL should already include /api prefix (e.g., https://mobilaws-ympe.vercel.app/api)
+      // So we just append /admin/grant-plan, not /api/admin/grant-plan
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const url = baseUrl.endsWith('/api') 
+        ? `${baseUrl}/admin/grant-plan` 
+        : `${baseUrl}/api/admin/grant-plan`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
