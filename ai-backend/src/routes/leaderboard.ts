@@ -29,46 +29,49 @@ function getFirestore(): admin.firestore.Firestore | null {
  * Auto-populate leaderboard with ALL users from Firebase Auth
  * This ensures all users appear in the leaderboard, even with 0 XP
  */
-async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<void> {
+async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<number> {
   try {
     console.log('🔄 Auto-populating leaderboard with Firebase Auth users...');
     
-    // Get ALL Firebase Auth users (up to 1000)
-    const authUsers = await getAllFirebaseAuthUsers(1000);
+    // First check if leaderboard already has entries
+    const existingSnapshot = await db.collection(LEADERBOARD_COLLECTION).limit(1).get();
+    if (existingSnapshot.size > 0) {
+      console.log('✅ Leaderboard already has entries, skipping full population');
+      return existingSnapshot.size;
+    }
+    
+    console.log('📊 Leaderboard is empty, populating from Firebase Auth...');
+    
+    // Get Firebase Auth users (up to 100)
+    const authUsers = await getAllFirebaseAuthUsers(100);
     
     console.log(`📊 Found ${authUsers.length} users in Firebase Auth`);
     
-    if (authUsers.length === 0) return;
+    if (authUsers.length === 0) {
+      console.warn('⚠️ No users found in Firebase Auth');
+      return 0;
+    }
 
     // Use batched writes for efficiency (max 500 per batch)
     let batch = db.batch();
     let batchCount = 0;
     let addedCount = 0;
-    let updatedCount = 0;
 
     for (const authUser of authUsers) {
       const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(authUser.uid);
-      const existingDoc = await entryRef.get();
-
+      
       const entryData: LeaderboardEntry = {
         userId: authUser.uid,
         userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
         userPicture: authUser.photoURL || undefined,
-        xp: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).xp : 0,
-        level: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).level : 1,
-        lessonsCompleted: existingDoc.exists ? (existingDoc.data() as LeaderboardEntry).lessonsCompleted : 0,
+        xp: 0,
+        level: 1,
+        lessonsCompleted: 0,
         lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
       };
 
-      if (!existingDoc.exists) {
-        batch.set(entryRef, entryData);
-        addedCount++;
-      } else {
-        // Update name/picture if changed
-        batch.set(entryRef, entryData, { merge: true });
-        updatedCount++;
-      }
-
+      batch.set(entryRef, entryData);
+      addedCount++;
       batchCount++;
 
       // Commit batch every 500 operations
@@ -84,9 +87,11 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<v
       await batch.commit();
     }
 
-    console.log(`✅ Leaderboard populated: ${addedCount} added, ${updatedCount} updated`);
+    console.log(`✅ Leaderboard populated: ${addedCount} users added`);
+    return addedCount;
   } catch (error) {
     console.error('❌ Failed to auto-populate leaderboard:', error);
+    throw error;
   }
 }
 
@@ -98,15 +103,30 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
   try {
     const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Firebase Admin not initialized' });
+      console.error('❌ Firebase Admin not initialized - cannot fetch leaderboard');
+      return res.status(500).json({ error: 'Firebase Admin not initialized', entries: [] });
     }
 
-    // Auto-populate leaderboard with ALL users (blocking to ensure users are visible)
-    await autoPopulateLeaderboard(db);
+    console.log('🔄 Starting leaderboard fetch...');
 
-    // Get ALL leaderboard entries (no limit initially)
-    const snapshot = await db.collection(LEADERBOARD_COLLECTION)
-      .get();
+    // Auto-populate leaderboard if empty (blocking to ensure users are visible)
+    try {
+      const populatedCount = await autoPopulateLeaderboard(db);
+      if (populatedCount > 0) {
+        console.log(`✅ Auto-populated ${populatedCount} users to leaderboard`);
+      }
+    } catch (populateError) {
+      console.error('⚠️ Auto-population failed, continuing with existing entries:', populateError);
+    }
+
+    // Get ALL leaderboard entries
+    let snapshot;
+    try {
+      snapshot = await db.collection(LEADERBOARD_COLLECTION).get();
+    } catch (fetchError) {
+      console.error('❌ Failed to fetch leaderboard from Firestore:', fetchError);
+      return res.status(500).json({ error: 'Failed to fetch leaderboard', entries: [] });
+    }
 
     const entries: LeaderboardEntry[] = snapshot.docs.map(doc => {
       const data = doc.data();
@@ -122,6 +142,30 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     });
 
     console.log(`📊 Retrieved ${entries.length} entries from leaderboard`);
+
+    // If no entries, try to get users from Firebase Auth directly as fallback
+    if (entries.length === 0) {
+      console.log('⚠️ No entries in leaderboard, attempting direct Firebase Auth fetch...');
+      try {
+        const authUsers = await getAllFirebaseAuthUsers(10);
+        if (authUsers.length > 0) {
+          console.log(`📊 Found ${authUsers.length} users in Firebase Auth, adding to response...`);
+          const fallbackEntries: LeaderboardEntry[] = authUsers.map(authUser => ({
+            userId: authUser.uid,
+            userName: authUser.displayName || authUser.email?.split('@')[0] || 'User',
+            userPicture: authUser.photoURL || undefined,
+            xp: 0,
+            level: 1,
+            lessonsCompleted: 0,
+            lastUpdated: authUser.metadata.lastSignInTime || new Date().toISOString(),
+          }));
+          entries.push(...fallbackEntries);
+          console.log(`✅ Added ${fallbackEntries.length} fallback entries`);
+        }
+      } catch (authError) {
+        console.error('❌ Failed to fetch users from Firebase Auth:', authError);
+      }
+    }
 
     // Group by XP level
     const groupedByXp = new Map<number, LeaderboardEntry[]>();
@@ -145,10 +189,11 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
 
     console.log(`✅ Returning ${sortedEntries.length} sorted entries`);
 
-    return res.json({ entries: sortedEntries });
+    // Always return at least an empty array, never null/undefined
+    return res.json({ entries: sortedEntries || [] });
   } catch (error) {
     console.error('❌ Error fetching leaderboard:', error);
-    return res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    return res.status(500).json({ error: 'Failed to fetch leaderboard', entries: [] });
   }
 });
 

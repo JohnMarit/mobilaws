@@ -74,21 +74,36 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     const apiUrl = getApiUrl('leaderboard');
     console.log('📡 Fetching leaderboard from:', apiUrl);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
     console.log('📨 Response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Failed to fetch leaderboard:', errorText);
-      throw new Error(`Failed to fetch leaderboard: ${response.statusText}`);
+      console.error('❌ Failed to fetch leaderboard:', response.status, errorText);
+      // Return empty array instead of throwing
+      return [];
     }
     
     const data = await response.json();
-    console.log('✅ Leaderboard data received:', data);
+    console.log('✅ Leaderboard data received:', {
+      entryCount: data.entries?.length || 0,
+      entries: data.entries?.slice(0, 3) // Log first 3 for debugging
+    });
     
-    return data.entries || [];
+    // Ensure we always return an array
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    console.log(`📊 Returning ${entries.length} entries`);
+    
+    return entries;
   } catch (err) {
-    console.error('❌ Failed to load leaderboard', err);
+    console.error('❌ Failed to load leaderboard:', err);
+    // Always return empty array, never throw
     return [];
   }
 }

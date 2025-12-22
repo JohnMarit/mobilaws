@@ -3,12 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, Medal, Award, TrendingUp, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Trophy, Medal, Award, TrendingUp, User, RefreshCw } from 'lucide-react';
 import { getTopLearners, getUserRankInfo, LeaderboardEntry } from '@/lib/leaderboard';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useLearning } from '@/contexts/LearningContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrophy, faMedal, faAward } from '@fortawesome/free-solid-svg-icons';
+import { getApiUrl } from '@/lib/api';
 
 interface LeaderboardProps {
   className?: string;
@@ -20,31 +22,69 @@ export default function Leaderboard({ className }: LeaderboardProps) {
   const [topLearners, setTopLearners] = useState<LeaderboardEntry[]>([]);
   const [userRankInfo, setUserRankInfo] = useState<Awaited<ReturnType<typeof getUserRankInfo>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadLeaderboard = async (forcePopulate = false) => {
+    if (forcePopulate) {
+      setRefreshing(true);
+      try {
+        // Manually trigger population
+        const populateUrl = getApiUrl('leaderboard/populate');
+        console.log('🔄 Manually populating leaderboard...');
+        await fetch(populateUrl, { method: 'POST' });
+        console.log('✅ Population triggered');
+      } catch (err) {
+        console.error('❌ Failed to populate leaderboard', err);
+      } finally {
+        setRefreshing(false);
+      }
+    }
+
+    setLoading(true);
+    try {
+      console.log('🔄 Loading leaderboard data...');
+      const top = await getTopLearners(10);
+      console.log(`📊 Retrieved ${top.length} top learners`);
+      
+      if (top.length > 0) {
+        console.log('✅ Leaderboard entries:', top.map(e => ({ name: e.userName, xp: e.xp })));
+        setTopLearners(top);
+      } else {
+        console.warn('⚠️ No leaderboard entries found');
+        setTopLearners([]);
+      }
+      
+      if (user) {
+        const rankInfo = await getUserRankInfo(user.id);
+        console.log('👤 User rank info:', rankInfo);
+        setUserRankInfo(rankInfo);
+      }
+    } catch (err) {
+      console.error('❌ Failed to load leaderboard', err);
+      setTopLearners([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Refresh leaderboard data
-    const loadLeaderboard = async () => {
-      setLoading(true);
-      try {
-        console.log('🔄 Loading leaderboard data...');
-        const top = await getTopLearners(10);
-        console.log(`📊 Retrieved ${top.length} top learners:`, top);
-        setTopLearners(top);
-        
-        if (user) {
-          const rankInfo = await getUserRankInfo(user.id);
-          console.log('👤 User rank info:', rankInfo);
-          setUserRankInfo(rankInfo);
-        }
-      } catch (err) {
-        console.error('❌ Failed to load leaderboard', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Load immediately - try to populate first time
+    loadLeaderboard(true);
     
-    loadLeaderboard();
-  }, [user, progress.xp]); // Refresh when XP changes
+    // Refresh every 10 seconds to catch new users
+    const interval = setInterval(() => loadLeaderboard(), 10000);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [user?.id]); // Only reload when user changes
+
+  // Also reload when XP changes (but don't populate)
+  useEffect(() => {
+    if (user?.id) {
+      loadLeaderboard(false);
+    }
+  }, [progress.xp]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) {
@@ -67,13 +107,27 @@ export default function Leaderboard({ className }: LeaderboardProps) {
   return (
     <Card className={className}>
       <CardHeader className="pb-3 sm:pb-4 p-4 sm:p-6">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
-          Top 10 Learners
-        </CardTitle>
-        <CardDescription className="text-xs sm:text-sm">
-          Ranked by total XP earned
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
+              Top 10 Learners
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Ranked by total XP earned
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadLeaderboard(true)}
+            disabled={refreshing || loading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
         {/* Top 10 List */}
@@ -83,8 +137,20 @@ export default function Leaderboard({ className }: LeaderboardProps) {
               Loading leaderboard...
             </div>
           ) : topLearners.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No learners yet. Be the first!
+            <div className="text-center py-8 space-y-3">
+              <div className="text-sm text-muted-foreground">
+                No learners yet. Click refresh to populate the leaderboard!
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadLeaderboard(true)}
+                disabled={refreshing}
+                className="flex items-center gap-2 mx-auto"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Populating...' : 'Populate Leaderboard'}
+              </Button>
             </div>
           ) : (
             topLearners.map((learner, index) => {
