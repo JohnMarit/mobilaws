@@ -1,0 +1,305 @@
+import { useState, useEffect, useMemo } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, XCircle, Award, ArrowLeft, ArrowRight, Trophy, Download } from 'lucide-react';
+import { ExamQuestion, calculateExamScore, generateCertificateNumber, type Certificate } from '@/lib/examContent';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
+
+interface ExamRunnerProps {
+    open: boolean;
+    onClose: () => void;
+    examId: string;
+    examTitle: string;
+    questions: ExamQuestion[];
+    onComplete: (certificate: Certificate | null) => void;
+}
+
+export default function ExamRunner({ open, onClose, examId, examTitle, questions, onComplete }: ExamRunnerProps) {
+    const { user } = useAuth();
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [answers, setAnswers] = useState<Record<string, number>>({});
+    const [showResults, setShowResults] = useState(false);
+    const [examResults, setExamResults] = useState<{
+        score: number;
+        passed: boolean;
+        correctCount: number;
+        totalCount: number;
+    } | null>(null);
+    const [certificate, setCertificate] = useState<Certificate | null>(null);
+
+    const currentQuestion = questions[currentQuestionIndex];
+    const progressPercent = useMemo(
+        () => Math.round(((currentQuestionIndex + 1) / questions.length) * 100),
+        [currentQuestionIndex, questions.length]
+    );
+    const answeredCount = Object.keys(answers).length;
+
+    useEffect(() => {
+        if (open) {
+            // Reset state when exam opens
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setShowResults(false);
+            setExamResults(null);
+            setCertificate(null);
+        }
+    }, [open]);
+
+    const handleAnswerSelect = (optionIndex: number) => {
+        setAnswers(prev => ({
+            ...prev,
+            [currentQuestion.id]: optionIndex
+        }));
+    };
+
+    const handleNext = () => {
+        if (currentQuestionIndex < questions.length - 1) {
+            setCurrentQuestionIndex(prev => prev + 1);
+        }
+    };
+
+    const handlePrevious = () => {
+        if (currentQuestionIndex > 0) {
+            setCurrentQuestionIndex(prev => prev - 1);
+        }
+    };
+
+    const handleSubmit = () => {
+        const results = calculateExamScore(answers, questions);
+        setExamResults(results);
+        setShowResults(true);
+
+        // Generate certificate if passed
+        if (results.passed && user) {
+            const cert: Certificate = {
+                id: `cert-${Date.now()}`,
+                userId: user.id,
+                userName: user.name || user.email || 'User',
+                examId,
+                examTitle,
+                level: 'basic',
+                score: results.score,
+                issuedAt: new Date().toISOString(),
+                certificateNumber: generateCertificateNumber('basic')
+            };
+            setCertificate(cert);
+            onComplete(cert);
+        } else {
+            onComplete(null);
+        }
+    };
+
+    const handleClose = () => {
+        onClose();
+    };
+
+    if (showResults && examResults) {
+        return (
+            <Dialog open={open} onOpenChange={handleClose}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-2xl">
+                            {examResults.passed ? (
+                                <>
+                                    <Trophy className="h-6 w-6 text-yellow-500" />
+                                    Congratulations! 🎉
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle className="h-6 w-6 text-red-500" />
+                                    Keep Trying!
+                                </>
+                            )}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {examResults.passed
+                                ? 'You have successfully passed the exam and earned your certificate!'
+                                : 'You need 70% to pass. Review the material and try again.'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                        {/* Score Display */}
+                        <Card className={examResults.passed ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
+                            <CardContent className="pt-6">
+                                <div className="text-center space-y-4">
+                                    <div className="text-6xl font-bold" style={{ color: examResults.passed ? '#22c55e' : '#ef4444' }}>
+                                        {examResults.score}%
+                                    </div>
+                                    <div className="text-lg text-muted-foreground">
+                                        {examResults.correctCount} out of {examResults.totalCount} correct
+                                    </div>
+                                    <Progress
+                                        value={examResults.score}
+                                        className="h-3"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Certificate Info */}
+                        {examResults.passed && certificate && (
+                            <Alert className="border-yellow-500 bg-yellow-50">
+                                <Award className="h-5 w-5 text-yellow-600" />
+                                <AlertDescription className="ml-2">
+                                    <div className="space-y-2">
+                                        <p className="font-semibold text-yellow-900">Certificate Earned!</p>
+                                        <p className="text-sm text-yellow-800">
+                                            Certificate Number: <span className="font-mono font-bold">{certificate.certificateNumber}</span>
+                                        </p>
+                                        <p className="text-sm text-yellow-800">
+                                            Issued: {new Date(certificate.issuedAt).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex gap-3 justify-end">
+                            {examResults.passed && (
+                                <Button variant="outline" className="gap-2">
+                                    <Download className="h-4 w-4" />
+                                    Download Certificate
+                                </Button>
+                            )}
+                            <Button onClick={handleClose}>
+                                {examResults.passed ? 'View Certificate' : 'Close'}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleClose}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Award className="h-5 w-5 text-primary" />
+                        {examTitle}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Question {currentQuestionIndex + 1} of {questions.length} • {answeredCount} answered
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-6">
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>Progress</span>
+                            <span>{progressPercent}%</span>
+                        </div>
+                        <Progress value={progressPercent} className="h-2" />
+                    </div>
+
+                    {/* Question Card */}
+                    <Card>
+                        <CardContent className="pt-6 space-y-6">
+                            {/* Question */}
+                            <div>
+                                <Badge variant="outline" className="mb-3">
+                                    {currentQuestion.moduleId.replace('-', ' ').toUpperCase()}
+                                </Badge>
+                                <h3 className="text-lg font-semibold leading-relaxed">
+                                    {currentQuestion.question}
+                                </h3>
+                            </div>
+
+                            {/* Options */}
+                            <div className="space-y-3">
+                                {currentQuestion.options.map((option, index) => {
+                                    const isSelected = answers[currentQuestion.id] === index;
+                                    return (
+                                        <Button
+                                            key={index}
+                                            variant={isSelected ? 'default' : 'outline'}
+                                            className="w-full justify-start text-left h-auto py-4 px-5"
+                                            onClick={() => handleAnswerSelect(index)}
+                                        >
+                                            <div className="flex items-start gap-3 w-full">
+                                                <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${isSelected ? 'bg-white border-white' : 'border-current'
+                                                    }`}>
+                                                    {isSelected && <div className="w-3 h-3 rounded-full bg-primary" />}
+                                                </div>
+                                                <span className="flex-1 leading-relaxed">{option}</span>
+                                            </div>
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Navigation */}
+                    <div className="flex items-center justify-between gap-4">
+                        <Button
+                            variant="outline"
+                            onClick={handlePrevious}
+                            disabled={currentQuestionIndex === 0}
+                            className="gap-2"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Previous
+                        </Button>
+
+                        <div className="flex gap-2">
+                            {questions.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => setCurrentQuestionIndex(index)}
+                                    className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${index === currentQuestionIndex
+                                            ? 'bg-primary text-primary-foreground'
+                                            : answers[questions[index].id] !== undefined
+                                                ? 'bg-green-100 text-green-700 border border-green-300'
+                                                : 'bg-gray-100 text-gray-600 border border-gray-300'
+                                        }`}
+                                    title={`Question ${index + 1}${answers[questions[index].id] !== undefined ? ' (answered)' : ''}`}
+                                >
+                                    {index + 1}
+                                </button>
+                            ))}
+                        </div>
+
+                        {currentQuestionIndex === questions.length - 1 ? (
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={answeredCount < questions.length}
+                                className="gap-2"
+                            >
+                                Submit Exam
+                                <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={handleNext}
+                                disabled={currentQuestionIndex === questions.length - 1}
+                                className="gap-2"
+                            >
+                                Next
+                                <ArrowRight className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* Submit Warning */}
+                    {answeredCount < questions.length && (
+                        <Alert>
+                            <AlertDescription>
+                                You have {questions.length - answeredCount} unanswered question{questions.length - answeredCount !== 1 ? 's' : ''}.
+                                Please answer all questions before submitting.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}

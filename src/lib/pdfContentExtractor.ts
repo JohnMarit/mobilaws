@@ -41,7 +41,7 @@ What it does:
 Think of it like the rulebook for the entire country. Every other law must follow what the Constitution says.
 
 Want to learn more? Upgrade to see how the Constitution affects your daily life!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-supremacy',
@@ -67,7 +67,7 @@ Real-World Example:
 If Parliament passes a law that violates your freedom of speech, courts can declare that law unconstitutional and invalid.
 
 Key Principle: No one is above the Constitution - not the President, Parliament, or Courts.`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-sovereignty',
@@ -100,7 +100,7 @@ Government gets its power FROM the people. Officials work FOR you, not the other
 
 Your Voice Matters:
 Every citizen has equal say in how the country is governed, regardless of tribe, region, or wealth.`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-bill-of-rights',
@@ -151,7 +151,7 @@ Yes, but only:
 • Through proper legal process
 
 Remember: These are YOUR rights. Know them, use them, protect them!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-freedom-expression',
@@ -210,7 +210,7 @@ Your Rights in Practice:
 • Police cannot stop peaceful assemblies without legal reason
 
 Remember: These freedoms are the foundation of democracy!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-life-dignity',
@@ -268,7 +268,7 @@ What to Do if Violated:
 3. Report to police (if safe)
 4. Contact human rights organizations
 5. Consider legal action`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-economic-social',
@@ -340,7 +340,7 @@ Your Rights in Action:
 • Protect your property from illegal seizure
 
 Remember: These rights help ensure everyone can live with dignity and opportunity!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-equality',
@@ -409,7 +409,7 @@ What to Do if Discriminated Against:
 5. Contact human rights groups
 
 Remember: Equality is not just a principle - it's your constitutional right!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-three-branches',
@@ -506,7 +506,7 @@ Why This Matters to You:
 • Democracy is preserved
 
 Remember: This system of checks and balances protects YOUR freedom!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-how-laws-made',
@@ -609,7 +609,7 @@ Example: Education Law
 10. Published - now it's law!
 
 Remember: Laws affect YOUR life. Stay informed and participate in the process!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'const-intro',
@@ -747,7 +747,7 @@ Real-World Example:
 South Sudan signed the Convention on the Rights of the Child. This means the government MUST protect children's rights to education, health care, and protection from harm. If they don't, they're breaking international law.
 
 Remember: Treaties aren't just for governments - they protect YOUR rights too!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-un-basics',
@@ -828,7 +828,7 @@ Real-World Example:
 When conflict erupted in South Sudan in 2013, the UN Security Council authorized UNMISS (UN Mission in South Sudan) to protect civilians. UN peacekeepers helped save thousands of lives.
 
 Remember: The UN exists to serve ALL people, including YOU!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-sovereignty-basics',
@@ -918,7 +918,7 @@ When South Sudan became independent, it gained sovereignty. This means:
 • South Sudan has its own seat at the UN
 
 Remember: Sovereignty means South Sudan is FREE and EQUAL to all other nations!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-human-rights-basics',
@@ -1060,7 +1060,7 @@ Why International Human Rights Matter:
 • Protection even if national law fails
 
 Remember: Your human rights are UNIVERSAL - they apply everywhere, always, for everyone!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-diplomatic-basics',
@@ -1223,7 +1223,7 @@ Important Terms:
 • Exequatur: Permission for consul to operate
 
 Remember: Diplomats help countries work together peacefully. If you're ever in trouble abroad, your embassy is there to help!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-peacekeeping-basics',
@@ -1396,7 +1396,7 @@ How to Support Peacekeeping:
 • Demand accountability from all sides
 
 Remember: Peacekeepers risk their lives to protect civilians and build peace. They're here to help!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-refugees-basics',
@@ -1620,7 +1620,7 @@ Important Terms:
 • Repatriation: Returning home
 
 Remember: Refugees are people like you who had to flee danger. They deserve protection, dignity, and hope for the future!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-dispute-basics',
@@ -1881,7 +1881,7 @@ Real-World Example:
 Instead of fighting over Abyei, South Sudan and Sudan agreed to arbitration. The Permanent Court of Arbitration issued a decision defining the area. While not fully implemented, it prevented war.
 
 Remember: Talking is ALWAYS better than fighting. International law provides many ways to solve disputes peacefully!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-organizations-basics',
@@ -2173,7 +2173,7 @@ How to Engage:
 • Support international cooperation
 
 Remember: No country can solve all problems alone. International organizations help countries work together for common good!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-use-of-force-basics',
@@ -2426,7 +2426,7 @@ Key Principles to Remember:
 • Peaceful settlement is required
 
 Remember: The law aims to prevent war and protect human life. Force should be the absolute last resort!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'intl-intro',
@@ -3433,7 +3433,7 @@ Why This Matters to YOU:
 • Your intent matters in court
 
 Remember: Criminal law punishes GUILTY ACTS done with GUILTY MINDS. Both must be present for most crimes!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'penal-arrest-rights',
@@ -3663,7 +3663,7 @@ Important Reminders:
 • Police must follow the law too
 
 Remember: KNOW YOUR RIGHTS. USE YOUR RIGHTS. PROTECT YOUR RIGHTS!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'penal-court-process',
@@ -3954,7 +3954,7 @@ Tips for Court:
 • Don't interrupt
 
 Remember: The criminal process is designed to be FAIR. You have rights at every stage. Use them!`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'penal-intro',
@@ -3980,7 +3980,7 @@ Criminal Responsibility:
 - Age of criminal responsibility: 12 years
 - Mental capacity required
 - Intent (mens rea) and act (actus reus)`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'penal-defenses',
@@ -4138,7 +4138,7 @@ South Sudan Government Structure:
 • National Legislature (Bicameral: National Assembly & Council of States)
 • Judiciary (Supreme Court, Court of Appeal, High Courts)
 • State Governments (10 states with governors and assemblies)`,
-      tier: 'basic'
+      tier: 'free'
    },
    {
       id: 'pub-admin',
