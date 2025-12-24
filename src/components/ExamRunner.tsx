@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, Award, ArrowLeft, ArrowRight, Trophy, Download } from 'lucide-react';
-import { ExamQuestion, calculateExamScore, generateCertificateNumber, type Certificate } from '@/lib/examContent';
+import { ExamQuestion, calculateExamScore, generateCertificateNumber, type Certificate, type ExamAttempt } from '@/lib/examContent';
+import { saveExamAttempt, saveCertificate } from '@/lib/examService';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 
 interface ExamRunnerProps {
@@ -30,6 +31,8 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
         totalCount: number;
     } | null>(null);
     const [certificate, setCertificate] = useState<Certificate | null>(null);
+    const [attemptId] = useState(`attempt-${Date.now()}`);
+    const [startTime] = useState(new Date().toISOString());
 
     const currentQuestion = questions[currentQuestionIndex];
     const progressPercent = useMemo(
@@ -68,13 +71,35 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
         }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const results = calculateExamScore(answers, questions);
         setExamResults(results);
         setShowResults(true);
 
-        // Generate certificate if passed
-        if (results.passed && user) {
+        if (!user) return;
+
+        const completedAt = new Date().toISOString();
+
+        // Save exam attempt to Firebase
+        const attempt: ExamAttempt = {
+            id: attemptId,
+            examId,
+            userId: user.id,
+            startedAt: startTime,
+            completedAt,
+            answers,
+            score: results.score,
+            passed: results.passed
+        };
+
+        try {
+            await saveExamAttempt(attempt);
+        } catch (error) {
+            console.error('Failed to save exam attempt:', error);
+        }
+
+        // Generate and save certificate if passed
+        if (results.passed) {
             const cert: Certificate = {
                 id: `cert-${Date.now()}`,
                 userId: user.id,
@@ -83,11 +108,20 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
                 examTitle,
                 level: 'basic',
                 score: results.score,
-                issuedAt: new Date().toISOString(),
+                issuedAt: completedAt,
                 certificateNumber: generateCertificateNumber('basic')
             };
-            setCertificate(cert);
-            onComplete(cert);
+
+            try {
+                await saveCertificate(cert);
+                setCertificate(cert);
+                onComplete(cert);
+            } catch (error) {
+                console.error('Failed to save certificate:', error);
+                // Still show certificate locally even if save fails
+                setCertificate(cert);
+                onComplete(cert);
+            }
         } else {
             onComplete(null);
         }
@@ -256,10 +290,10 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
                                     key={index}
                                     onClick={() => setCurrentQuestionIndex(index)}
                                     className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${index === currentQuestionIndex
-                                            ? 'bg-primary text-primary-foreground'
-                                            : answers[questions[index].id] !== undefined
-                                                ? 'bg-green-100 text-green-700 border border-green-300'
-                                                : 'bg-gray-100 text-gray-600 border border-gray-300'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : answers[questions[index].id] !== undefined
+                                            ? 'bg-green-100 text-green-700 border border-green-300'
+                                            : 'bg-gray-100 text-gray-600 border border-gray-300'
                                         }`}
                                     title={`Question ${index + 1}${answers[questions[index].id] !== undefined ? ' (answered)' : ''}`}
                                 >
