@@ -829,7 +829,7 @@ Would you like me to explain this in more detail or clarify any specific aspect?
 
   // Generate welcome message
   getWelcomeMessage(counselName: string = 'Poni'): string {
-    return `Hello! 👋 I'm Counsel ${counselName}, your South Sudan law assistant. I'm here to help you understand the Constitution and legal provisions in a clear, conversational way.\n\nYou can ask me anything - like "What are the fundamental rights?" or "Tell me about citizenship requirements." I'll explain the law in plain language and show you the relevant articles.\n\nWhat would you like to know about South Sudan law?`;
+    return `Hello! 👋 I'm Counsel ${counselName}, your South Sudan law assistant. I'm here to help you understand the Constitution and legal provisions in a clear, conversational way.\n\nYou can ask me anything - like "What are the fundamental rights?" or "Tell me about citizenship requirements." I'll explain the law in plain language and show you the relevant articles.`;
   }
 
   // Generate help message
