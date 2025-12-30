@@ -20,6 +20,7 @@ import firebaseSyncRouter from '../src/routes/firebase-sync';
 import adminGrantRouter from '../src/routes/admin-grant';
 import leaderboardRouter from '../src/routes/leaderboard';
 import learningRouter from '../src/routes/learning';
+import tutorAdminRouter from '../src/routes/tutor-admin';
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use('/api', firebaseSyncRouter);
 app.use('/api', adminGrantRouter);
 app.use('/api', leaderboardRouter);
 app.use('/api', learningRouter);
+app.use('/api', tutorAdminRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
