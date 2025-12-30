@@ -207,17 +207,3 @@ export function calculateLessonsCompleted(modulesProgress: Record<string, { less
   return total;
 }
 
-/**
- * Calculate total lessons completed from learning state
- */
-export function calculateLessonsCompleted(modulesProgress: Record<string, { lessonsCompleted: Record<string, any> }>): number {
-  let total = 0;
-  for (const moduleId in modulesProgress) {
-    const module = modulesProgress[moduleId];
-    if (module.lessonsCompleted) {
-      total += Object.keys(module.lessonsCompleted).length;
-    }
-  }
-  return total;
-}
-
