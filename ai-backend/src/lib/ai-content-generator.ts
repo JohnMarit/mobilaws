@@ -146,7 +146,7 @@ export async function generateLearningModule(
     console.log(`📄 Extracted ${documentText.length} characters from document`);
     
     // Initialize OpenAI
-    const openai = new OpenAI({ apiKey: env.openaiApiKey });
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
     
     // Generate structured learning content using AI
     const systemPrompt = `You are an expert educational content creator specializing in creating Duolingo-style learning materials. 
@@ -294,7 +294,7 @@ export async function generateAdditionalQuizzes(
       ? module.lessons.find(l => l.id === request.lessonId)
       : null;
 
-    const openai = new OpenAI({ apiKey: env.openaiApiKey });
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
     const systemPrompt = `You are an expert quiz creator for educational content. 
 Create engaging, varied quiz questions that test understanding and application, not just memorization.

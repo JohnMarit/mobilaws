@@ -183,7 +183,7 @@ export async function getAllTutorAdmins(): Promise<TutorAdmin[]> {
 /**
  * Save uploaded content metadata
  */
-export async function saveUploadedContent(content: Omit<UploadedContent, 'id'>): Promise<string | null> {
+export async function saveUploadedContent(content: Omit<UploadedContent, 'id' | 'uploadedAt'>): Promise<string | null> {
   const db = getFirestore();
   if (!db) return null;
 
