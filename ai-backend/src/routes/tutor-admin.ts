@@ -73,16 +73,37 @@ const upload = multer({
 router.get('/tutor-admin/check/:email', async (req: Request, res: Response) => {
   try {
     const { email } = req.params;
+    
+    console.log('═══════════════════════════════════════════════');
+    console.log('🔍 TUTOR ADMIN CHECK REQUEST');
+    console.log('═══════════════════════════════════════════════');
+    console.log('📧 Email parameter:', email);
+    console.log('📧 Email length:', email.length);
+    console.log('📧 Email trimmed:', email.trim());
+    
     const isTutor = await isTutorAdmin(email);
+    
+    console.log('✅ Is tutor admin:', isTutor);
     
     if (isTutor) {
       const tutor = await getTutorAdmin(email);
+      console.log('✅ Tutor admin found:', tutor?.email);
+      console.log('═══════════════════════════════════════════════');
       res.json({ isTutorAdmin: true, tutor });
     } else {
+      console.log('❌ No tutor admin found for this email');
+      console.log('💡 Make sure:');
+      console.log('   1. Account exists in Firestore tutorAdmins collection');
+      console.log('   2. Email matches exactly (case-sensitive)');
+      console.log('   3. active field is set to true');
+      console.log('═══════════════════════════════════════════════');
       res.json({ isTutorAdmin: false });
     }
   } catch (error) {
-    console.error('❌ Error checking tutor admin:', error);
+    console.error('═══════════════════════════════════════════════');
+    console.error('❌ ❌ ❌ ERROR CHECKING TUTOR ADMIN! ❌ ❌ ❌');
+    console.error('💥 Error:', error);
+    console.error('═══════════════════════════════════════════════');
     res.status(500).json({ error: 'Failed to check tutor admin status' });
   }
 });

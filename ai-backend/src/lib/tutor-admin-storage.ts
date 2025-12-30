@@ -48,14 +48,34 @@ function getFirestore(): admin.firestore.Firestore | null {
  */
 export async function isTutorAdmin(email: string): Promise<boolean> {
   const db = getFirestore();
-  if (!db) return false;
+  if (!db) {
+    console.error('❌ Firestore not initialized');
+    return false;
+  }
 
   try {
+    // Normalize email to lowercase for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    console.log('🔍 Checking tutor admin in Firestore...');
+    console.log('📧 Original email:', email);
+    console.log('📧 Normalized email:', normalizedEmail);
+    console.log('📁 Collection:', TUTOR_ADMINS_COLLECTION);
+    
     const snapshot = await db.collection(TUTOR_ADMINS_COLLECTION)
-      .where('email', '==', email)
+      .where('email', '==', normalizedEmail)
       .where('active', '==', true)
       .limit(1)
       .get();
+
+    console.log('📊 Query result: Found', snapshot.size, 'document(s)');
+    
+    if (!snapshot.empty) {
+      const doc = snapshot.docs[0];
+      console.log('✅ Found tutor admin:', doc.data().email);
+    } else {
+      console.log('❌ No tutor admin found');
+    }
 
     return !snapshot.empty;
   } catch (error) {
@@ -72,8 +92,11 @@ export async function getTutorAdmin(email: string): Promise<TutorAdmin | null> {
   if (!db) return null;
 
   try {
+    // Normalize email to lowercase for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase().trim();
+    
     const snapshot = await db.collection(TUTOR_ADMINS_COLLECTION)
-      .where('email', '==', email)
+      .where('email', '==', normalizedEmail)
       .where('active', '==', true)
       .limit(1)
       .get();
@@ -120,9 +143,20 @@ export async function createTutorAdmin(
   if (!db) return null;
 
   try {
+    // Normalize email to lowercase for consistency
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    console.log('═══════════════════════════════════════════════');
+    console.log('📝 CREATING/UPDATING TUTOR ADMIN');
+    console.log('═══════════════════════════════════════════════');
+    console.log('📧 Original email:', email);
+    console.log('📧 Normalized email:', normalizedEmail);
+    console.log('👤 Name:', name);
+    
     // Check if already exists
-    const existing = await getTutorAdmin(email);
+    const existing = await getTutorAdmin(normalizedEmail);
     if (existing) {
+      console.log('ℹ️  Tutor admin already exists, updating...');
       // Update existing
       await db.collection(TUTOR_ADMINS_COLLECTION).doc(existing.id).update({
         name,
@@ -131,13 +165,15 @@ export async function createTutorAdmin(
         bio: bio || existing.bio,
         updatedAt: admin.firestore.Timestamp.now(),
       });
+      console.log(`✅ Updated existing tutor admin: ${normalizedEmail}`);
+      console.log('═══════════════════════════════════════════════');
       return getTutorAdminById(existing.id);
     }
 
     // Create new
     const now = admin.firestore.Timestamp.now();
     const tutorData: Omit<TutorAdmin, 'id'> = {
-      email,
+      email: normalizedEmail,
       name,
       picture,
       specializations: specializations || [],
@@ -148,11 +184,18 @@ export async function createTutorAdmin(
     };
 
     const docRef = await db.collection(TUTOR_ADMINS_COLLECTION).add(tutorData);
-    console.log(`✅ Created tutor admin: ${email}`);
+    console.log(`✅ Created new tutor admin: ${normalizedEmail}`);
+    console.log('🆔 Document ID:', docRef.id);
+    console.log('✓  Active: true');
+    console.log('═══════════════════════════════════════════════');
 
     return { id: docRef.id, ...tutorData };
   } catch (error) {
-    console.error('❌ Error creating tutor admin:', error);
+    console.error('═══════════════════════════════════════════════');
+    console.error('❌ ❌ ❌ ERROR CREATING TUTOR ADMIN! ❌ ❌ ❌');
+    console.error('💥 Error:', error);
+    console.error('📧 Email:', email);
+    console.error('═══════════════════════════════════════════════');
     return null;
   }
 }
