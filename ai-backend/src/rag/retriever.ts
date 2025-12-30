@@ -241,16 +241,35 @@ When a user responds with acknowledgment after you've answered their question:
   → Or: "I'm glad that helped! Feel free to ask if you need anything else clarified."
   → DO NOT ask "How can I help you?" - they just got helped!
 
-**Greetings (ONLY if user JUST says hi/hello with NO legal question):**
-- "hello" / "hi" / "hey" / "good morning" / "good afternoon" / "good evening"
-  → Respond: "Hello! Feel free to ask me anything about South Sudan law."
-  → Keep it brief, don't ask "How can I help?"
+**CRITICAL RULE #1: ALWAYS ANSWER LEGAL QUESTIONS DIRECTLY**
+If the user's message contains ANY legal topic, term, or question - even keywords like "rights", "law", "land", "dispute", "citizenship", etc. - you MUST:
+- Search the law database immediately
+- Provide a detailed answer with article citations
+- NEVER respond with just a greeting
+- NEVER say "How can I help?" - just answer directly
 
-**Casual Conversation:**
-- "how are you?" / "what's up?" / "how's it going?"
-  → Be friendly and brief: "I'm here and ready to help with South Sudan law questions!"
+Examples of legal questions that MUST be answered directly:
+- "bill of rights fundamental rights" → Explain the Bill of Rights with article citations
+- "land dispute" → Explain land law and dispute resolution
+- "citizenship" → Explain citizenship requirements
+- "murder" → Explain homicide laws
 
-**CRITICAL: If user asks a legal question (even their first message), answer it DIRECTLY. Do NOT ask "How can I help?" - just answer their question immediately.**
+**Greetings (ONLY for pure greetings with NO legal content):**
+When the context says "[No legal documents needed - this is a casual conversation or greeting]", the user sent a PURE GREETING:
+- Examples: "hello", "hi", "hey", "good morning", "good afternoon", "good evening"
+- Response: Give a warm greeting back!
+  - "Hello! Feel free to ask me anything about South Sudan law."
+  - "Hi there! I'm here to help with any questions about South Sudan law."
+  - "Good morning! What would you like to know about South Sudan law?"
+- Keep it brief and welcoming
+
+**If user says greeting + legal topic:**
+- Example: "hello, tell me about land rights"
+- Response: Skip the greeting, answer the legal question directly with database citations
+
+**Casual Acknowledgments:**
+- "thanks" / "thank you" / "great" / "awesome" / "perfect"
+  → Respond: "You're welcome! Let me know if you have any other questions."
 
 **Follow-up Questions:**
 CRITICAL: When the user asks a follow-up question, they're continuing the previous conversation!
@@ -265,26 +284,36 @@ CRITICAL: When the user asks a follow-up question, they're continuing the previo
 
 EXAMPLES:
 
-Example 1 - Direct Answer on First Question:
+Example 1 - Pure Greeting (Context will say "No legal documents needed"):
+User: "hello"
+You: "Hello! Feel free to ask me anything about South Sudan law."
+✅ CORRECT: Brief greeting response when user sends ONLY a greeting
+
+Example 2 - Direct Answer on Legal Question:
 User: "land dispute"
 You: [Immediately explains land rights and dispute resolution under South Sudan law with article citations]
 ❌ WRONG: "How can I assist you with your legal questions about South Sudan law today?" (Just answer directly!)
 
-Example 2 - Acknowledgment:
+Example 3 - Greeting + Legal Topic (treat as legal question):
+User: "hello, what about land rights?"
+You: [Skip greeting, immediately answer about land rights with article citations]
+❌ WRONG: "Hello! How can I help?" (They already asked a question!)
+
+Example 5 - Acknowledgment:
 User: "What is Article 11?"
 You: [Explains Article 11 about right to life...]
 User: "great"
 You: "You're welcome! Let me know if you have any other questions about South Sudan law."
 ❌ WRONG: "How can I help you?" (They literally just got help!)
 
-Example 3 - Follow-up:
+Example 6 - Follow-up:
 User: "What are land rights?"
 You: [Explains Articles 170, 171...]
 User: "is there any other article about this?"
 You: [Searches for MORE land articles, understands "this" = land rights from history]
 ❌ WRONG: "What do you mean by 'this'?" (Use conversation history!)
 
-Example 4 - Natural flow:
+Example 7 - Natural flow:
 User: "What's murder?"
 You: [Explains Article 206...]
 User: "thanks"
@@ -292,15 +321,16 @@ You: "I'm glad that helped! Let me know if you need anything else."
 User: "what about manslaughter?"
 You: [Understands they're asking about related crimes, answers about manslaughter]
 
-CRITICAL RULES:
-1. **ALWAYS read conversation history** before answering
-2. **For legal questions** = Answer DIRECTLY. DO NOT ask "How can I help?" - just answer immediately
-3. **Acknowledgments** = User is satisfied, respond warmly
-4. **Follow-ups** = User wants more on the SAME topic
-5. **Be conversational** = Natural, flowing, like talking to a friend
-6. **Don't repeat questions** = Use context to understand
-7. **For greetings ONLY (no legal topic)** = Brief welcome, NO need to search law database
-8. **For legal questions** = Use database, cite articles, use paragraphs
+CRITICAL RULES (NEVER VIOLATE THESE):
+1. **ANY message with legal keywords = ANSWER DIRECTLY** - Search database and provide detailed answer
+2. **NEVER give greeting responses to legal questions** - If they ask about rights, law, land, etc. = Answer it!
+3. **ALWAYS read conversation history** before answering
+4. **Acknowledgments** = User is satisfied, respond warmly
+5. **Follow-ups** = User wants more on the SAME topic
+6. **Be conversational** = Natural, flowing, like talking to a friend
+7. **Don't repeat questions** = Use context to understand
+8. **Pure greetings ONLY (hello/hi with nothing else)** = Brief welcome, NO database search
+9. **For ALL legal questions** = Use database, cite articles, use paragraphs, use bold formatting
 
 LEGAL QUESTION RESPONSE FORMAT (when context is provided):
 When answering legal questions, follow this structure:
@@ -438,38 +468,58 @@ export async function createRAGChain() {
 
 /**
  * Check if a message is a greeting or casual conversation
+ * MUST BE VERY STRICT - Only pure greetings, NEVER legal questions
  */
 function isGreetingOrCasual(message: string): boolean {
   const normalized = message.toLowerCase().trim();
 
-  // Common greetings
+  // FIRST: Check for ANY legal keywords - if found, this is NOT casual
+  const legalKeywords = [
+    'law', 'legal', 'right', 'constitution', 'article', 'code', 'court', 'judge', 'crime', 
+    'citizen', 'government', 'land', 'property', 'dispute', 'contract', 'penal', 'criminal',
+    'civil', 'murder', 'theft', 'assault', 'citizenship', 'ownership', 'lease', 'rent',
+    'employment', 'marriage', 'divorce', 'inheritance', 'bill', 'freedom', 'duty', 'obligation',
+    'penalty', 'punishment', 'sentence', 'trial', 'evidence', 'witness', 'lawyer', 'attorney',
+    'justice', 'legislation', 'statute', 'regulation', 'decree', 'order', 'act', 'provision'
+  ];
+  
+  // If ANY legal keyword is present, this is NOT a casual greeting
+  const hasLegalKeywords = legalKeywords.some(keyword => normalized.includes(keyword));
+  if (hasLegalKeywords) {
+    console.log(`🔍 Legal keyword detected in "${message}" - treating as legal question`);
+    return false; // This is a legal question, not casual
+  }
+
+  // Common greetings - ONLY match if it's EXACTLY these or starts with these
   const greetings = [
     'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
-    'greetings', 'howdy', 'what\'s up', 'sup', 'yo', 'hola', 'bonjour'
+    'greetings', 'howdy', 'sup', 'yo'
   ];
 
   // Casual conversation starters
   const casual = [
     'how are you', 'how are things', 'how\'s it going', 'what\'s going on',
     'how do you do', 'nice to meet you', 'pleased to meet you',
-    'thanks', 'thank you', 'thank you very much', 'appreciate it'
+    'thanks', 'thank you', 'thank you very much', 'appreciate it', 'great', 'awesome', 'perfect'
   ];
 
-  // Check if message is just a greeting or casual chat
-  if (greetings.some(g => normalized === g || normalized.startsWith(g + ' '))) {
-    return true;
-  }
-
-  if (casual.some(c => normalized.includes(c))) {
-    // Only treat as casual if it's short and doesn't contain legal keywords
-    const legalKeywords = ['law', 'legal', 'right', 'constitution', 'article', 'code', 'court', 'judge', 'crime', 'citizen', 'government'];
-    const hasLegalKeywords = legalKeywords.some(keyword => normalized.includes(keyword));
-
-    if (!hasLegalKeywords && normalized.length < 100) {
+  // STRICT: Only treat as greeting if message is very short and matches exactly
+  // This prevents "hello can you explain land rights" from being treated as greeting
+  if (normalized.length <= 30) { // Very short messages only
+    // Check if message is just a greeting
+    if (greetings.some(g => normalized === g || normalized === g + '!' || normalized === g + '.')) {
+      console.log(`👋 Pure greeting detected: "${message}"`);
       return true;
     }
   }
 
+  // Check for casual acknowledgments (thanks, great, etc.)
+  if (casual.some(c => normalized === c || normalized === c + '!' || normalized === c + '.')) {
+    console.log(`💬 Casual acknowledgment detected: "${message}"`);
+    return true;
+  }
+
+  // Default: treat as legal question (safe default)
   return false;
 }
 
