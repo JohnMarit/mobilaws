@@ -24,6 +24,7 @@ import usersRouter from './routes/users';
 import authRouter from './routes/auth';
 import leaderboardRouter from './routes/leaderboard';
 import learningRouter from './routes/learning';
+import tutorAdminRouter from './routes/tutor-admin';
 
 const app = express();
 
@@ -87,6 +88,7 @@ app.use('/api', usersRouter);
 app.use('/api', authRouter);
 app.use('/api', leaderboardRouter);
 app.use('/api', learningRouter);
+app.use('/api', tutorAdminRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

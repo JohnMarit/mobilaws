@@ -5,11 +5,13 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, XCircle, HelpCircle, ArrowLeft, Award, BookOpen } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, ArrowLeft, Award, BookOpen, Sparkles, MessageSquare } from 'lucide-react';
 import { Lesson, Module } from '@/lib/learningContent';
 import { useLearning } from '@/contexts/LearningContext';
 import AudioPlayer, { HighlightedText } from './AudioPlayer';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import QuizRequestDialog from './QuizRequestDialog';
+import MessageTutorDialog from './MessageTutorDialog';
 
 interface LessonRunnerProps {
   open: boolean;
@@ -29,6 +31,8 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(-1);
   const [showRetakeMessage, setShowRetakeMessage] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [showQuizRequest, setShowQuizRequest] = useState(false);
+  const [showMessageTutor, setShowMessageTutor] = useState(false);
   
   // Determine if audio is enabled for this lesson
   const audioEnabled = useMemo(() => {
@@ -144,11 +148,33 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               <div className="whitespace-pre-line text-sm sm:text-base leading-relaxed">{lesson.content}</div>
             )}
           </div>
-          <div className="flex justify-end pt-2 sm:pt-4">
-            <Button onClick={handleStartQuiz} className="gap-2 h-10 sm:h-11 text-base">
-              Take Quiz
-              <Award className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+          <div className="pt-3 sm:pt-4 border-t space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowQuizRequest(true)}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Request More Quizzes
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowMessageTutor(true)}
+                className="gap-2"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Ask a Question
+              </Button>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleStartQuiz} className="gap-2 h-10 sm:h-11 text-base">
+                Take Quiz
+                <Award className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -246,33 +272,53 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="space-y-2 pb-3 sm:pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl pr-8">
-            <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <span className="truncate">{module.title}</span>
-          </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base">{module.description}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-2 pb-3 sm:pb-4">
+            <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl pr-8">
+              <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
+              <span className="truncate">{module.title}</span>
+            </DialogTitle>
+            <DialogDescription className="text-sm sm:text-base">{module.description}</DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-3 sm:space-y-4">
-          <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground flex-wrap">
-            <Badge variant="outline" className="capitalize text-xs sm:text-sm">
-              {module.requiredTier}
-            </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
-              <Award className="h-3 w-3 sm:h-4 sm:w-4" />
-              {lesson.xpReward} XP
-            </Badge>
-            <span className="ml-auto text-xs sm:text-sm">
-              Step {currentStep + 1}/{totalSteps}
-            </span>
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground flex-wrap">
+              <Badge variant="outline" className="capitalize text-xs sm:text-sm">
+                {module.requiredTier}
+              </Badge>
+              <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
+                <Award className="h-3 w-3 sm:h-4 sm:w-4" />
+                {lesson.xpReward} XP
+              </Badge>
+              <span className="ml-auto text-xs sm:text-sm">
+                Step {currentStep + 1}/{totalSteps}
+              </span>
+            </div>
+            <Progress value={progressPercent} className="h-2 sm:h-2.5" />
+            {currentPhase === 'content' ? renderContent() : renderQuiz()}
           </div>
-          <Progress value={progressPercent} className="h-2 sm:h-2.5" />
-          {currentPhase === 'content' ? renderContent() : renderQuiz()}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <QuizRequestDialog
+        open={showQuizRequest}
+        onOpenChange={setShowQuizRequest}
+        moduleId={module.id}
+        moduleName={module.title}
+        lessonId={lesson.id}
+        lessonName={lesson.title}
+      />
+
+      <MessageTutorDialog
+        open={showMessageTutor}
+        onOpenChange={setShowMessageTutor}
+        moduleId={module.id}
+        moduleName={module.title}
+        lessonId={lesson.id}
+        lessonName={lesson.title}
+      />
+    </>
   );
 }
