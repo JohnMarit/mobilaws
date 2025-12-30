@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Tutor Admin Account</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .message.show {
+            display: block;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Create Tutor Admin</h1>
+        <p class="subtitle">Set up your tutor admin account to access the portal</p>
+        
+        <form id="tutorForm">
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="your-email@example.com" 
+                    required
+                    autocomplete="email"
+                >
+                <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                    Must match your Google sign-in email exactly
+                </small>
+            </div>
+            
+            <div class="form-group">
+                <label for="name">Your Name *</label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    placeholder="John Doe" 
+                    required
+                    autocomplete="name"
+                >
+            </div>
+            
+            <button type="submit" id="submitBtn">
+                Create Tutor Admin Account
+            </button>
+        </form>
+        
+        <div id="message" class="message"></div>
+        
+        <div class="info-box">
+            <strong>💡 After creating your account:</strong><br>
+            1. Sign out from Mobilaws<br>
+            2. Sign in again with your Google account<br>
+            3. Visit <a href="https://www.mobilaws.com/tutor-admin" target="_blank">/tutor-admin</a>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://mobilaws-backend.vercel.app/api';
+        
+        document.getElementById('tutorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+            
+            // Validate email
+            if (!email || !email.includes('@')) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span>Creating account...';
+            messageDiv.classList.remove('show');
+            
+            try {
+                const response = await fetch(`${API_URL}/tutor-admin/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        name: name,
+                        specializations: ['General Law'],
+                        bio: 'Tutor admin account',
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.tutor) {
+                    showMessage(
+                        `✅ Success! Tutor admin account created for ${data.tutor.email}. Sign out and sign in again, then visit /tutor-admin`,
+                        'success'
+                    );
+                    submitBtn.innerHTML = 'Account Created! ✓';
+                } else if (data.tutor) {
+                    showMessage(
+                        `ℹ️ Account already exists for ${data.tutor.email}. You can access the portal now!`,
+                        'success'
+                    );
+                    submitBtn.innerHTML = 'Account Exists ✓';
+                } else {
+                    showMessage(
+                        `❌ Error: ${data.error || 'Failed to create account. Please try Firebase Console method.'}`,
+                        'error'
+                    );
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Create Tutor Admin Account';
+                }
+            } catch (error) {
+                showMessage(
+                    `❌ Network error: ${error.message}. Please try the Firebase Console method instead.`,
+                    'error'
+                );
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Create Tutor Admin Account';
+            }
+        });
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type} show`;
+        }
+    </script>
+</body>
+</html>
+
