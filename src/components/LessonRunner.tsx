@@ -138,16 +138,17 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               />
             </div>
           )}
-          <div className="prose prose-sm sm:prose-base max-w-none overflow-x-hidden min-h-[100px]">
+          <div className="prose prose-sm sm:prose-base max-w-none overflow-x-hidden overflow-y-auto min-h-[100px] w-full">
             {audioEnabled ? (
               <HighlightedText
                 text={lesson.content}
                 currentSentenceIndex={currentSentenceIndex}
-                className="text-sm sm:text-base"
+                className="text-sm sm:text-base w-full"
               />
             ) : (
               <div 
-                className="text-sm sm:text-base leading-relaxed overflow-x-hidden break-words prose-content"
+                className="text-sm sm:text-base leading-relaxed overflow-x-hidden break-words prose-content w-full"
+                style={{ maxWidth: '100%', width: '100%' }}
                 dangerouslySetInnerHTML={{ __html: renderHtmlContent(lesson.content) }}
               />
             )}

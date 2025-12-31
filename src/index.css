@@ -146,6 +146,83 @@
   }
 }
 
+/* Prose content styling for lessons */
+@layer components {
+  .prose-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
+  }
+  
+  .prose-content p {
+    margin: 0.75rem 0;
+    line-height: 1.6;
+  }
+  
+  .prose-content p:first-child {
+    margin-top: 0;
+  }
+  
+  .prose-content p:last-child {
+    margin-bottom: 0;
+  }
+  
+  .prose-content strong {
+    font-weight: 600;
+    color: #1f2937;
+    display: inline;
+  }
+  
+  .prose-content ul,
+  .prose-content ol {
+    margin: 0.75rem 0;
+    padding-left: 1.25rem;
+    list-style-position: outside;
+  }
+  
+  .prose-content ul {
+    list-style-type: disc;
+  }
+  
+  .prose-content ol {
+    list-style-type: decimal;
+  }
+  
+  .prose-content li {
+    margin: 0.5rem 0;
+    line-height: 1.6;
+    padding-left: 0.25rem;
+  }
+  
+  .prose-content li strong {
+    font-weight: 600;
+  }
+  
+  /* Mobile-specific improvements */
+  @media (max-width: 640px) {
+    .prose-content {
+      font-size: 0.9375rem;
+      line-height: 1.65;
+    }
+    
+    .prose-content p {
+      margin: 0.625rem 0;
+    }
+    
+    .prose-content ul,
+    .prose-content ol {
+      padding-left: 1rem;
+      margin: 0.625rem 0;
+    }
+    
+    .prose-content li {
+      margin: 0.375rem 0;
+      padding-left: 0.125rem;
+    }
+  }
+}
+
 /* Prose improvements for small screens */
 @layer components {
   .prose {

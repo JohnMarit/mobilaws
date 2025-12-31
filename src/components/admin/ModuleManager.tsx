@@ -313,39 +313,39 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Your Modules</h2>
-          <p className="text-gray-600">Manage access levels for your learning content</p>
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Your Modules</h2>
+          <p className="text-sm sm:text-base text-gray-600">Manage access levels for your learning content</p>
         </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
+        <Badge variant="outline" className="text-sm sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 flex-shrink-0 self-start sm:self-auto">
           {modules.length} Module{modules.length !== 1 ? 's' : ''}
         </Badge>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:gap-4">
         {modules.map((module) => (
           <Card key={module.id} className="overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-3xl">{module.icon}</span>
-                    <div>
-                      <CardTitle className="text-xl">{module.title}</CardTitle>
-                      <CardDescription>{module.description}</CardDescription>
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 p-3 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2 sm:gap-3 mb-2">
+                    <span className="text-2xl sm:text-3xl flex-shrink-0">{module.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base sm:text-xl leading-tight">{module.title}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm line-clamp-2">{module.description}</CardDescription>
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 sm:mt-3">
                     {module.accessLevels.map((level) => (
-                      <Badge key={level} className={`${tierColors[level]} text-white`}>
+                      <Badge key={level} className={`${tierColors[level]} text-white text-xs`}>
                         {tierLabels[level]}
                       </Badge>
                     ))}
                     {module.published && (
-                      <Badge className="bg-green-500 text-white">
+                      <Badge className="bg-green-500 text-white text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Published
                       </Badge>
@@ -357,47 +357,48 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                   onClick={() => handleEditModule(module)}
                   size="sm"
                   variant="outline"
-                  className="gap-2"
+                  className="gap-2 w-full sm:w-auto flex-shrink-0 text-xs sm:text-sm"
                 >
-                  <Edit2 className="h-4 w-4" />
-                  Manage Access
+                  <Edit2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Manage Access</span>
+                  <span className="sm:hidden">Manage</span>
                 </Button>
               </div>
             </CardHeader>
 
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-blue-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Lessons</p>
-                    <p className="font-semibold">{module.totalLessons}</p>
+            <CardContent className="pt-3 sm:pt-4 p-3 sm:p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-600">Lessons</p>
+                    <p className="font-semibold text-sm sm:text-base">{module.totalLessons}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Total XP</p>
-                    <p className="font-semibold">{module.totalXp}</p>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-600">Total XP</p>
+                    <p className="font-semibold text-sm sm:text-base">{module.totalXp}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-green-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Duration</p>
-                    <p className="font-semibold">{module.estimatedHours}h</p>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-600">Duration</p>
+                    <p className="font-semibold text-sm sm:text-base">{module.estimatedHours}h</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">Category</p>
-                    <p className="font-semibold">{module.category}</p>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm text-gray-600">Category</p>
+                    <p className="font-semibold text-sm sm:text-base truncate">{module.category}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="text-sm text-gray-600">
+              <div className="text-xs sm:text-sm text-gray-600">
                 Created: {formatDate(module.createdAt)}
               </div>
             </CardContent>
@@ -407,38 +408,39 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
 
       {/* Edit Access Levels Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] sm:w-full overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              Manage Access Levels: {selectedModule?.title}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 flex-shrink-0" />
+              <span className="truncate">Manage Access: {selectedModule?.title}</span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               Control which subscription tiers can access each part of this module
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-6 py-4">
+          <ScrollArea className="flex-1 pr-2 sm:pr-4">
+            <div className="space-y-4 sm:space-y-6 py-3 sm:py-4">
               {/* Module-Level Access */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  Module Access
+              <div className="space-y-2 sm:space-y-3">
+                <h3 className="font-semibold text-base sm:text-lg flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                  <span>Module Access</span>
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600">
                   Default access levels for this module (can be overridden per lesson/quiz)
                 </p>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-3 sm:gap-4">
                   {['free', 'basic', 'standard', 'premium'].map((level) => (
-                    <div key={level} className="flex items-center gap-2">
+                    <div key={level} className="flex items-center gap-2 min-w-0">
                       <Checkbox
                         id={`module-${level}`}
                         checked={editingAccessLevels.moduleAccessLevels.includes(level)}
                         onCheckedChange={() => toggleModuleAccessLevel(level)}
+                        className="flex-shrink-0"
                       />
-                      <Label htmlFor={`module-${level}`} className="cursor-pointer">
-                        <Badge className={`${tierColors[level]} text-white`}>
+                      <Label htmlFor={`module-${level}`} className="cursor-pointer flex-shrink-0">
+                        <Badge className={`${tierColors[level]} text-white text-xs sm:text-sm`}>
                           {tierLabels[level]}
                         </Badge>
                       </Label>
@@ -448,16 +450,17 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
               </div>
 
               {/* Lessons */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <GraduationCap className="h-5 w-5" />
-                    Lessons ({selectedModule?.lessons.length || 0})
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="font-semibold text-base sm:text-lg flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                    <span>Lessons ({selectedModule?.lessons.length || 0})</span>
                   </h3>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => applyToAll('lessons', editingAccessLevels.moduleAccessLevels)}
+                    className="text-xs sm:text-sm w-full sm:w-auto"
                   >
                     Apply Module Access to All
                   </Button>
@@ -468,17 +471,17 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                     const lessonAccess = editingAccessLevels.lessonUpdates.get(lesson.id) || [];
                     return (
                       <AccordionItem key={lesson.id} value={lesson.id}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center gap-3 w-full">
-                            <span className="font-mono text-sm text-gray-500">
+                        <AccordionTrigger className="hover:no-underline py-3">
+                          <div className="flex items-center gap-2 sm:gap-3 w-full pr-2">
+                            <span className="font-mono text-xs sm:text-sm text-gray-500 flex-shrink-0">
                               L{index + 1}
                             </span>
-                            <span className="flex-1 text-left">{lesson.title}</span>
-                            <div className="flex gap-1">
+                            <span className="flex-1 text-left text-sm sm:text-base truncate pr-2">{lesson.title}</span>
+                            <div className="flex gap-1 flex-shrink-0">
                               {lessonAccess.map((level) => (
                                 <Badge
                                   key={level}
-                                  className={`${tierColors[level]} text-white text-xs`}
+                                  className={`${tierColors[level]} text-white text-xs px-1`}
                                 >
                                   {tierLabels[level][0]}
                                 </Badge>
@@ -487,23 +490,24 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="pl-8 space-y-4">
+                          <div className="pl-4 sm:pl-8 space-y-3 sm:space-y-4">
                             {/* Lesson Access */}
-                            <div className="flex gap-4">
+                            <div className="flex flex-wrap gap-3 sm:gap-4">
                               {['free', 'basic', 'standard', 'premium'].map((level) => (
-                                <div key={level} className="flex items-center gap-2">
+                                <div key={level} className="flex items-center gap-2 min-w-0">
                                   <Checkbox
                                     id={`lesson-${lesson.id}-${level}`}
                                     checked={lessonAccess.includes(level)}
                                     onCheckedChange={() =>
                                       toggleLessonAccessLevel(lesson.id, level)
                                     }
+                                    className="flex-shrink-0"
                                   />
                                   <Label
                                     htmlFor={`lesson-${lesson.id}-${level}`}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer flex-shrink-0"
                                   >
-                                    <Badge className={`${tierColors[level]} text-white`}>
+                                    <Badge className={`${tierColors[level]} text-white text-xs sm:text-sm`}>
                                       {tierLabels[level]}
                                     </Badge>
                                   </Label>
@@ -514,9 +518,9 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                             {/* Quizzes */}
                             {lesson.quiz.length > 0 && (
                               <div className="space-y-2">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                  <FileQuestion className="h-4 w-4" />
-                                  Quizzes ({lesson.quiz.length})
+                                <div className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+                                  <FileQuestion className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                                  <span>Quizzes ({lesson.quiz.length})</span>
                                 </div>
                                 {lesson.quiz.map((quiz, qIndex) => {
                                   const quizKey = `${lesson.id}-${quiz.id}`;
@@ -526,14 +530,14 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                                   return (
                                     <div
                                       key={quiz.id}
-                                      className="pl-4 border-l-2 border-gray-200 space-y-2"
+                                      className="pl-3 sm:pl-4 border-l-2 border-gray-200 space-y-2"
                                     >
-                                      <p className="text-sm font-medium">
-                                        Q{qIndex + 1}: {quiz.question.slice(0, 50)}...
+                                      <p className="text-xs sm:text-sm font-medium leading-tight">
+                                        Q{qIndex + 1}: {quiz.question.slice(0, 40)}{quiz.question.length > 40 ? '...' : ''}
                                       </p>
-                                      <div className="flex gap-4">
+                                      <div className="flex flex-wrap gap-2 sm:gap-4">
                                         {['free', 'basic', 'standard', 'premium'].map((level) => (
-                                          <div key={level} className="flex items-center gap-2">
+                                          <div key={level} className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                                             <Checkbox
                                               id={`quiz-${quizKey}-${level}`}
                                               checked={quizAccess.includes(level)}
@@ -544,13 +548,14 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                                                   level
                                                 )
                                               }
+                                              className="flex-shrink-0"
                                             />
                                             <Label
                                               htmlFor={`quiz-${quizKey}-${level}`}
-                                              className="cursor-pointer"
+                                              className="cursor-pointer flex-shrink-0"
                                             >
                                               <Badge
-                                                className={`${tierColors[level]} text-white text-xs`}
+                                                className={`${tierColors[level]} text-white text-xs px-1.5`}
                                               >
                                                 {tierLabels[level][0]}
                                               </Badge>
@@ -573,16 +578,21 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
             </div>
           </ScrollArea>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
               disabled={isSaving}
+              className="w-full sm:w-auto order-2 sm:order-1"
             >
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>
-            <Button onClick={handleSaveAccessLevels} disabled={isSaving}>
+            <Button 
+              onClick={handleSaveAccessLevels} 
+              disabled={isSaving}
+              className="w-full sm:w-auto order-1 sm:order-2"
+            >
               {isSaving ? (
                 <>
                   <Clock className="h-4 w-4 mr-2 animate-spin" />
