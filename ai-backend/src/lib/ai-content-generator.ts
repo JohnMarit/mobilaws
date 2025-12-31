@@ -559,3 +559,118 @@ export async function addReplyToMessage(
   }
 }
 
+/**
+ * Delete modules not created by tutor admins
+ * Returns number of modules deleted
+ */
+export async function deleteNonTutorModules(): Promise<{
+  deleted: number;
+  total: number;
+  tutorAdminIds: string[];
+  errors: string[];
+}> {
+  const db = getFirestore();
+  if (!db) {
+    throw new Error('Firestore not initialized');
+  }
+
+  const result = {
+    deleted: 0,
+    total: 0,
+    tutorAdminIds: [] as string[],
+    errors: [] as string[],
+  };
+
+  try {
+    console.log('═══════════════════════════════════════════════');
+    console.log('🧹 CLEANUP: Deleting modules not created by tutor admins');
+    console.log('═══════════════════════════════════════════════');
+
+    // Get all tutor admin IDs
+    const { getAllTutorAdmins } = await import('./tutor-admin-storage');
+    const tutorAdmins = await getAllTutorAdmins();
+    result.tutorAdminIds = tutorAdmins.map(t => t.id);
+    
+    console.log(`📋 Found ${tutorAdmins.length} tutor admin(s):`);
+    tutorAdmins.forEach(tutor => {
+      console.log(`   • ${tutor.name} (${tutor.email}) - ID: ${tutor.id}`);
+    });
+
+    if (tutorAdmins.length === 0) {
+      console.warn('⚠️  No tutor admins found. All modules will be deleted!');
+    }
+
+    // Get all modules
+    const modulesSnapshot = await db.collection(GENERATED_MODULES_COLLECTION).get();
+    result.total = modulesSnapshot.size;
+    
+    console.log(`\n📦 Found ${result.total} total module(s)`);
+
+    // Filter modules to delete (those without valid tutorId or tutorId not in tutor admins)
+    const modulesToDelete: { id: string; title: string; tutorId?: string }[] = [];
+
+    modulesSnapshot.docs.forEach(doc => {
+      const moduleData = doc.data();
+      const tutorId = moduleData.tutorId;
+
+      // Delete if:
+      // 1. No tutorId field
+      // 2. tutorId is empty/null/undefined
+      // 3. tutorId doesn't match any tutor admin ID
+      if (!tutorId || tutorId === '' || !result.tutorAdminIds.includes(tutorId)) {
+        modulesToDelete.push({
+          id: doc.id,
+          title: moduleData.title || 'Untitled',
+          tutorId: tutorId || 'MISSING',
+        });
+      }
+    });
+
+    console.log(`\n🗑️  Modules to delete: ${modulesToDelete.length}`);
+    if (modulesToDelete.length > 0) {
+      console.log('\n📋 Modules that will be deleted:');
+      modulesToDelete.forEach((m, i) => {
+        console.log(`   ${i + 1}. "${m.title}" (ID: ${m.id}, tutorId: ${m.tutorId})`);
+      });
+    }
+
+    // Delete modules in batches (Firestore batch limit is 500)
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < modulesToDelete.length; i += BATCH_SIZE) {
+      const batch = modulesToDelete.slice(i, i + BATCH_SIZE);
+      const firestoreBatch = db.batch();
+
+      batch.forEach(module => {
+        const docRef = db.collection(GENERATED_MODULES_COLLECTION).doc(module.id);
+        firestoreBatch.delete(docRef);
+      });
+
+      try {
+        await firestoreBatch.commit();
+        result.deleted += batch.length;
+        console.log(`\n✅ Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} module(s)`);
+      } catch (error) {
+        const errorMsg = `Failed to delete batch ${Math.floor(i / BATCH_SIZE) + 1}: ${error}`;
+        console.error(`❌ ${errorMsg}`);
+        result.errors.push(errorMsg);
+      }
+    }
+
+    console.log('\n═══════════════════════════════════════════════');
+    console.log('✅ CLEANUP COMPLETE');
+    console.log(`   Total modules: ${result.total}`);
+    console.log(`   Deleted: ${result.deleted}`);
+    console.log(`   Kept: ${result.total - result.deleted}`);
+    console.log(`   Errors: ${result.errors.length}`);
+    console.log('═══════════════════════════════════════════════');
+
+    return result;
+  } catch (error) {
+    const errorMsg = `Cleanup failed: ${error}`;
+    console.error('❌ ❌ ❌ CLEANUP FAILED! ❌ ❌ ❌');
+    console.error(errorMsg);
+    result.errors.push(errorMsg);
+    throw error;
+  }
+}
+

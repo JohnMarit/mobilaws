@@ -24,7 +24,8 @@ import {
   getPendingQuizRequests,
   getTutorMessages,
   updateMessageStatus,
-  addReplyToMessage
+  addReplyToMessage,
+  deleteNonTutorModules
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
 
@@ -533,6 +534,37 @@ router.post('/tutor-admin/quiz-requests/:requestId/process', async (req: Request
   } catch (error) {
     console.error('❌ Error processing quiz request:', error);
     res.status(500).json({ error: 'Failed to process quiz request' });
+  }
+});
+
+/**
+ * Cleanup: Delete modules not created by tutor admins
+ * POST /api/tutor-admin/cleanup-modules
+ * WARNING: This permanently deletes modules!
+ */
+router.post('/tutor-admin/cleanup-modules', async (req: Request, res: Response) => {
+  try {
+    console.log('🧹 Cleanup request received');
+    
+    const result = await deleteNonTutorModules();
+    
+    res.json({
+      success: true,
+      message: `Cleanup complete. Deleted ${result.deleted} module(s).`,
+      result: {
+        deleted: result.deleted,
+        total: result.total,
+        kept: result.total - result.deleted,
+        tutorAdminIds: result.tutorAdminIds,
+        errors: result.errors,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error during cleanup:', error);
+    res.status(500).json({
+      error: 'Cleanup failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
