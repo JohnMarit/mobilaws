@@ -12,6 +12,7 @@ import AudioPlayer, { HighlightedText } from './AudioPlayer';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import QuizRequestDialog from './QuizRequestDialog';
 import MessageTutorDialog from './MessageTutorDialog';
+import { renderHtmlContent } from '@/lib/htmlContentFormatter';
 
 interface LessonRunnerProps {
   open: boolean;
@@ -146,8 +147,8 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               />
             ) : (
               <div 
-                className="text-sm sm:text-base leading-relaxed overflow-x-hidden break-words"
-                dangerouslySetInnerHTML={{ __html: lesson.content }}
+                className="text-sm sm:text-base leading-relaxed overflow-x-hidden break-words prose-content"
+                dangerouslySetInnerHTML={{ __html: renderHtmlContent(lesson.content) }}
               />
             )}
           </div>

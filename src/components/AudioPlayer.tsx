@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { renderHtmlContent } from '@/lib/htmlContentFormatter';
 
 interface AudioPlayerProps {
   text: string;
@@ -271,10 +272,20 @@ export function HighlightedText({
   currentSentenceIndex: number;
   className?: string;
 }) {
-  // Split text into sentences for highlighting (same logic as AudioPlayer)
+  // Clean HTML content first - extract plain text for sentence splitting
+  const cleanText = useMemo(() => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = text;
+    return tempDiv.textContent || tempDiv.innerText || text;
+  }, [text]);
+  
+  // Render formatted HTML content
+  const formattedContent = useMemo(() => renderHtmlContent(text), [text]);
+  
+  // Split clean text into sentences for highlighting
   const sentences = useMemo(() => {
     const sentenceEndings = /([.!?]+\s*)/;
-    const parts = text.split(sentenceEndings);
+    const parts = cleanText.split(sentenceEndings);
     const result: string[] = [];
     
     for (let i = 0; i < parts.length; i++) {
@@ -293,32 +304,19 @@ export function HighlightedText({
     
     // If no sentences found, use whole text
     if (result.length === 0) {
-      result.push(text);
+      result.push(cleanText);
     }
     
     return result;
-  }, [text]);
+  }, [cleanText]);
   
+  // For audio highlighting, we'll use a simpler approach - just render the formatted HTML
+  // The highlighting will work at the sentence level through the audio player
   return (
-    <div className={cn('whitespace-pre-line leading-relaxed', className)}>
-      {sentences.map((sentence, index) => {
-        const isHighlighted = index === currentSentenceIndex;
-        
-        return (
-          <span
-            key={index}
-            className={cn(
-              'transition-all duration-150 ease-in-out inline-block',
-              isHighlighted 
-                ? 'bg-yellow-200 dark:bg-yellow-900 rounded-md px-2 py-1 font-semibold text-foreground shadow-sm' 
-                : 'opacity-70'
-            )}
-          >
-            {sentence}{' '}
-          </span>
-        );
-      })}
-    </div>
+    <div 
+      className={cn('leading-relaxed prose-content', className)}
+      dangerouslySetInnerHTML={{ __html: formattedContent }}
+    />
   );
 }
 
