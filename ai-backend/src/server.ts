@@ -111,6 +111,8 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'POST', path: '/api/payment/verify', description: 'Verify payment and create subscription' },
       { method: 'GET', path: '/api/payment/status/:paymentIntentId', description: 'Get payment status' },
       { method: 'POST', path: '/api/payment/webhook', description: 'Stripe webhook endpoint' },
+      { method: 'POST', path: '/api/ai-lessons/generate', description: 'Generate additional lessons using AI' },
+      { method: 'POST', path: '/api/ai-lessons/request-more', description: 'Request more lessons for a module' },
     ],
     config: {
       vectorBackend: env.VECTOR_BACKEND,

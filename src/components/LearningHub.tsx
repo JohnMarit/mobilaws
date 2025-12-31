@@ -100,7 +100,19 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
         })
       });
 
-      if (!response.ok) throw new Error('Failed to generate lessons');
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to generate lessons';
+        
+        if (response.status === 404) {
+          errorMessage = 'AI lesson generation is not available. Please contact support or try again later.';
+          console.error('API endpoint not found. Backend may need to be redeployed.');
+        } else if (response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
       toast.success(`Generated ${data.lessons.length} new lessons!`);
@@ -109,7 +121,8 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
       window.location.reload();
     } catch (error) {
       console.error('Error requesting lessons:', error);
-      toast.error('Failed to generate lessons. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate lessons. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsRequestingLessons(null);
     }
