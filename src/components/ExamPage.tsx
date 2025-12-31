@@ -24,6 +24,13 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
         try {
             // Fetch questions from Firestore (tutor-uploaded modules)
             const questions = await getExamQuestionsFromFirestore(examId, tier);
+            
+            if (questions.length === 0) {
+                alert('No exam questions available yet. Please contact your tutor admin to upload course content.');
+                setIsLoadingQuestions(false);
+                return;
+            }
+            
             setExamQuestions(questions);
             setSelectedExamId(examId);
         } catch (error) {

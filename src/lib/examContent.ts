@@ -1105,17 +1105,17 @@ export const basicExamQuestions: ExamQuestion[] = [
 
 /**
  * Get random questions for an exam
- * NOW FETCHES FROM FIRESTORE (tutor-uploaded modules)
+ * FETCHES FROM FIRESTORE (tutor-uploaded modules) ONLY
  */
 export async function getExamQuestionsFromFirestore(examId: string, tier: string): Promise<ExamQuestion[]> {
     try {
-        // Fetch modules from Firestore
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://mobilaws-ympe.vercel.app/api'}/tutor-admin/modules`);
+        // Fetch published modules from Firestore based on user's tier
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://mobilaws-ympe.vercel.app/api'}/tutor-admin/modules/level/${tier}`);
         const modules = await response.json();
         
         if (!Array.isArray(modules) || modules.length === 0) {
-            console.warn('No modules found in Firestore, using fallback questions');
-            return getExamQuestions(examId); // Fallback to hardcoded
+            console.warn('⚠️ No modules found in Firestore. Tutor admins need to upload content first.');
+            return [];
         }
         
         // Extract quiz questions from all lessons in all modules
@@ -1141,30 +1141,27 @@ export async function getExamQuestionsFromFirestore(examId: string, tier: string
         });
         
         if (allQuestions.length === 0) {
-            console.warn('No quiz questions found in modules, using fallback');
-            return getExamQuestions(examId); // Fallback to hardcoded
+            console.warn('⚠️ No quiz questions found in modules. Tutor admins need to upload content with quizzes.');
+            return [];
         }
         
-        // Determine how many questions based on exam type
-        let questionCount = 75; // basic
-        if (examId === 'standard-cert') questionCount = 200;
-        if (examId === 'premium-cert') questionCount = 400;
+        // Shuffle questions
+        const shuffled = allQuestions.sort(() => Math.random() - 0.5);
         
-        // If we don't have enough questions, repeat some
-        const shuffled = shuffleArray(allQuestions);
+        // Get the required number of questions based on exam type
+        const exam = certificationExams.find(e => e.id === examId);
+        const questionCount = exam?.questionCount || 75;
+        
+        // If we don't have enough questions, use all available and warn
         if (shuffled.length < questionCount) {
-            // Repeat questions to reach target count
-            const repeated = [];
-            while (repeated.length < questionCount) {
-                repeated.push(...shuffled);
-            }
-            return repeated.slice(0, questionCount);
+            console.warn(`⚠️ Only ${shuffled.length} questions available, exam requires ${questionCount}`);
+            return shuffled;
         }
         
         return shuffled.slice(0, questionCount);
     } catch (error) {
-        console.error('Error fetching exam questions from Firestore:', error);
-        return getExamQuestions(examId); // Fallback to hardcoded
+        console.error('❌ Error fetching exam questions from Firestore:', error);
+        return [];
     }
 }
 

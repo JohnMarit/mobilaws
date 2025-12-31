@@ -11,7 +11,10 @@ import {
   updateContentStatus,
   getContentByTutor,
   getAllUploadedContent,
-  getTutorAdminById
+  getTutorAdminById,
+  deleteUploadedContent,
+  updateUploadedContent,
+  getUploadedContentById
 } from '../lib/tutor-admin-storage';
 import {
   generateLearningModule,
@@ -25,9 +28,12 @@ import {
   getTutorMessages,
   updateMessageStatus,
   addReplyToMessage,
-  deleteNonTutorModules
+  deleteNonTutorModules,
+  deleteModule,
+  updateModule
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
+import { admin } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -336,9 +342,20 @@ router.get('/tutor-admin/modules/level/:accessLevel', async (req: Request, res: 
 router.post('/tutor-admin/modules/:moduleId/publish', async (req: Request, res: Response) => {
   try {
     const { moduleId } = req.params;
+    const { contentId } = req.body;
+    
     const success = await publishModule(moduleId);
     
     if (success) {
+      // Update the content's published status
+      if (contentId) {
+        const db = admin.firestore();
+        await db.collection('tutorContent').doc(contentId).update({
+          published: true,
+          publishedAt: admin.firestore.Timestamp.now(),
+        });
+      }
+      
       res.json({ success: true, message: 'Module published successfully' });
     } else {
       res.status(500).json({ error: 'Failed to publish module' });
@@ -346,6 +363,140 @@ router.post('/tutor-admin/modules/:moduleId/publish', async (req: Request, res: 
   } catch (error) {
     console.error('❌ Error publishing module:', error);
     res.status(500).json({ error: 'Failed to publish module' });
+  }
+});
+
+/**
+ * Delete uploaded content and associated module
+ * DELETE /api/tutor-admin/content/:contentId
+ */
+router.delete('/tutor-admin/content/:contentId', async (req: Request, res: Response) => {
+  try {
+    const { contentId } = req.params;
+    
+    // Get the content to find the associated module ID
+    const content = await getUploadedContentById(contentId);
+    if (!content) {
+      res.status(404).json({ error: 'Content not found' });
+      return;
+    }
+
+    // Delete the associated module if it exists
+    if (content.generatedModuleId) {
+      const moduleDeleted = await deleteModule(content.generatedModuleId);
+      if (!moduleDeleted) {
+        console.warn(`⚠️ Failed to delete module ${content.generatedModuleId}, continuing with content deletion`);
+      }
+    }
+
+    // Delete the content
+    const success = await deleteUploadedContent(contentId);
+    
+    if (success) {
+      res.json({ success: true, message: 'Content and module deleted successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete content' });
+    }
+  } catch (error) {
+    console.error('❌ Error deleting content:', error);
+    res.status(500).json({ error: 'Failed to delete content' });
+  }
+});
+
+/**
+ * Update uploaded content and regenerate module
+ * PUT /api/tutor-admin/content/:contentId
+ */
+router.put('/tutor-admin/content/:contentId', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const { contentId } = req.params;
+    const { title, description, category, accessLevels, tutorId, tutorName } = req.body;
+    
+    // Get existing content
+    const existingContent = await getUploadedContentById(contentId);
+    if (!existingContent) {
+      res.status(404).json({ error: 'Content not found' });
+      return;
+    }
+
+    // Update content metadata
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (description) updates.description = description;
+    if (category) updates.category = category;
+    if (accessLevels) {
+      try {
+        updates.accessLevels = JSON.parse(accessLevels);
+      } catch {
+        updates.accessLevels = accessLevels;
+      }
+    }
+
+    const contentUpdated = await updateUploadedContent(contentId, updates);
+    if (!contentUpdated) {
+      res.status(500).json({ error: 'Failed to update content metadata' });
+      return;
+    }
+
+    // If a new file was uploaded, regenerate the module
+    const file = req.file;
+    let moduleUpdated = false;
+
+    if (existingContent.generatedModuleId) {
+      const parsedAccessLevels = updates.accessLevels || existingContent.accessLevels;
+      
+      // If a new file was uploaded, regenerate the module with new content
+      if (file) {
+        const filePath = file.path;
+        
+        // Update the module with new content
+        const updatedModule = await updateModule(
+          existingContent.generatedModuleId,
+          filePath,
+          title || existingContent.title,
+          description || existingContent.description,
+          category || existingContent.category,
+          parsedAccessLevels,
+          tutorId || existingContent.tutorId,
+          tutorName || existingContent.tutorName,
+          contentId
+        );
+
+        if (updatedModule) {
+          moduleUpdated = true;
+          // Update content status to processing temporarily, then back to ready
+          await updateContentStatus(contentId, 'processing');
+          await updateContentStatus(contentId, 'ready', existingContent.generatedModuleId);
+        }
+        } else {
+          // No new file, just update module metadata if it exists
+          // Use admin.firestore() directly
+          const db = admin.firestore();
+          try {
+            await db.collection('generatedModules').doc(existingContent.generatedModuleId).update({
+              title: title || existingContent.title,
+              description: description || existingContent.description,
+              category: category || existingContent.category,
+              accessLevels: parsedAccessLevels,
+              updatedAt: admin.firestore.Timestamp.now(),
+            });
+            moduleUpdated = true;
+          } catch (error) {
+            console.error('❌ Error updating module metadata:', error);
+          }
+        }
+    }
+
+    res.json({ 
+      success: true, 
+      message: moduleUpdated 
+        ? 'Content and module updated successfully' 
+        : 'Content metadata updated successfully',
+      moduleUpdated
+    });
+  } catch (error) {
+    console.error('❌ Error updating content:', error);
+    res.status(500).json({ error: 'Failed to update content' });
   }
 });
 

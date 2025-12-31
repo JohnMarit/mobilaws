@@ -13,6 +13,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Upload,
   BookOpen,
   MessageSquare,
@@ -25,7 +43,9 @@ import {
   GraduationCap,
   Sparkles,
   Send,
-  Eye
+  Eye,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,6 +60,7 @@ interface UploadedContent {
   status: 'processing' | 'ready' | 'failed';
   uploadedAt: any;
   generatedModuleId?: string;
+  published?: boolean;
 }
 
 interface TutorMessage {
@@ -282,12 +303,14 @@ export default function TutorAdminPortal() {
     try {
       const response = await fetch(getApiUrl(`tutor-admin/modules/${moduleId}/publish`), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentId }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Module published successfully!');
+        toast.success('✅ Module published successfully! Users can now see this course.');
         loadTutorData();
       } else {
         toast.error('Failed to publish module');
@@ -295,6 +318,102 @@ export default function TutorAdminPortal() {
     } catch (error) {
       console.error('Publish error:', error);
       toast.error('Failed to publish module');
+    }
+  };
+
+  const handleEditClick = (content: UploadedContent) => {
+    setEditingContent(content);
+    setEditTitle(content.title);
+    setEditDescription(content.description);
+    setEditCategory(content.category);
+    setEditAccessLevels(content.accessLevels);
+    setEditFile(null);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingContent || !editTitle || !tutor) {
+      toast.error('Please fill in all required fields.');
+      return;
+    }
+
+    if (editAccessLevels.length === 0) {
+      toast.error('Please select at least one access level.');
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('title', editTitle);
+      formData.append('description', editDescription);
+      formData.append('category', editCategory);
+      formData.append('accessLevels', JSON.stringify(editAccessLevels));
+      formData.append('tutorId', tutor.id);
+      formData.append('tutorName', tutor.name);
+      
+      // Only append file if a new one was selected
+      if (editFile) {
+        formData.append('file', editFile);
+      }
+
+      const response = await fetch(getApiUrl(`tutor-admin/content/${editingContent.id}`), {
+        method: 'PUT',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.moduleUpdated 
+          ? '✅ Content and module updated successfully! AI is regenerating the course...'
+          : '✅ Content metadata updated successfully!'
+        );
+        setIsEditDialogOpen(false);
+        setEditingContent(null);
+        loadTutorData();
+      } else {
+        toast.error('Failed to update content: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Failed to update content. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteClick = (content: UploadedContent) => {
+    setDeletingContent(content);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingContent) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(getApiUrl(`tutor-admin/content/${deletingContent.id}`), {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Content and all associated course material deleted successfully!');
+        setIsDeleteDialogOpen(false);
+        setDeletingContent(null);
+        loadTutorData();
+      } else {
+        toast.error('Failed to delete content: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete content. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -622,6 +741,12 @@ export default function TutorAdminPortal() {
                                     Failed
                                   </Badge>
                                 )}
+                                {content.published && (
+                                  <Badge variant="default" className="bg-blue-500">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Published
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-muted-foreground mb-2">{content.description}</p>
                               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -639,6 +764,20 @@ export default function TutorAdminPortal() {
                               </div>
                             </div>
                             <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditClick(content)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteClick(content)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                               {content.status === 'ready' && content.generatedModuleId && (
                                 <>
                                   <Button
@@ -772,6 +911,127 @@ export default function TutorAdminPortal() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Content</DialogTitle>
+            <DialogDescription>
+              Update the content details. Upload a new file to regenerate the entire course.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="Enter content title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Enter content description"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Input
+                id="edit-category"
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                placeholder="e.g., constitutional-law"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Access Levels *</Label>
+              <div className="flex gap-2 flex-wrap">
+                {['free', 'basic', 'standard', 'premium'].map((level) => (
+                  <div key={level} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`edit-${level}`}
+                      checked={editAccessLevels.includes(level)}
+                      onCheckedChange={() => {
+                        setEditAccessLevels(prev =>
+                          prev.includes(level)
+                            ? prev.filter(l => l !== level)
+                            : [...prev, level]
+                        );
+                      }}
+                    />
+                    <Label htmlFor={`edit-${level}`} className="text-sm font-normal capitalize">
+                      {level}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-file">New File (Optional)</Label>
+              <Input
+                id="edit-file"
+                type="file"
+                accept=".pdf,.txt,.doc,.docx"
+                onChange={(e) => setEditFile(e.target.files?.[0] || null)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Upload a new file to regenerate the entire course with updated content
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditingContent(null);
+              }}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleEditSave} disabled={isUpdating}>
+              {isUpdating ? 'Updating...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the content "{deletingContent?.title}" and all associated course material, including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>The uploaded document</li>
+                <li>All generated lessons</li>
+                <li>All quizzes and assessments</li>
+                <li>All module data</li>
+              </ul>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

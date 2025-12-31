@@ -3,6 +3,7 @@
  * Handles tutor admin authentication, roles, and permissions
  */
 
+import fs from 'fs';
 import { getFirebaseAuth, admin } from './firebase-admin';
 
 const TUTOR_ADMINS_COLLECTION = 'tutorAdmins';
@@ -35,6 +36,7 @@ export interface UploadedContent {
   uploadedAt: admin.firestore.Timestamp;
   processedAt?: admin.firestore.Timestamp;
   generatedModuleId?: string; // Reference to generated learning module
+  published?: boolean; // Whether the module has been published to users
 }
 
 function getFirestore(): admin.firestore.Firestore | null {
@@ -318,6 +320,82 @@ export async function getAllUploadedContent(): Promise<UploadedContent[]> {
   } catch (error) {
     console.error('❌ Error fetching all content:', error);
     return [];
+  }
+}
+
+/**
+ * Delete uploaded content and associated files
+ */
+export async function deleteUploadedContent(contentId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const docRef = db.collection(TUTOR_CONTENT_COLLECTION).doc(contentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      console.error(`❌ Content not found: ${contentId}`);
+      return false;
+    }
+
+    const content = doc.data() as UploadedContent;
+
+    // Delete the file from storage if it exists
+    if (content.filePath && fs.existsSync(content.filePath)) {
+      try {
+        fs.unlinkSync(content.filePath);
+        console.log(`✅ Deleted file: ${content.filePath}`);
+      } catch (fileError) {
+        console.warn(`⚠️ Failed to delete file: ${content.filePath}`, fileError);
+        // Continue with deletion even if file deletion fails
+      }
+    }
+
+    // Delete the document from Firestore
+    await docRef.delete();
+    console.log(`✅ Deleted content: ${contentId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting content:', error);
+    return false;
+  }
+}
+
+/**
+ * Update uploaded content metadata
+ */
+export async function updateUploadedContent(
+  contentId: string,
+  updates: {
+    title?: string;
+    description?: string;
+    category?: string;
+    accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[];
+  }
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const docRef = db.collection(TUTOR_CONTENT_COLLECTION).doc(contentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      console.error(`❌ Content not found: ${contentId}`);
+      return false;
+    }
+
+    await docRef.update({
+      ...updates,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Updated content: ${contentId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating content:', error);
+    return false;
   }
 }
 

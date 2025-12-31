@@ -452,6 +452,91 @@ export async function publishModule(moduleId: string): Promise<boolean> {
 }
 
 /**
+ * Delete module and all its content
+ */
+export async function deleteModule(moduleId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).delete();
+    console.log(`✅ Deleted module: ${moduleId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting module:', error);
+    return false;
+  }
+}
+
+/**
+ * Update module with new content (regenerates the module)
+ */
+export async function updateModule(
+  moduleId: string,
+  filePath: string,
+  title: string,
+  description: string,
+  category: string,
+  accessLevels: ('free' | 'basic' | 'standard' | 'premium')[],
+  tutorId: string,
+  tutorName: string,
+  sourceContentId: string
+): Promise<GeneratedModule | null> {
+  const db = getFirestore();
+  if (!db) return null;
+
+  try {
+    // Get existing module to preserve ID
+    const moduleDoc = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    
+    if (!moduleDoc.exists) {
+      console.error(`❌ Module not found: ${moduleId}`);
+      return null;
+    }
+
+    // Generate new module content
+    const newModule = await generateLearningModule(
+      filePath,
+      title,
+      description,
+      category,
+      accessLevels,
+      tutorId,
+      tutorName,
+      sourceContentId
+    );
+
+    if (!newModule) {
+      console.error('❌ Failed to generate new module content');
+      return null;
+    }
+
+    // Update the existing module document with new content
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      title: newModule.title,
+      description: newModule.description,
+      category: newModule.category,
+      icon: newModule.icon,
+      lessons: newModule.lessons,
+      accessLevels: newModule.accessLevels,
+      totalXp: newModule.totalXp,
+      totalLessons: newModule.totalLessons,
+      estimatedHours: newModule.estimatedHours,
+      updatedAt: admin.firestore.Timestamp.now(),
+      // Keep published status - don't auto-unpublish on update
+    });
+
+    // Update the module ID in the returned object
+    newModule.id = moduleId;
+    console.log(`✅ Updated module: ${moduleId}`);
+    return newModule;
+  } catch (error) {
+    console.error('❌ Error updating module:', error);
+    return null;
+  }
+}
+
+/**
  * Get pending quiz requests
  */
 export async function getPendingQuizRequests(): Promise<QuizRequest[]> {
