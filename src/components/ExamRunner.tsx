@@ -9,6 +9,7 @@ import { CheckCircle2, XCircle, Award, ArrowLeft, ArrowRight, Trophy, Download }
 import { ExamQuestion, calculateExamScore, generateCertificateNumber, type Certificate, type ExamAttempt } from '@/lib/examContent';
 import { saveExamAttempt, saveCertificate } from '@/lib/examService';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
+import CertificateGenerator from './CertificateGenerator';
 
 interface ExamRunnerProps {
     open: boolean;
@@ -31,6 +32,7 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
         totalCount: number;
     } | null>(null);
     const [certificate, setCertificate] = useState<Certificate | null>(null);
+    const [showCertificate, setShowCertificate] = useState(false);
     const [attemptId] = useState(`attempt-${Date.now()}`);
     const [startTime] = useState(new Date().toISOString());
 
@@ -195,17 +197,30 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
 
                         {/* Actions */}
                         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
-                            {examResults.passed && (
-                                <Button variant="outline" className="gap-2 w-full sm:w-auto">
-                                    <Download className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Download Certificate</span>
-                                    <span className="sm:hidden">Download</span>
+                            {examResults.passed && certificate && (
+                                <Button 
+                                    variant="outline" 
+                                    className="gap-2 w-full sm:w-auto"
+                                    onClick={() => setShowCertificate(true)}
+                                >
+                                    <Award className="h-4 w-4" />
+                                    <span className="hidden sm:inline">View & Download Certificate</span>
+                                    <span className="sm:hidden">Certificate</span>
                                 </Button>
                             )}
                             <Button onClick={handleClose} className="w-full sm:w-auto">
-                                {examResults.passed ? 'View Certificate' : 'Close'}
+                                Close
                             </Button>
                         </div>
+                        
+                        {/* Certificate Generator Dialog */}
+                        {certificate && (
+                            <CertificateGenerator
+                                open={showCertificate}
+                                onClose={() => setShowCertificate(false)}
+                                certificate={certificate}
+                            />
+                        )}
                     </div>
                 </DialogContent>
             </Dialog>

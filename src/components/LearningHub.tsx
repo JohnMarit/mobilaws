@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2 } from 'lucide-react';
+import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -10,10 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
 import ExamPage from './ExamPage';
 import { Lesson, Module } from '@/lib/learningContent';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
+import { getApiUrl } from '@/lib/api';
 
 interface LearningHubProps {
   open: boolean;
@@ -21,8 +25,12 @@ interface LearningHubProps {
 }
 
 export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
+  const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson } = useLearning();
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -51,6 +59,95 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
     const done = percent === 100;
     return { percent, done };
   };
+
+  const toggleFavorite = (moduleId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(moduleId)) {
+        newFavorites.delete(moduleId);
+        toast.success('Removed from favorites');
+      } else {
+        newFavorites.add(moduleId);
+        toast.success('Added to favorites');
+      }
+      // Save to localStorage
+      localStorage.setItem('module-favorites', JSON.stringify(Array.from(newFavorites)));
+      return newFavorites;
+    });
+  };
+
+  const requestMoreLessons = async (moduleId: string, moduleName: string) => {
+    if (!user) {
+      toast.error('Please login to request more lessons');
+      return;
+    }
+
+    setIsRequestingLessons(moduleId);
+    try {
+      const modProg = getModuleProgress(moduleId);
+      const completedLessons = modProg ? Object.keys(modProg.lessonsCompleted) : [];
+
+      const response = await fetch(getApiUrl('ai-lessons/generate'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          moduleId,
+          moduleName,
+          completedLessons,
+          tier,
+          numberOfLessons: 5
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to generate lessons');
+
+      const data = await response.json();
+      toast.success(`Generated ${data.lessons.length} new lessons!`);
+      
+      // Reload modules to show new lessons
+      window.location.reload();
+    } catch (error) {
+      console.error('Error requesting lessons:', error);
+      toast.error('Failed to generate lessons. Please try again.');
+    } finally {
+      setIsRequestingLessons(null);
+    }
+  };
+
+  // Load favorites from localStorage on mount
+  useState(() => {
+    const saved = localStorage.getItem('module-favorites');
+    if (saved) {
+      setFavorites(new Set(JSON.parse(saved)));
+    }
+  });
+
+  // Filter and sort modules
+  const filteredModules = useMemo(() => {
+    let filtered = modules;
+    
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(m => m.icon === selectedCategory);
+    }
+
+    // Sort: favorites first, then by completion
+    return filtered.sort((a, b) => {
+      const aFav = favorites.has(a.id) ? 1 : 0;
+      const bFav = favorites.has(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      
+      const aStatus = moduleStatus(a);
+      const bStatus = moduleStatus(b);
+      return bStatus.percent - aStatus.percent;
+    });
+  }, [modules, selectedCategory, favorites]);
+
+  const categories = useMemo(() => {
+    const cats = new Set(modules.map(m => m.icon));
+    return Array.from(cats);
+  }, [modules]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -156,14 +253,35 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
               {/* Modules */}
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="text-lg sm:text-xl font-semibold">Modules</h3>
-                  <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()} Plan</Badge>
+                  <h3 className="text-lg sm:text-xl font-semibold">Courses</h3>
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-[140px] sm:w-[180px]">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat} value={cat}>
+                            <FontAwesomeIcon icon={
+                              cat === 'faScroll' ? faScroll :
+                              cat === 'faGlobe' ? faGlobe :
+                              cat === 'faScaleBalanced' ? faScaleBalanced :
+                              cat === 'faLandmark' ? faLandmark : faBook
+                            } className="mr-2" />
+                            {cat.replace('fa', '')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  {modules.map((module) => {
+                  {filteredModules.map((module) => {
                     const { percent, done } = moduleStatus(module);
                     return (
-                      <Card key={module.id} className="h-full flex flex-col touch-manipulation">
+                      <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
                           <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -179,7 +297,20 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                               />
                               <span className="leading-tight">{module.title}</span>
                             </div>
-                            {done ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" /> : null}
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => toggleFavorite(module.id)}
+                              >
+                                <FontAwesomeIcon 
+                                  icon={faHeart} 
+                                  className={`text-lg ${favorites.has(module.id) ? 'text-red-500' : 'text-gray-300'}`}
+                                />
+                              </Button>
+                              {done ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" /> : null}
+                            </div>
                           </CardTitle>
                           <CardDescription className="text-sm sm:text-base">{module.description}</CardDescription>
                         </CardHeader>
@@ -199,20 +330,40 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                               const lp = getLessonProgress(module.id, lesson.id);
                               const isLocked = lesson.locked;
                               const isCompleted = lp?.completed || false;
+                              
+                              // Determine visibility based on tier
+                              let showLesson = true;
+                              let showLocked = false;
+                              const lessonIndex = module.lessons.indexOf(lesson);
+                              
+                              if (tier === 'free') {
+                                showLesson = lessonIndex === 0;
+                                showLocked = lessonIndex > 0;
+                              } else if (tier === 'basic') {
+                                showLesson = lessonIndex === 0;
+                                showLocked = lessonIndex > 0;
+                              } else if (tier === 'standard') {
+                                showLesson = lessonIndex < 4;
+                                showLocked = lessonIndex >= 4;
+                              }
+                              
+                              if (!showLesson && !showLocked) return null;
+                              
                               return (
                                 <div
                                   key={lesson.id}
-                                  className="flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-shadow gap-2 sm:gap-3"
+                                  className={`flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-all duration-300 gap-2 sm:gap-3 ${showLocked ? 'opacity-60' : ''}`}
                                 >
                                   <div className="flex-1 min-w-0 pr-2 overflow-hidden">
                                     <div className="text-sm sm:text-base font-medium flex items-center gap-1.5 sm:gap-2">
                                       <span className="break-words line-clamp-1">{lesson.title}</span>
-                                      {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                                      {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 animate-pulse" />}
                                       {lesson.hasAudio && (
                                         <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
                                       )}
                                     </div>
                                     <div className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                                      <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
                                       <span>{lesson.xpReward} XP</span>
                                       <span>•</span>
                                       <span>{lesson.quiz.length} Q</span>
@@ -221,23 +372,23 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                           <span>•</span>
                                           <span className="text-blue-500 flex items-center gap-1">
                                             <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
-                                            <span className="hidden sm:inline">Listen</span>
+                                            <span className="hidden sm:inline">Audio</span>
                                           </span>
                                         </>
                                       )}
                                     </div>
                                   </div>
-                                  {isLocked ? (
+                                  {showLocked || isLocked ? (
                                     <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm flex-shrink-0">
                                       <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
-                                      <span className="hidden sm:inline">{lesson.tier.toUpperCase()}</span>
-                                      <span className="sm:hidden">{lesson.tier.charAt(0).toUpperCase()}</span>
+                                      <span className="hidden sm:inline">UPGRADE</span>
+                                      <span className="sm:hidden">🔒</span>
                                     </Badge>
                                   ) : (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[60px] sm:min-w-[80px]"
+                                      className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[60px] sm:min-w-[80px] hover:bg-blue-50 transition-colors"
                                       onClick={() => handleStartLesson(module, lesson)}
                                     >
                                       <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
@@ -248,6 +399,28 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                 </div>
                               );
                             })}
+                            
+                            {/* Request More Lessons Button */}
+                            {done && (
+                              <Button
+                                variant="outline"
+                                className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
+                                onClick={() => requestMoreLessons(module.id, module.title)}
+                                disabled={isRequestingLessons === module.id}
+                              >
+                                {isRequestingLessons === module.id ? (
+                                  <>
+                                    <div className="animate-spin mr-2">⏳</div>
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                    Request 5 More Lessons
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
