@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useSubscription } from './SubscriptionContext';
 import { useAuth } from './FirebaseAuthContext';
-import { getLearningModules, type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
+import { type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
 import { updateLeaderboardEntry, initLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
 import { getApiUrl } from '@/lib/api';
 
@@ -167,12 +167,147 @@ function getDailyLessonsRemaining(state: LearningState, tier: Tier): number {
   return Infinity;
 }
 
+/**
+ * Backend module types (from Firestore)
+ */
+interface GeneratedModule {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  lessons: GeneratedLesson[];
+  accessLevels: ('free' | 'basic' | 'standard' | 'premium')[];
+  tutorId: string;
+  tutorName: string;
+  published: boolean;
+}
+
+interface GeneratedLesson {
+  id: string;
+  title: string;
+  content: string;
+  xpReward: number;
+  quiz: GeneratedQuiz[];
+  hasAudio?: boolean;
+}
+
+interface GeneratedQuiz {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+}
+
+/**
+ * Convert backend GeneratedModule to frontend Module format
+ */
+function convertGeneratedModuleToModule(
+  generatedModule: GeneratedModule,
+  userTier: Tier,
+  moduleProgress?: ModuleProgress
+): Module {
+  // Determine the minimum required tier for this module
+  // If module has 'free' access, requiredTier is 'free', otherwise use the lowest tier in accessLevels
+  const tierOrder: Tier[] = ['free', 'basic', 'standard', 'premium'];
+  const requiredTier = generatedModule.accessLevels.includes('free')
+    ? 'free'
+    : generatedModule.accessLevels.reduce((min, tier) => {
+        const minIndex = tierOrder.indexOf(min);
+        const tierIndex = tierOrder.indexOf(tier);
+        return tierIndex < minIndex ? tier : min;
+      }, 'premium' as Tier);
+
+  // Check if module is locked (user tier doesn't have access)
+  const userTierIndex = tierOrder.indexOf(userTier);
+  const requiredTierIndex = tierOrder.indexOf(requiredTier);
+  const isModuleLocked = userTierIndex < requiredTierIndex;
+
+  // Convert lessons
+  const lessons: Lesson[] = generatedModule.lessons.map((genLesson) => {
+    // Determine lesson tier (use the module's required tier or lowest access level)
+    const lessonTier = requiredTier === 'free' ? 'basic' : requiredTier;
+    
+    // Check if lesson is locked (same logic as module)
+    const isLessonLocked = userTierIndex < requiredTierIndex;
+
+    // Check if lesson is completed
+    const lessonProgress = moduleProgress?.lessonsCompleted[genLesson.id];
+    const isCompleted = lessonProgress?.completed || false;
+
+    // Convert quiz questions
+    const quiz: QuizQuestion[] = genLesson.quiz.map((q) => ({
+      id: q.id,
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation,
+    }));
+
+    return {
+      id: genLesson.id,
+      title: genLesson.title,
+      content: genLesson.content,
+      xpReward: genLesson.xpReward,
+      quiz,
+      locked: isLessonLocked,
+      completed: isCompleted,
+      tier: lessonTier,
+      hasAudio: genLesson.hasAudio,
+    };
+  });
+
+  return {
+    id: generatedModule.id,
+    title: generatedModule.title,
+    description: generatedModule.description,
+    icon: generatedModule.icon,
+    lessons,
+    locked: isModuleLocked,
+    requiredTier,
+  };
+}
+
+/**
+ * Fetch published modules from backend API
+ */
+async function fetchModulesFromBackend(
+  accessLevel: Tier,
+  progress?: Record<string, ModuleProgress>
+): Promise<Module[]> {
+  try {
+    const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch modules for tier ${accessLevel}:`, response.statusText);
+      return [];
+    }
+
+    const generatedModules: GeneratedModule[] = await response.json();
+    
+    // Filter to only published modules (backend should do this, but double-check)
+    const publishedModules = generatedModules.filter(m => m.published === true);
+    
+    // Convert to frontend format with progress
+    return publishedModules.map(m => {
+      const moduleProgress = progress?.[m.id];
+      return convertGeneratedModuleToModule(m, accessLevel, moduleProgress);
+    });
+  } catch (error) {
+    console.error('Error fetching modules from backend:', error);
+    return [];
+  }
+}
+
 export function LearningProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { userSubscription } = useSubscription();
   const tier = normalizeTier(userSubscription?.planId);
   const [state, setState] = useState<LearningState>(defaultState);
   const [isLoading, setIsLoading] = useState(true);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [modulesLoading, setModulesLoading] = useState(true);
 
   // Load state when user changes
   useEffect(() => {
@@ -255,7 +390,28 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, level: computeLevel(prev.xp) }));
   }, [state.xp]);
 
-  const gatedModules = useMemo(() => getLearningModules(tier), [tier]);
+  // Fetch modules from backend when tier changes or progress updates
+  useEffect(() => {
+    const loadModules = async () => {
+      setModulesLoading(true);
+      try {
+        const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress);
+        setModules(fetchedModules);
+      } catch (error) {
+        console.error('Failed to load modules:', error);
+        setModules([]);
+      } finally {
+        setModulesLoading(false);
+      }
+    };
+
+    // Only fetch if we have user progress loaded (or if no user)
+    if (!isLoading || !user?.id) {
+      loadModules();
+    }
+  }, [tier, state.modulesProgress, isLoading, user?.id]);
+
+  const gatedModules = useMemo(() => modules, [modules]);
 
   const dailyLessonsRemaining = useMemo(() => getDailyLessonsRemaining(state, tier), [state, tier]);
   const canTakeLesson = dailyLessonsRemaining > 0;
@@ -319,7 +475,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
       touchActivity();
 
       // Find the lesson to get XP reward
-      const module = gatedModules.find(m => m.id === moduleId);
+      const module = modules.find(m => m.id === moduleId);
       const lesson = module?.lessons.find(l => l.id === lessonId);
       const earnedXp = lesson?.xpReward || 0;
 
@@ -386,7 +542,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
         return newState;
       });
     },
-    [awardXp, touchActivity, gatedModules]
+    [awardXp, touchActivity, modules]
   );
 
   const getModuleProgress = useCallback(
