@@ -799,38 +799,17 @@ function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard
 
 /**
  * Get learning modules for user's subscription tier
+ * NOW RETURNS EMPTY - All modules should come from Firestore (tutor admin generated)
  */
 export function getLearningModules(userTier: 'free' | 'basic' | 'standard' | 'premium' = 'free'): Module[] {
-  const extractedModules = getModulesForTier(userTier === 'free' ? 'basic' : userTier);
-  
-  return extractedModules.map(module => {
-    const accessibleTopics = module.topics.filter(topic => {
-      const tierHierarchy: Record<string, number> = {
-        free: 0,
-        basic: 1,
-        standard: 2,
-        premium: 3
-      };
-      const userTierLevel = tierHierarchy[userTier] || 0;
-      const topicTierLevel = tierHierarchy[topic.tier] || 0;
-      return topicTierLevel <= userTierLevel;
-    });
-    
-    return {
-      id: module.id,
-      title: module.title,
-      description: module.description,
-      icon: moduleIcons[module.id] || '📚',
-      requiredTier: module.tier as 'free' | 'basic' | 'standard' | 'premium',
-      locked: false, // Module visibility is handled by getModulesForTier
-      lessons: accessibleTopics.map((topic, index) => 
-        topicToLesson(topic, userTier, index, accessibleTopics.length)
-      )
-    };
-  });
+  // Return empty array - all content should come from Firestore via tutor admin
+  // The LearningContext should fetch modules from the backend API instead
+  console.log('⚠️ getLearningModules() called but returning empty - use Firestore modules instead');
+  return [];
 }
 
 /**
  * Default export for backwards compatibility
+ * NOW EMPTY - All modules from Firestore
  */
-export const learningModules = getLearningModules('free');
+export const learningModules: Module[] = [];

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cleanup Modules - Remove Non-Tutor Courses</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+        .warning-box strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .warning-box ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+        .warning-box li {
+            margin: 8px 0;
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result.show {
+            display: block;
+        }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #1976D2;
+        }
+        .confirm-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .confirm-section input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .confirm-section label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Cleanup Modules</h1>
+        <p class="subtitle">Remove courses/modules not created by tutor admins</p>
+        
+        <div class="warning-box">
+            <strong>⚠️ WARNING: This action is PERMANENT!</strong>
+            <ul>
+                <li>This will delete ALL modules/courses that were NOT created by tutor admins</li>
+                <li>Deleted modules cannot be recovered</li>
+                <li>Only modules created by active tutor admins will be kept</li>
+                <li>Make sure you have verified which modules should be deleted</li>
+            </ul>
+        </div>
+
+        <button type="button" id="previewBtn" style="background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);">
+            🔍 Preview What Will Be Deleted (Safe)
+        </button>
+        
+        <div class="confirm-section">
+            <label>
+                <input type="checkbox" id="confirmCheckbox">
+                <span>I understand this will permanently delete modules and I have verified the cleanup is correct</span>
+            </label>
+        </div>
+        
+        <button type="button" id="cleanupBtn" disabled>
+            🗑️ Delete Non-Tutor Modules (Permanent)
+        </button>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="info-box">
+            <strong>ℹ️ How it works:</strong><br>
+            1. Fetches all active tutor admin IDs from Firestore<br>
+            2. Fetches all modules from the generatedModules collection<br>
+            3. Deletes modules where tutorId is missing or doesn't match any tutor admin<br>
+            4. Modules created by tutor admins are kept safe
+        </div>
+    </div>
+
+    <script>
+        // Try to get API URL from common backend URLs
+        // You can change this if your backend is hosted elsewhere
+        const API_URL = 'https://mobilaws-ympe.vercel.app/api';
+        
+        // Function to test if backend is reachable
+        async function testBackendConnection() {
+            try {
+                const response = await fetch(`${API_URL}/health`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                return response.ok;
+            } catch (error) {
+                // Try the tutor-admin check endpoint as a test
+                try {
+                    const testResponse = await fetch(`${API_URL}/tutor-admin/all`, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                    return testResponse.status !== 404; // If 404, endpoint doesn't exist, otherwise backend is up
+                } catch (e) {
+                    return false;
+                }
+            }
+        }
+        
+        const confirmCheckbox = document.getElementById('confirmCheckbox');
+        const cleanupBtn = document.getElementById('cleanupBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const resultDiv = document.getElementById('result');
+        
+        // Enable/disable button based on checkbox
+        confirmCheckbox.addEventListener('change', (e) => {
+            cleanupBtn.disabled = !e.target.checked;
+        });
+        
+        // Preview button - shows what will be deleted without actually deleting
+        previewBtn.addEventListener('click', async () => {
+            previewBtn.disabled = true;
+            previewBtn.innerHTML = '<span class="loading"></span>Loading preview...';
+            resultDiv.classList.remove('show');
+            
+            try {
+                console.log('🔍 Loading preview...');
+                const response = await fetch(`${API_URL}/tutor-admin/cleanup-modules`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ dryRun: true }),
+                });
+
+                const data = await response.json();
+                console.log('Preview response:', data);
+
+                if (data.success && data.result) {
+                    const result = data.result;
+                    let message = `🔍 PREVIEW - No modules deleted yet\n\n`;
+                    message += `📊 Summary:\n`;
+                    message += `   • Total modules: ${result.total}\n`;
+                    message += `   • Will DELETE: ${result.modulesToDelete?.length || 0}\n`;
+                    message += `   • Will KEEP: ${result.modulesToKeep?.length || 0}\n`;
+                    message += `   • Tutor admins: ${result.tutorAdminIds.length}\n\n`;
+                    
+                    if (result.modulesToKeep && result.modulesToKeep.length > 0) {
+                        message += `✅ MODULES TO KEEP (created by tutor admins):\n`;
+                        result.modulesToKeep.forEach((m, i) => {
+                            message += `   ${i + 1}. "${m.title}" (ID: ${m.id}, tutor: ${m.tutorId})\n`;
+                        });
+                        message += `\n`;
+                    }
+                    
+                    if (result.modulesToDelete && result.modulesToDelete.length > 0) {
+                        message += `🗑️  MODULES TO DELETE:\n`;
+                        result.modulesToDelete.forEach((m, i) => {
+                            message += `   ${i + 1}. "${m.title}" (ID: ${m.id}, tutor: ${m.tutorId})\n`;
+                        });
+                        message += `\n`;
+                    }
+                    
+                    message += `\n💡 This is a preview only - nothing was deleted.\n`;
+                    message += `To proceed with deletion, check the box and click "Delete Non-Tutor Modules".`;
+                    
+                    showResult(message, 'info');
+                    previewBtn.innerHTML = '🔍 Preview What Will Be Deleted (Safe)';
+                    previewBtn.disabled = false;
+                } else {
+                    showResult(
+                        `❌ Preview failed: ${data.error || data.message || 'Unknown error'}\n\n${JSON.stringify(data, null, 2)}`,
+                        'error'
+                    );
+                    previewBtn.innerHTML = '🔍 Preview What Will Be Deleted (Safe)';
+                    previewBtn.disabled = false;
+                }
+            } catch (error) {
+                let message = `❌ Preview failed: ${error.message}\n\n`;
+                message += `Check browser console (F12) for more details.`;
+                console.error('Preview error:', error);
+                showResult(message, 'error');
+                previewBtn.innerHTML = '🔍 Preview What Will Be Deleted (Safe)';
+                previewBtn.disabled = false;
+            }
+        });
+        
+        cleanupBtn.addEventListener('click', async () => {
+            if (!confirmCheckbox.checked) {
+                showResult('Please check the confirmation box first', 'error');
+                return;
+            }
+            
+            // Final confirmation
+            const confirmed = confirm(
+                '⚠️ FINAL CONFIRMATION\n\n' +
+                'This will PERMANENTLY DELETE all modules not created by tutor admins.\n\n' +
+                'This action cannot be undone!\n\n' +
+                'Are you absolutely sure you want to proceed?'
+            );
+            
+            if (!confirmed) {
+                showResult('Cleanup cancelled by user', 'info');
+                return;
+            }
+            
+            // Disable button and show loading
+            cleanupBtn.disabled = true;
+            cleanupBtn.innerHTML = '<span class="loading"></span>Checking backend connection...';
+            resultDiv.classList.remove('show');
+            
+            // First, test backend connection
+            try {
+                console.log('🔍 Testing backend connection...');
+                const isBackendUp = await testBackendConnection();
+                
+                if (!isBackendUp) {
+                    let message = `❌ Cannot connect to backend API\n\n`;
+                    message += `API URL: ${API_URL}\n\n`;
+                    message += `Possible issues:\n`;
+                    message += `1. Backend not deployed yet\n`;
+                    message += `2. Wrong API URL (check if your backend is at a different URL)\n`;
+                    message += `3. CORS configuration issue\n`;
+                    message += `4. Network connectivity problem\n\n`;
+                    message += `💡 Solution:\n`;
+                    message += `• Make sure backend is deployed to Vercel\n`;
+                    message += `• Check the API URL matches your backend URL\n`;
+                    message += `• If backend is at different URL, edit this HTML file and change API_URL constant\n`;
+                    message += `• Check browser console (F12) → Network tab for detailed error\n`;
+                    
+                    showResult(message, 'error');
+                    cleanupBtn.disabled = false;
+                    cleanupBtn.innerHTML = '🗑️ Delete Non-Tutor Modules';
+                    return;
+                }
+                
+                console.log('✅ Backend connection OK');
+            } catch (error) {
+                console.error('Backend connection test failed:', error);
+            }
+            
+            cleanupBtn.innerHTML = '<span class="loading"></span>Running cleanup... This may take a moment';
+            
+            try {
+                console.log('🧹 Starting cleanup...');
+                console.log('🔗 API URL:', `${API_URL}/tutor-admin/cleanup-modules`);
+                
+                const response = await fetch(`${API_URL}/tutor-admin/cleanup-modules`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                console.log('📡 Response status:', response.status);
+                console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+                const data = await response.json();
+                console.log('Response:', data);
+
+                if (data.success && data.result) {
+                    const result = data.result;
+                    let message = `✅ CLEANUP COMPLETE!\n\n`;
+                    message += `📊 Summary:\n`;
+                    message += `   • Total modules: ${result.total}\n`;
+                    message += `   • Deleted: ${result.deleted}\n`;
+                    message += `   • Kept: ${result.kept}\n`;
+                    message += `   • Tutor admins: ${result.tutorAdminIds.length}\n\n`;
+                    
+                    if (result.modulesToKeep && result.modulesToKeep.length > 0) {
+                        message += `✅ KEPT (tutor admin modules):\n`;
+                        result.modulesToKeep.forEach((m, i) => {
+                            message += `   ${i + 1}. "${m.title}" (tutor: ${m.tutorId})\n`;
+                        });
+                        message += `\n`;
+                    }
+                    
+                    if (result.modulesToDelete && result.modulesToDelete.length > 0) {
+                        message += `🗑️  DELETED:\n`;
+                        result.modulesToDelete.forEach((m, i) => {
+                            message += `   ${i + 1}. "${m.title}"\n`;
+                        });
+                        message += `\n`;
+                    }
+                    
+                    if (result.errors && result.errors.length > 0) {
+                        message += `⚠️ Errors (${result.errors.length}):\n`;
+                        result.errors.forEach((err, i) => {
+                            message += `   ${i + 1}. ${err}\n`;
+                        });
+                    }
+                    
+                    showResult(message, 'success');
+                    cleanupBtn.innerHTML = '✅ Cleanup Complete';
+                } else {
+                    showResult(
+                        `❌ Error: ${data.error || data.message || 'Cleanup failed'}\n\n${JSON.stringify(data, null, 2)}`,
+                        'error'
+                    );
+                    cleanupBtn.disabled = false;
+                    cleanupBtn.innerHTML = '🗑️ Delete Non-Tutor Modules';
+                }
+            } catch (error) {
+                let message = `❌ ERROR: ${error.message}\n\n`;
+                message += `Failed to run cleanup.\n\n`;
+                message += `API URL: ${API_URL}/tutor-admin/cleanup-modules\n\n`;
+                
+                if (error.message.includes('Failed to fetch')) {
+                    message += `🔍 This usually means:\n`;
+                    message += `• Backend API is not deployed yet\n`;
+                    message += `• Wrong API URL (backend is at different URL)\n`;
+                    message += `• CORS configuration issue\n`;
+                    message += `• Network connectivity problem\n\n`;
+                    message += `💡 Steps to fix:\n`;
+                    message += `1. Make sure backend is deployed: cd ai-backend && git push\n`;
+                    message += `2. Wait 1-2 minutes for Vercel deployment\n`;
+                    message += `3. Check your backend URL in Vercel dashboard\n`;
+                    message += `4. If URL is different, edit this HTML file (line ~237) and change API_URL\n`;
+                    message += `5. Check browser console (F12) → Network tab for detailed error\n`;
+                } else {
+                    message += `Possible causes:\n`;
+                    message += `• Backend API error\n`;
+                    message += `• Firestore not initialized\n`;
+                    message += `• Permission denied\n\n`;
+                    message += `Check browser console (F12) for more details.`;
+                }
+                
+                console.error('═══════════════════════════════════════════════');
+                console.error('❌ CLEANUP ERROR');
+                console.error('═══════════════════════════════════════════════');
+                console.error('Error:', error);
+                console.error('API URL:', `${API_URL}/tutor-admin/cleanup-modules`);
+                console.error('═══════════════════════════════════════════════');
+                
+                showResult(message, 'error');
+                cleanupBtn.disabled = false;
+                cleanupBtn.innerHTML = '🗑️ Delete Non-Tutor Modules';
+            }
+        });
+        
+        function showResult(text, type) {
+            resultDiv.textContent = text;
+            resultDiv.className = `result ${type} show`;
+        }
+    </script>
+</body>
+</html>
+

@@ -114,10 +114,27 @@ export default function TutorAdminPortal() {
   }, [isTutorAdmin, tutor]);
 
   const loadTutorData = async () => {
-    if (!tutor) return;
+    if (!tutor) {
+      console.warn('⚠️ No tutor object available');
+      return;
+    }
 
     try {
-      console.log('📥 Loading tutor data for:', tutor.id);
+      console.log('═══════════════════════════════════════════════');
+      console.log('📥 LOADING TUTOR DATA');
+      console.log('═══════════════════════════════════════════════');
+      console.log('👤 Tutor object:', JSON.stringify(tutor, null, 2));
+      console.log('🆔 Tutor ID:', tutor.id);
+      console.log('📧 Tutor email:', tutor.email);
+      
+      if (!tutor.id) {
+        console.error('❌ CRITICAL: tutor.id is undefined!');
+        console.error('This will cause API calls to fail.');
+        toast.error('Tutor ID is missing. Please contact support.');
+        return;
+      }
+      
+      console.log('✅ Tutor ID is valid, proceeding with data load...');
       
       // Load uploaded content
       const contentRes = await fetch(getApiUrl(`tutor-admin/content/${tutor.id}`));

@@ -4304,38 +4304,11 @@ Checklist for Judicial Review:
 
 /**
  * Get all extracted modules organized by tier
+ * NOW EMPTY - All modules should come from tutor admin uploads
  */
 export function getAllModules(): ExtractedModule[] {
-   return [
-      {
-         id: 'constitution',
-         title: 'South Sudan Constitution',
-         description: 'Fundamental law, rights, and government structure',
-         topics: constitutionTopics,
-         tier: 'basic'
-      },
-      {
-         id: 'international-law',
-         title: 'International Law Principles',
-         description: 'Treaties, state responsibility, and global legal framework',
-         topics: internationalLawTopics,
-         tier: 'basic'
-      },
-      {
-         id: 'criminal-law',
-         title: 'Criminal Law & Penal Code',
-         description: 'Offenses, defenses, and criminal procedure',
-         topics: criminalLawTopics,
-         tier: 'basic'
-      },
-      {
-         id: 'public-law',
-         title: 'Public Law & Administrative Justice',
-         description: 'Government powers, judicial review, and citizen rights',
-         topics: publicLawTopics,
-         tier: 'basic'
-      }
-   ];
+   // Return empty array - all content should come from Firestore via tutor admin
+   return [];
 }
 
 /**
