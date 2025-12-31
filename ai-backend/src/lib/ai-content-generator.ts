@@ -562,11 +562,14 @@ export async function addReplyToMessage(
 /**
  * Delete modules not created by tutor admins
  * Returns number of modules deleted
+ * @param dryRun - If true, only preview what would be deleted without actually deleting
  */
-export async function deleteNonTutorModules(): Promise<{
+export async function deleteNonTutorModules(dryRun = false): Promise<{
   deleted: number;
   total: number;
   tutorAdminIds: string[];
+  modulesToDelete: { id: string; title: string; tutorId?: string }[];
+  modulesToKeep: { id: string; title: string; tutorId: string }[];
   errors: string[];
 }> {
   const db = getFirestore();
@@ -578,12 +581,15 @@ export async function deleteNonTutorModules(): Promise<{
     deleted: 0,
     total: 0,
     tutorAdminIds: [] as string[],
+    modulesToDelete: [] as { id: string; title: string; tutorId?: string }[],
+    modulesToKeep: [] as { id: string; title: string; tutorId: string }[],
     errors: [] as string[],
   };
 
   try {
     console.log('═══════════════════════════════════════════════');
-    console.log('🧹 CLEANUP: Deleting modules not created by tutor admins');
+    console.log(`🧹 CLEANUP: ${dryRun ? 'PREVIEW' : 'Deleting'} modules not created by tutor admins`);
+    console.log(`   Mode: ${dryRun ? '🔍 DRY RUN (preview only)' : '🗑️  DELETE (permanent)'}`);
     console.log('═══════════════════════════════════════════════');
 
     // Get all tutor admin IDs
@@ -606,19 +612,24 @@ export async function deleteNonTutorModules(): Promise<{
     
     console.log(`\n📦 Found ${result.total} total module(s)`);
 
-    // Filter modules to delete (those without valid tutorId or tutorId not in tutor admins)
-    const modulesToDelete: { id: string; title: string; tutorId?: string }[] = [];
-
+    // Categorize modules: keep vs delete
     modulesSnapshot.docs.forEach(doc => {
       const moduleData = doc.data();
       const tutorId = moduleData.tutorId;
 
-      // Delete if:
-      // 1. No tutorId field
-      // 2. tutorId is empty/null/undefined
-      // 3. tutorId doesn't match any tutor admin ID
-      if (!tutorId || tutorId === '' || !result.tutorAdminIds.includes(tutorId)) {
-        modulesToDelete.push({
+      // Check if module should be kept or deleted
+      // KEEP if: tutorId exists AND matches a tutor admin ID
+      // DELETE if: no tutorId OR tutorId doesn't match any tutor admin
+      if (tutorId && tutorId !== '' && result.tutorAdminIds.includes(tutorId)) {
+        // KEEP THIS MODULE - it has a valid tutor admin ID
+        result.modulesToKeep.push({
+          id: doc.id,
+          title: moduleData.title || 'Untitled',
+          tutorId: tutorId,
+        });
+      } else {
+        // DELETE THIS MODULE - invalid or missing tutor admin ID
+        result.modulesToDelete.push({
           id: doc.id,
           title: moduleData.title || 'Untitled',
           tutorId: tutorId || 'MISSING',
@@ -626,18 +637,34 @@ export async function deleteNonTutorModules(): Promise<{
       }
     });
 
-    console.log(`\n🗑️  Modules to delete: ${modulesToDelete.length}`);
-    if (modulesToDelete.length > 0) {
-      console.log('\n📋 Modules that will be deleted:');
-      modulesToDelete.forEach((m, i) => {
+    console.log(`\n✅ Modules to KEEP: ${result.modulesToKeep.length}`);
+    if (result.modulesToKeep.length > 0) {
+      console.log('\n📋 Modules that will be KEPT (created by tutor admins):');
+      result.modulesToKeep.forEach((m, i) => {
         console.log(`   ${i + 1}. "${m.title}" (ID: ${m.id}, tutorId: ${m.tutorId})`);
       });
     }
 
+    console.log(`\n🗑️  Modules to DELETE: ${result.modulesToDelete.length}`);
+    if (result.modulesToDelete.length > 0) {
+      console.log('\n📋 Modules that will be DELETED:');
+      result.modulesToDelete.forEach((m, i) => {
+        console.log(`   ${i + 1}. "${m.title}" (ID: ${m.id}, tutorId: ${m.tutorId})`);
+      });
+    }
+    
+    if (dryRun) {
+      console.log('\n🔍 DRY RUN MODE - No modules were actually deleted');
+      console.log('   Run again without dryRun=true to perform deletion');
+      console.log('═══════════════════════════════════════════════');
+      return result;
+    }
+
     // Delete modules in batches (Firestore batch limit is 500)
+    console.log('\n🗑️  Starting deletion...');
     const BATCH_SIZE = 500;
-    for (let i = 0; i < modulesToDelete.length; i += BATCH_SIZE) {
-      const batch = modulesToDelete.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < result.modulesToDelete.length; i += BATCH_SIZE) {
+      const batch = result.modulesToDelete.slice(i, i + BATCH_SIZE);
       const firestoreBatch = db.batch();
 
       batch.forEach(module => {
@@ -659,8 +686,8 @@ export async function deleteNonTutorModules(): Promise<{
     console.log('\n═══════════════════════════════════════════════');
     console.log('✅ CLEANUP COMPLETE');
     console.log(`   Total modules: ${result.total}`);
-    console.log(`   Deleted: ${result.deleted}`);
-    console.log(`   Kept: ${result.total - result.deleted}`);
+    console.log(`   Kept (tutor admin): ${result.modulesToKeep.length}`);
+    console.log(`   Deleted (non-tutor): ${result.deleted}`);
     console.log(`   Errors: ${result.errors.length}`);
     console.log('═══════════════════════════════════════════════');
 

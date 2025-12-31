@@ -540,22 +540,29 @@ router.post('/tutor-admin/quiz-requests/:requestId/process', async (req: Request
 /**
  * Cleanup: Delete modules not created by tutor admins
  * POST /api/tutor-admin/cleanup-modules
- * WARNING: This permanently deletes modules!
+ * Body: { dryRun?: boolean }
+ * WARNING: This permanently deletes modules unless dryRun=true!
  */
 router.post('/tutor-admin/cleanup-modules', async (req: Request, res: Response) => {
   try {
-    console.log('🧹 Cleanup request received');
+    const { dryRun = false } = req.body;
+    console.log(`🧹 Cleanup request received (dryRun: ${dryRun})`);
     
-    const result = await deleteNonTutorModules();
+    const result = await deleteNonTutorModules(dryRun);
     
     res.json({
       success: true,
-      message: `Cleanup complete. Deleted ${result.deleted} module(s).`,
+      message: dryRun 
+        ? `Preview: ${result.modulesToDelete.length} module(s) would be deleted, ${result.modulesToKeep.length} would be kept.`
+        : `Cleanup complete. Deleted ${result.deleted} module(s), kept ${result.modulesToKeep.length}.`,
       result: {
+        dryRun,
         deleted: result.deleted,
         total: result.total,
-        kept: result.total - result.deleted,
+        kept: result.modulesToKeep.length,
         tutorAdminIds: result.tutorAdminIds,
+        modulesToDelete: result.modulesToDelete,
+        modulesToKeep: result.modulesToKeep,
         errors: result.errors,
       },
     });
