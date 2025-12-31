@@ -104,6 +104,21 @@ export default function TutorAdminPortal() {
   const [category, setCategory] = useState('general');
   const [accessLevels, setAccessLevels] = useState<string[]>(['free']);
 
+  // Edit dialog state
+  const [editingContent, setEditingContent] = useState<UploadedContent | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('general');
+  const [editAccessLevels, setEditAccessLevels] = useState<string[]>(['free']);
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Delete confirmation state
+  const [deletingContent, setDeletingContent] = useState<UploadedContent | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     if (!isLoading && !isTutorAdmin) {
       console.error('═══════════════════════════════════════════════');
