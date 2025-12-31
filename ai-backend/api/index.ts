@@ -21,6 +21,7 @@ import adminGrantRouter from '../src/routes/admin-grant';
 import leaderboardRouter from '../src/routes/leaderboard';
 import learningRouter from '../src/routes/learning';
 import tutorAdminRouter from '../src/routes/tutor-admin';
+import aiLessonsRouter from '../src/routes/ai-lessons';
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use('/api', adminGrantRouter);
 app.use('/api', leaderboardRouter);
 app.use('/api', learningRouter);
 app.use('/api', tutorAdminRouter);
+app.use('/api', aiLessonsRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -91,6 +93,8 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'POST', path: '/api/leaderboard/populate', description: 'Populate leaderboard' },
       { method: 'GET', path: '/api/learning/progress/:userId', description: 'Get learning progress' },
       { method: 'POST', path: '/api/learning/progress', description: 'Save learning progress' },
+      { method: 'POST', path: '/api/ai-lessons/generate', description: 'Generate additional lessons using AI' },
+      { method: 'POST', path: '/api/ai-lessons/request-more', description: 'Request more lessons for a module' },
     ],
   });
 });
