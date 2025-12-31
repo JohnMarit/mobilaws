@@ -1105,6 +1105,71 @@ export const basicExamQuestions: ExamQuestion[] = [
 
 /**
  * Get random questions for an exam
+ * NOW FETCHES FROM FIRESTORE (tutor-uploaded modules)
+ */
+export async function getExamQuestionsFromFirestore(examId: string, tier: string): Promise<ExamQuestion[]> {
+    try {
+        // Fetch modules from Firestore
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://mobilaws-ympe.vercel.app/api'}/tutor-admin/modules`);
+        const modules = await response.json();
+        
+        if (!Array.isArray(modules) || modules.length === 0) {
+            console.warn('No modules found in Firestore, using fallback questions');
+            return getExamQuestions(examId); // Fallback to hardcoded
+        }
+        
+        // Extract quiz questions from all lessons in all modules
+        const allQuestions: ExamQuestion[] = [];
+        modules.forEach((module: any) => {
+            if (module.lessons && Array.isArray(module.lessons)) {
+                module.lessons.forEach((lesson: any) => {
+                    if (lesson.quiz && Array.isArray(lesson.quiz)) {
+                        lesson.quiz.forEach((quiz: any, index: number) => {
+                            allQuestions.push({
+                                id: `${module.id}-${lesson.id}-q${index}`,
+                                moduleId: module.id || 'general',
+                                question: quiz.question,
+                                options: quiz.options,
+                                correctAnswer: quiz.correctAnswer,
+                                explanation: quiz.explanation || 'No explanation provided',
+                                difficulty: quiz.difficulty || 'beginner'
+                            });
+                        });
+                    }
+                });
+            }
+        });
+        
+        if (allQuestions.length === 0) {
+            console.warn('No quiz questions found in modules, using fallback');
+            return getExamQuestions(examId); // Fallback to hardcoded
+        }
+        
+        // Determine how many questions based on exam type
+        let questionCount = 75; // basic
+        if (examId === 'standard-cert') questionCount = 200;
+        if (examId === 'premium-cert') questionCount = 400;
+        
+        // If we don't have enough questions, repeat some
+        const shuffled = shuffleArray(allQuestions);
+        if (shuffled.length < questionCount) {
+            // Repeat questions to reach target count
+            const repeated = [];
+            while (repeated.length < questionCount) {
+                repeated.push(...shuffled);
+            }
+            return repeated.slice(0, questionCount);
+        }
+        
+        return shuffled.slice(0, questionCount);
+    } catch (error) {
+        console.error('Error fetching exam questions from Firestore:', error);
+        return getExamQuestions(examId); // Fallback to hardcoded
+    }
+}
+
+/**
+ * Get random questions for an exam (FALLBACK - uses hardcoded questions)
  */
 export function getExamQuestions(examId: string): ExamQuestion[] {
     if (examId === 'basic-cert') {

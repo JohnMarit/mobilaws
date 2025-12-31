@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Award, Trophy, Lock, CheckCircle2, Clock, Target } from 'lucide-react';
-import { certificationExams, getExamQuestions, type Certificate } from '@/lib/examContent';
+import { certificationExams, getExamQuestionsFromFirestore, type Certificate } from '@/lib/examContent';
 import { useLearning } from '@/contexts/LearningContext';
 import ExamRunner from './ExamRunner';
 
@@ -17,11 +17,21 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
     const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
     const [examQuestions, setExamQuestions] = useState<any[]>([]);
     const [certificates, setCertificates] = useState<Certificate[]>([]);
+    const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
 
-    const handleStartExam = (examId: string) => {
-        const questions = getExamQuestions(examId);
-        setExamQuestions(questions);
-        setSelectedExamId(examId);
+    const handleStartExam = async (examId: string) => {
+        setIsLoadingQuestions(true);
+        try {
+            // Fetch questions from Firestore (tutor-uploaded modules)
+            const questions = await getExamQuestionsFromFirestore(examId, tier);
+            setExamQuestions(questions);
+            setSelectedExamId(examId);
+        } catch (error) {
+            console.error('Failed to load exam questions:', error);
+            alert('Failed to load exam questions. Please try again.');
+        } finally {
+            setIsLoadingQuestions(false);
+        }
     };
 
     const handleExamComplete = (certificate: Certificate | null) => {
@@ -123,17 +133,19 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                                         variant="outline"
                                         className="w-full"
                                         onClick={() => handleStartExam(exam.id)}
+                                        disabled={isLoadingQuestions}
                                     >
-                                        Retake Exam
+                                        {isLoadingQuestions ? 'Loading...' : 'Retake Exam'}
                                     </Button>
                                 ) : (
                                     <Button
                                         className="w-full"
                                         style={{ backgroundColor: exam.color }}
                                         onClick={() => handleStartExam(exam.id)}
+                                        disabled={isLoadingQuestions}
                                     >
                                         <Award className="h-4 w-4 mr-2" />
-                                        Start Exam
+                                        {isLoadingQuestions ? 'Loading...' : 'Start Exam'}
                                     </Button>
                                 )}
                             </CardContent>

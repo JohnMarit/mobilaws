@@ -66,10 +66,19 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
         </DialogHeader>
 
         <Tabs defaultValue="lessons" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="lessons">Lessons</TabsTrigger>
-            <TabsTrigger value="certifications">Certifications</TabsTrigger>
-            <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 mb-4 h-auto">
+            <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Lessons</span>
+              <span className="sm:hidden">📚</span>
+            </TabsTrigger>
+            <TabsTrigger value="certifications" className="text-xs sm:text-sm py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Certifications</span>
+              <span className="sm:hidden">🎓</span>
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard" className="text-xs sm:text-sm py-2 sm:py-2.5">
+              <span className="hidden sm:inline">Leaderboard</span>
+              <span className="sm:hidden">🏆</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="lessons" className="space-y-4 sm:space-y-6">
