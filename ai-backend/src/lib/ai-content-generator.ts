@@ -783,10 +783,10 @@ export async function bulkUpdateModuleAccessLevels(
 
     // Update quiz access levels
     if (updates.quizUpdates && updates.quizUpdates.length > 0) {
-      updatedModule.lessons = (updatedModule.lessons || module.lessons).map(lesson => {
+      updatedModule.lessons = (updatedModule.lessons || module.lessons).map((lesson: GeneratedLesson) => {
         const quizUpdatesForLesson = updates.quizUpdates!.filter(u => u.lessonId === lesson.id);
         if (quizUpdatesForLesson.length > 0) {
-          const updatedQuizzes = lesson.quiz.map(quiz => {
+          const updatedQuizzes = lesson.quiz.map((quiz: GeneratedQuiz) => {
             const quizUpdate = quizUpdatesForLesson.find(u => u.quizId === quiz.id);
             if (quizUpdate) {
               return { ...quiz, accessLevels: quizUpdate.accessLevels };
