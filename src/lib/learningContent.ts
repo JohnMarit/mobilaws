@@ -18,6 +18,7 @@ export interface QuizQuestion {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  locked?: boolean;
 }
 
 export interface Lesson {

@@ -189,6 +189,7 @@ interface GeneratedLesson {
   xpReward: number;
   quiz: GeneratedQuiz[];
   hasAudio?: boolean;
+  accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[];
 }
 
 interface GeneratedQuiz {
@@ -197,6 +198,7 @@ interface GeneratedQuiz {
   options: string[];
   correctAnswer: number;
   explanation: string;
+  accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[];
 }
 
 /**
@@ -225,34 +227,64 @@ function convertGeneratedModuleToModule(
 
   // Convert lessons
   const lessons: Lesson[] = generatedModule.lessons.map((genLesson) => {
-    // Determine lesson tier (use the module's required tier or lowest access level)
-    const lessonTier = requiredTier === 'free' ? 'basic' : requiredTier;
+    // Determine lesson access levels (use lesson-specific or fall back to module)
+    const lessonAccessLevels = genLesson.accessLevels || generatedModule.accessLevels;
     
-    // Check if lesson is locked (same logic as module)
-    const isLessonLocked = userTierIndex < requiredTierIndex;
+    // Determine lesson required tier
+    const lessonRequiredTier = lessonAccessLevels.includes('free')
+      ? 'free'
+      : lessonAccessLevels.reduce((min, tier) => {
+          const minIndex = tierOrder.indexOf(min);
+          const tierIndex = tierOrder.indexOf(tier);
+          return tierIndex < minIndex ? tier : min;
+        }, 'premium' as Tier);
+    
+    // Check if lesson is locked based on user tier
+    const lessonRequiredTierIndex = tierOrder.indexOf(lessonRequiredTier);
+    const isLessonLocked = userTierIndex < lessonRequiredTierIndex;
 
     // Check if lesson is completed
     const lessonProgress = moduleProgress?.lessonsCompleted[genLesson.id];
     const isCompleted = lessonProgress?.completed || false;
 
-    // Convert quiz questions
-    const quiz: QuizQuestion[] = genLesson.quiz.map((q) => ({
-      id: q.id,
-      question: q.question,
-      options: q.options,
-      correctAnswer: q.correctAnswer,
-      explanation: q.explanation,
-    }));
+    // Convert quiz questions with access control
+    const quiz: QuizQuestion[] = genLesson.quiz.map((q) => {
+      // Determine quiz access levels (use quiz-specific, lesson-specific, or module)
+      const quizAccessLevels = q.accessLevels || lessonAccessLevels;
+      
+      // Check if quiz is accessible to user
+      const quizRequiredTier = quizAccessLevels.includes('free')
+        ? 'free'
+        : quizAccessLevels.reduce((min, tier) => {
+            const minIndex = tierOrder.indexOf(min);
+            const tierIndex = tierOrder.indexOf(tier);
+            return tierIndex < minIndex ? tier : min;
+          }, 'premium' as Tier);
+      
+      const quizRequiredTierIndex = tierOrder.indexOf(quizRequiredTier);
+      const isQuizLocked = userTierIndex < quizRequiredTierIndex;
+      
+      return {
+        id: q.id,
+        question: isQuizLocked ? '🔒 This quiz is locked. Upgrade to access.' : q.question,
+        options: isQuizLocked ? ['Upgrade to unlock', '', '', ''] : q.options,
+        correctAnswer: isQuizLocked ? 0 : q.correctAnswer,
+        explanation: isQuizLocked ? 'Upgrade your subscription to access this quiz.' : q.explanation,
+        locked: isQuizLocked,
+      };
+    });
 
     return {
       id: genLesson.id,
       title: genLesson.title,
-      content: genLesson.content,
+      content: isLessonLocked 
+        ? '<div class="text-center p-8"><h3>🔒 This lesson is locked</h3><p>Upgrade your subscription to access this content.</p></div>'
+        : genLesson.content,
       xpReward: genLesson.xpReward,
       quiz,
       locked: isLessonLocked,
       completed: isCompleted,
-      tier: lessonTier,
+      tier: lessonRequiredTier === 'free' ? 'basic' : lessonRequiredTier,
       hasAudio: genLesson.hasAudio,
     };
   });

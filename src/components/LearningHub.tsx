@@ -54,13 +54,13 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="space-y-2 pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl">
-            <BookOpen className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
-            Learning Paths
+      <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
+        <DialogHeader className="space-y-2 pb-3 sm:pb-4 pr-8">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl">
+            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-primary flex-shrink-0" />
+            <span className="leading-tight">Learning Paths</span>
           </DialogTitle>
-          <DialogDescription className="text-base sm:text-lg">
+          <DialogDescription className="text-sm sm:text-base md:text-lg">
             Structured, tier-aware lessons with quizzes, streaks, and XP—tailored for South Sudan law.
           </DialogDescription>
         </DialogHeader>
@@ -194,7 +194,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                             <Progress value={percent} className="h-2 sm:h-2.5" />
                             <div className="text-xs sm:text-sm text-muted-foreground mt-1">{percent}% complete</div>
                           </div>
-                          <div className="space-y-1.5 sm:space-y-2">
+                          <div className="space-y-2 sm:space-y-2.5">
                             {module.lessons.map((lesson) => {
                               const lp = getLessonProgress(module.id, lesson.id);
                               const isLocked = lesson.locked;
@@ -202,23 +202,28 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                               return (
                                 <div
                                   key={lesson.id}
-                                  className="flex items-center justify-between rounded-md border px-3 sm:px-4 py-2.5 sm:py-3 bg-white touch-manipulation"
+                                  className="flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-shadow gap-2 sm:gap-3"
                                 >
-                                  <div className="flex-1 min-w-0 pr-2">
-                                    <div className="text-sm sm:text-base font-medium flex items-center gap-1.5 sm:gap-2 truncate">
-                                      <span className="truncate">{lesson.title}</span>
+                                  <div className="flex-1 min-w-0 pr-2 overflow-hidden">
+                                    <div className="text-sm sm:text-base font-medium flex items-center gap-1.5 sm:gap-2">
+                                      <span className="break-words line-clamp-1">{lesson.title}</span>
                                       {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />}
                                       {lesson.hasAudio && (
                                         <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
                                       )}
                                     </div>
-                                    <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate flex items-center gap-1">
-                                      <span>{lesson.xpReward} XP • {lesson.quiz.length} Q</span>
+                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                                      <span>{lesson.xpReward} XP</span>
+                                      <span>•</span>
+                                      <span>{lesson.quiz.length} Q</span>
                                       {lesson.hasAudio && (
-                                        <span className="ml-1 text-blue-500 flex items-center gap-1">
-                                          <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
-                                          Listen
-                                        </span>
+                                        <>
+                                          <span>•</span>
+                                          <span className="text-blue-500 flex items-center gap-1">
+                                            <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
+                                            <span className="hidden sm:inline">Listen</span>
+                                          </span>
+                                        </>
                                       )}
                                     </div>
                                   </div>
@@ -226,16 +231,18 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                     <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm flex-shrink-0">
                                       <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
                                       <span className="hidden sm:inline">{lesson.tier.toUpperCase()}</span>
+                                      <span className="sm:hidden">{lesson.tier.charAt(0).toUpperCase()}</span>
                                     </Badge>
                                   ) : (
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-8 sm:h-9 px-3 sm:px-4 text-sm flex-shrink-0"
+                                      className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[60px] sm:min-w-[80px]"
                                       onClick={() => handleStartLesson(module, lesson)}
                                     >
                                       <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
-                                      <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1" />
+                                      <span className="sm:hidden">{isCompleted ? '✓' : '▶'}</span>
+                                      <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1 hidden sm:inline" />
                                     </Button>
                                   )}
                                 </div>

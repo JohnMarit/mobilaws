@@ -45,9 +45,11 @@ import {
   Send,
   Eye,
   Edit,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ModuleManager from '@/components/admin/ModuleManager';
 
 interface UploadedContent {
   id: string;
@@ -567,7 +569,7 @@ export default function TutorAdminPortal() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
             <TabsTrigger value="upload">
               <Upload className="h-4 w-4 mr-2" />
               Upload Content
@@ -575,6 +577,10 @@ export default function TutorAdminPortal() {
             <TabsTrigger value="content">
               <BookOpen className="h-4 w-4 mr-2" />
               My Content
+            </TabsTrigger>
+            <TabsTrigger value="modules">
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Modules
             </TabsTrigger>
             <TabsTrigger value="messages">
               <MessageSquare className="h-4 w-4 mr-2" />
@@ -823,6 +829,11 @@ export default function TutorAdminPortal() {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Manage Modules Tab */}
+          <TabsContent value="modules">
+            {tutor && <ModuleManager tutorId={tutor.id} tutorName={tutor.name} />}
           </TabsContent>
 
           {/* Messages Tab */}

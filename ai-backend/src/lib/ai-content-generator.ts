@@ -24,6 +24,7 @@ export interface GeneratedLesson {
   examples: string[]; // Real-world examples
   keyTerms: { term: string; definition: string }[]; // Vocabulary
   hasAudio: boolean; // Audio available for all tiers on tutor-uploaded content
+  accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[]; // Granular access control per lesson
 }
 
 export interface GeneratedQuiz {
@@ -34,6 +35,7 @@ export interface GeneratedQuiz {
   explanation: string;
   difficulty: 'easy' | 'medium' | 'hard';
   points: number;
+  accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[]; // Granular access control per quiz
 }
 
 export interface GeneratedModule {
@@ -636,6 +638,176 @@ export async function addReplyToMessage(
     return true;
   } catch (error) {
     console.error('❌ Error adding reply:', error);
+    return false;
+  }
+}
+
+/**
+ * Get modules by tutor ID
+ */
+export async function getModulesByTutorId(tutorId: string): Promise<GeneratedModule[]> {
+  const db = getFirestore();
+  if (!db) return [];
+
+  try {
+    const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
+      .where('tutorId', '==', tutorId)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GeneratedModule[];
+  } catch (error) {
+    console.error('❌ Error fetching modules by tutor:', error);
+    return [];
+  }
+}
+
+/**
+ * Update access levels for a specific lesson within a module
+ */
+export async function updateLessonAccessLevels(
+  moduleId: string,
+  lessonId: string,
+  accessLevels: ('free' | 'basic' | 'standard' | 'premium')[]
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const moduleDoc = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    if (!moduleDoc.exists) return false;
+
+    const module = moduleDoc.data() as GeneratedModule;
+    const updatedLessons = module.lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        return { ...lesson, accessLevels };
+      }
+      return lesson;
+    });
+
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      lessons: updatedLessons,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Updated access levels for lesson ${lessonId} in module ${moduleId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating lesson access levels:', error);
+    return false;
+  }
+}
+
+/**
+ * Update access levels for a specific quiz within a lesson
+ */
+export async function updateQuizAccessLevels(
+  moduleId: string,
+  lessonId: string,
+  quizId: string,
+  accessLevels: ('free' | 'basic' | 'standard' | 'premium')[]
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const moduleDoc = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    if (!moduleDoc.exists) return false;
+
+    const module = moduleDoc.data() as GeneratedModule;
+    const updatedLessons = module.lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        const updatedQuizzes = lesson.quiz.map(quiz => {
+          if (quiz.id === quizId) {
+            return { ...quiz, accessLevels };
+          }
+          return quiz;
+        });
+        return { ...lesson, quiz: updatedQuizzes };
+      }
+      return lesson;
+    });
+
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      lessons: updatedLessons,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Updated access levels for quiz ${quizId} in lesson ${lessonId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating quiz access levels:', error);
+    return false;
+  }
+}
+
+/**
+ * Bulk update access levels for all items in a module
+ */
+export async function bulkUpdateModuleAccessLevels(
+  moduleId: string,
+  updates: {
+    moduleAccessLevels?: ('free' | 'basic' | 'standard' | 'premium')[];
+    lessonUpdates?: Array<{ lessonId: string; accessLevels: ('free' | 'basic' | 'standard' | 'premium')[] }>;
+    quizUpdates?: Array<{ lessonId: string; quizId: string; accessLevels: ('free' | 'basic' | 'standard' | 'premium')[] }>;
+  }
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const moduleDoc = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    if (!moduleDoc.exists) return false;
+
+    const module = moduleDoc.data() as GeneratedModule;
+    let updatedModule: any = { ...module };
+
+    // Update module-level access
+    if (updates.moduleAccessLevels) {
+      updatedModule.accessLevels = updates.moduleAccessLevels;
+    }
+
+    // Update lesson access levels
+    if (updates.lessonUpdates && updates.lessonUpdates.length > 0) {
+      updatedModule.lessons = module.lessons.map(lesson => {
+        const lessonUpdate = updates.lessonUpdates!.find(u => u.lessonId === lesson.id);
+        if (lessonUpdate) {
+          return { ...lesson, accessLevels: lessonUpdate.accessLevels };
+        }
+        return lesson;
+      });
+    }
+
+    // Update quiz access levels
+    if (updates.quizUpdates && updates.quizUpdates.length > 0) {
+      updatedModule.lessons = (updatedModule.lessons || module.lessons).map(lesson => {
+        const quizUpdatesForLesson = updates.quizUpdates!.filter(u => u.lessonId === lesson.id);
+        if (quizUpdatesForLesson.length > 0) {
+          const updatedQuizzes = lesson.quiz.map(quiz => {
+            const quizUpdate = quizUpdatesForLesson.find(u => u.quizId === quiz.id);
+            if (quizUpdate) {
+              return { ...quiz, accessLevels: quizUpdate.accessLevels };
+            }
+            return quiz;
+          });
+          return { ...lesson, quiz: updatedQuizzes };
+        }
+        return lesson;
+      });
+    }
+
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      ...updatedModule,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Bulk updated access levels for module ${moduleId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error bulk updating access levels:', error);
     return false;
   }
 }

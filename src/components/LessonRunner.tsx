@@ -118,19 +118,19 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
 
   const renderContent = () => {
     return (
-      <Card className="touch-manipulation">
-        <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
-            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary flex-shrink-0" />
+      <Card className="touch-manipulation overflow-hidden">
+        <CardHeader className="p-4 sm:p-5 md:p-6 pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl font-semibold">
+            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
             <span className="leading-tight break-words">{lesson.title}</span>
           </CardTitle>
-          <CardDescription className="text-xs sm:text-sm md:text-base">
+          <CardDescription className="text-sm sm:text-base mt-2">
             {audioEnabled ? 'Read or listen to the lesson content' : 'Read the lesson content before taking the quiz'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 pt-0 overflow-x-hidden">
+        <CardContent className="space-y-4 sm:space-y-5 p-4 sm:p-5 md:p-6 pt-0 overflow-x-hidden">
           {audioEnabled && (
-            <div className="flex justify-start pb-2 border-b">
+            <div className="flex justify-start pb-3 sm:pb-4 border-b">
               <AudioPlayer
                 text={lesson.content}
                 enabled={audioEnabled}
@@ -138,7 +138,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               />
             </div>
           )}
-          <div className="prose prose-sm sm:prose-base max-w-none overflow-x-hidden">
+          <div className="prose prose-sm sm:prose-base max-w-none overflow-x-hidden min-h-[100px]">
             {audioEnabled ? (
               <HighlightedText
                 text={lesson.content}
@@ -152,33 +152,42 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               />
             )}
           </div>
-          <div className="pt-3 sm:pt-4 border-t space-y-3">
+          
+          {/* Action Buttons Section - Better organized */}
+          <div className="pt-4 sm:pt-5 border-t space-y-3 sm:space-y-4">
+            {/* Secondary Actions */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowQuizRequest(true)}
-                className="gap-2"
+                className="gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
               >
-                <Sparkles className="h-4 w-4" />
-                Request More Quizzes
+                <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Request More Quizzes</span>
+                <span className="sm:hidden">More Quizzes</span>
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => setShowMessageTutor(true)}
-                className="gap-2"
+                className="gap-2 flex-1 sm:flex-initial text-xs sm:text-sm"
               >
-                <MessageSquare className="h-4 w-4" />
-                Ask a Question
+                <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Ask a Question</span>
+                <span className="sm:hidden">Ask Question</span>
               </Button>
             </div>
-            <div className="flex justify-end">
-            <Button onClick={handleStartQuiz} className="gap-2 h-10 sm:h-11 text-base">
+            
+            {/* Primary Action - Take Quiz Button */}
+            <Button 
+              onClick={handleStartQuiz} 
+              className="w-full gap-2 h-11 sm:h-12 text-base sm:text-lg font-semibold shadow-md hover:shadow-lg transition-shadow"
+              size="lg"
+            >
+              <Award className="h-5 w-5 sm:h-6 sm:w-6" />
               Take Quiz
-              <Award className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -190,27 +199,40 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
     
     const currentQuiz = lesson.quiz[currentQuizIndex];
     const isCorrect = showExplanation && selectedOption === currentQuiz.correctAnswer;
+    const isQuizLocked = currentQuiz.locked || false;
 
     return (
       <Card className="touch-manipulation overflow-hidden">
         <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-3">
-          <CardTitle className="text-sm sm:text-base md:text-lg">Question {currentQuizIndex + 1} of {lesson.quiz.length}</CardTitle>
+          <CardTitle className="text-sm sm:text-base md:text-lg flex items-center gap-2">
+            Question {currentQuizIndex + 1} of {lesson.quiz.length}
+            {isQuizLocked && <Badge variant="secondary" className="text-xs">🔒 Locked</Badge>}
+          </CardTitle>
           <CardDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words">{currentQuiz.question}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 pt-0 overflow-x-hidden">
-          <div className="space-y-2">
-            {currentQuiz.options.map((option, idx) => (
-              <Button
-                key={idx}
-                variant={selectedOption === idx ? 'default' : 'outline'}
-                className="w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base touch-manipulation"
-                onClick={() => !showExplanation && setSelectedOption(idx)}
-                disabled={showExplanation}
-              >
-                <span className="block leading-relaxed">{option}</span>
-              </Button>
-            ))}
-          </div>
+          {isQuizLocked ? (
+            <Alert className="touch-manipulation">
+              <HelpCircle className="h-5 w-5" />
+              <AlertDescription className="text-sm sm:text-base">
+                This quiz is restricted to higher subscription tiers. Upgrade your plan to access this content.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="space-y-2">
+              {currentQuiz.options.map((option, idx) => (
+                <Button
+                  key={idx}
+                  variant={selectedOption === idx ? 'default' : 'outline'}
+                  className="w-full justify-start text-left h-auto py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base touch-manipulation"
+                  onClick={() => !showExplanation && setSelectedOption(idx)}
+                  disabled={showExplanation}
+                >
+                  <span className="block leading-relaxed">{option}</span>
+                </Button>
+              ))}
+            </div>
+          )}
 
           {showExplanation && (
             <Alert variant={isCorrect ? 'default' : 'destructive'} className="touch-manipulation">
@@ -251,7 +273,11 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
               Exit
             </Button>
-            {showRetakeMessage ? (
+            {isQuizLocked ? (
+              <Button onClick={handleNextQuiz} className="h-9 sm:h-10 text-sm sm:text-base touch-manipulation">
+                Skip Quiz
+              </Button>
+            ) : showRetakeMessage ? (
               <Button onClick={handleRetakeQuiz} className="h-9 sm:h-10 text-sm sm:text-base touch-manipulation">
                 Retake Quiz
               </Button>

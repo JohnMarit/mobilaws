@@ -23,6 +23,7 @@ import {
   saveTutorMessage,
   getAllGeneratedModules,
   getModulesByAccessLevel,
+  getModulesByTutorId,
   publishModule,
   getPendingQuizRequests,
   getTutorMessages,
@@ -30,7 +31,10 @@ import {
   addReplyToMessage,
   deleteNonTutorModules,
   deleteModule,
-  updateModule
+  updateModule,
+  updateLessonAccessLevels,
+  updateQuizAccessLevels,
+  bulkUpdateModuleAccessLevels
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
 import { admin } from '../lib/firebase-admin';
@@ -685,6 +689,103 @@ router.post('/tutor-admin/quiz-requests/:requestId/process', async (req: Request
   } catch (error) {
     console.error('❌ Error processing quiz request:', error);
     res.status(500).json({ error: 'Failed to process quiz request' });
+  }
+});
+
+/**
+ * Get modules by tutor ID
+ * GET /api/tutor-admin/modules/tutor/:tutorId
+ */
+router.get('/tutor-admin/modules/tutor/:tutorId', async (req: Request, res: Response) => {
+  try {
+    const { tutorId } = req.params;
+    console.log('📚 Fetching modules for tutor:', tutorId);
+    const modules = await getModulesByTutorId(tutorId);
+    console.log(`✅ Found ${modules.length} module(s)`);
+    res.json(modules);
+  } catch (error) {
+    console.error('❌ Error fetching modules for tutor:', error);
+    res.status(500).json({ error: 'Failed to fetch modules' });
+  }
+});
+
+/**
+ * Update lesson access levels
+ * PUT /api/tutor-admin/modules/:moduleId/lessons/:lessonId/access
+ */
+router.put('/tutor-admin/modules/:moduleId/lessons/:lessonId/access', async (req: Request, res: Response) => {
+  try {
+    const { moduleId, lessonId } = req.params;
+    const { accessLevels } = req.body;
+    
+    if (!accessLevels || !Array.isArray(accessLevels)) {
+      res.status(400).json({ error: 'Invalid access levels' });
+      return;
+    }
+    
+    const success = await updateLessonAccessLevels(moduleId, lessonId, accessLevels);
+    
+    if (success) {
+      res.json({ success: true, message: 'Lesson access levels updated successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to update lesson access levels' });
+    }
+  } catch (error) {
+    console.error('❌ Error updating lesson access levels:', error);
+    res.status(500).json({ error: 'Failed to update lesson access levels' });
+  }
+});
+
+/**
+ * Update quiz access levels
+ * PUT /api/tutor-admin/modules/:moduleId/lessons/:lessonId/quizzes/:quizId/access
+ */
+router.put('/tutor-admin/modules/:moduleId/lessons/:lessonId/quizzes/:quizId/access', async (req: Request, res: Response) => {
+  try {
+    const { moduleId, lessonId, quizId } = req.params;
+    const { accessLevels } = req.body;
+    
+    if (!accessLevels || !Array.isArray(accessLevels)) {
+      res.status(400).json({ error: 'Invalid access levels' });
+      return;
+    }
+    
+    const success = await updateQuizAccessLevels(moduleId, lessonId, quizId, accessLevels);
+    
+    if (success) {
+      res.json({ success: true, message: 'Quiz access levels updated successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to update quiz access levels' });
+    }
+  } catch (error) {
+    console.error('❌ Error updating quiz access levels:', error);
+    res.status(500).json({ error: 'Failed to update quiz access levels' });
+  }
+});
+
+/**
+ * Bulk update module access levels
+ * PUT /api/tutor-admin/modules/:moduleId/access/bulk
+ */
+router.put('/tutor-admin/modules/:moduleId/access/bulk', async (req: Request, res: Response) => {
+  try {
+    const { moduleId } = req.params;
+    const { moduleAccessLevels, lessonUpdates, quizUpdates } = req.body;
+    
+    const success = await bulkUpdateModuleAccessLevels(moduleId, {
+      moduleAccessLevels,
+      lessonUpdates,
+      quizUpdates
+    });
+    
+    if (success) {
+      res.json({ success: true, message: 'Module access levels updated successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to update module access levels' });
+    }
+  } catch (error) {
+    console.error('❌ Error bulk updating access levels:', error);
+    res.status(500).json({ error: 'Failed to bulk update access levels' });
   }
 });
 
