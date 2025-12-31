@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 import { env } from '../env';
-import { getFirestore } from '../lib/firebase-admin';
 import { admin } from '../lib/firebase-admin';
 
 const router = Router();
@@ -31,7 +30,7 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
 
     console.log(`🤖 Generating ${numberOfLessons} lessons for module: ${moduleName} (tier: ${tier})`);
 
-    const db = getFirestore();
+    const db = admin.firestore();
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }
@@ -169,7 +168,7 @@ router.post('/ai-lessons/request-more', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const db = getFirestore();
+    const db = admin.firestore();
     if (!db) {
       return res.status(500).json({ error: 'Database not available' });
     }
