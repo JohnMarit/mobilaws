@@ -118,7 +118,8 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
       const data = await response.json();
       toast.success(`Generated ${data.lessons.length} new lessons!`);
       
-      // Reload modules to show new lessons
+      // Reload modules to show new lessons (trigger context refresh)
+      // The LearningContext will automatically fetch user lessons on next render
       window.location.reload();
     } catch (error) {
       console.error('Error requesting lessons:', error);

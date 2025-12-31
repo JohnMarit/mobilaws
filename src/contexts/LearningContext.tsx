@@ -301,11 +301,34 @@ function convertGeneratedModuleToModule(
 }
 
 /**
+ * Fetch user-specific lessons from backend
+ */
+async function fetchUserLessons(userId: string): Promise<Record<string, GeneratedLesson[]>> {
+  try {
+    const apiUrl = getApiUrl(`user-lessons/${userId}`);
+    const response = await fetch(apiUrl);
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch user lessons for ${userId}:`, response.statusText);
+      return {};
+    }
+
+    const data = await response.json();
+    return data.modules || {};
+  } catch (error) {
+    console.error('Error fetching user lessons:', error);
+    return {};
+  }
+}
+
+/**
  * Fetch published modules from backend API
  */
 async function fetchModulesFromBackend(
   accessLevel: Tier,
-  progress?: Record<string, ModuleProgress>
+  progress?: Record<string, ModuleProgress>,
+  userId?: string,
+  userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
   try {
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
@@ -321,9 +344,19 @@ async function fetchModulesFromBackend(
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);
     
-    // Convert to frontend format with progress
+    // Convert to frontend format with progress and merge user-specific lessons
     return publishedModules.map(m => {
       const moduleProgress = progress?.[m.id];
+      // Merge user-specific lessons with module lessons
+      const userModuleLessons = userLessons?.[m.id] || [];
+      if (userModuleLessons.length > 0) {
+        // Create a copy with merged lessons
+        const moduleWithUserLessons: GeneratedModule = {
+          ...m,
+          lessons: [...m.lessons, ...userModuleLessons]
+        };
+        return convertGeneratedModuleToModule(moduleWithUserLessons, accessLevel, moduleProgress);
+      }
       return convertGeneratedModuleToModule(m, accessLevel, moduleProgress);
     });
   } catch (error) {
@@ -427,7 +460,13 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     const loadModules = async () => {
       setModulesLoading(true);
       try {
-        const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress);
+        // Fetch user-specific lessons if user is logged in
+        let userLessons: Record<string, GeneratedLesson[]> = {};
+        if (user?.id) {
+          userLessons = await fetchUserLessons(user.id);
+        }
+        
+        const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, userLessons);
         setModules(fetchedModules);
       } catch (error) {
         console.error('Failed to load modules:', error);

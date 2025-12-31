@@ -127,23 +127,38 @@ Generate ${numberOfLessons} engaging lessons now!`;
     newLessons.forEach((lesson: any, index: number) => {
       lesson.hasAudio = tier === 'premium' || (tier === 'standard' && index % 3 === 0);
       lesson.accessLevels = moduleData?.accessLevels || [tier];
+      lesson.createdAt = admin.firestore.Timestamp.now();
+      lesson.userGenerated = true; // Mark as user-generated
     });
 
-    // Update module with new lessons
-    const updatedLessons = [...existingLessons, ...newLessons];
-    await db.collection('generatedModules').doc(moduleId).update({
-      lessons: updatedLessons,
-      totalLessons: updatedLessons.length,
-      totalXp: updatedLessons.reduce((sum: number, l: any) => sum + (l.xpReward || 0), 0),
+    // Store user-specific lessons in a separate collection
+    const userLessonsRef = db.collection('userLessons').doc(userId);
+    const userLessonsDoc = await userLessonsRef.get();
+    
+    const existingUserLessons = userLessonsDoc.exists 
+      ? (userLessonsDoc.data()?.modules?.[moduleId]?.lessons || [])
+      : [];
+    
+    const updatedUserLessons = [...existingUserLessons, ...newLessons];
+    
+    // Update user's lessons
+    await userLessonsRef.set({
+      userId,
+      modules: {
+        [moduleId]: {
+          lessons: updatedUserLessons,
+          lastUpdated: admin.firestore.Timestamp.now()
+        }
+      },
       updatedAt: admin.firestore.Timestamp.now()
-    });
+    }, { merge: true });
 
-    console.log(`✅ Generated and added ${newLessons.length} lessons to module ${moduleId}`);
+    console.log(`✅ Generated and saved ${newLessons.length} user-specific lessons for user ${userId}, module ${moduleId}`);
 
     return res.json({
       success: true,
       lessons: newLessons,
-      totalLessons: updatedLessons.length,
+      totalLessons: existingLessons.length + updatedUserLessons.length,
       message: `Successfully generated ${newLessons.length} new lessons!`
     });
 

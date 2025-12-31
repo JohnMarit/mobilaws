@@ -133,6 +133,72 @@ service cloud.firestore {
       allow write: if false; // Only server with Admin SDK can write
     }
     
+    // User-specific lessons (AI-generated lessons per user)
+    match /userLessons/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidDataSize();
+    }
+    
+    // Learning progress tracking
+    match /learningProgress/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidDataSize();
+    }
+    
+    // Exam attempts
+    match /examAttempts/{attemptId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isValidDataSize();
+      allow update, delete: if false; // Exam attempts are immutable once created
+    }
+    
+    // Certificates
+    match /certificates/{certId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isValidDataSize();
+      allow update, delete: if false; // Certificates are immutable once issued
+    }
+    
+    // Lesson requests (tracking AI lesson generation requests)
+    match /lessonRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       isValidDataSize();
+      allow update, delete: if false; // Requests are immutable once created
+    }
+    
+    // Leaderboard
+    match /leaderboard/{userId} {
+      allow read: if isAuthenticated(); // Anyone can read leaderboard
+      allow write: if isOwner(userId) && isValidDataSize(); // Users can update their own entry
+    }
+    
+    // Generated modules (published modules from tutor admin)
+    match /generatedModules/{moduleId} {
+      allow read: if isAuthenticated(); // Authenticated users can read published modules
+      allow write: if false; // Only backend (Admin SDK) can write modules
+    }
+    
+    // Tutor admin content
+    match /tutorContent/{contentId} {
+      allow read: if isAuthenticated(); // Authenticated users can read
+      allow write: if false; // Only backend (Admin SDK) can write
+    }
+    
+    // Tutor admins
+    match /tutorAdmins/{tutorId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only backend (Admin SDK) can write
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
