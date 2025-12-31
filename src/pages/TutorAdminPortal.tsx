@@ -85,8 +85,25 @@ export default function TutorAdminPortal() {
 
   useEffect(() => {
     if (!isLoading && !isTutorAdmin) {
-      toast.error('Access denied. Tutor admin privileges required.');
-      navigate('/');
+      console.error('═══════════════════════════════════════════════');
+      console.error('❌ ACCESS DENIED TO TUTOR ADMIN PORTAL');
+      console.error('═══════════════════════════════════════════════');
+      console.error('User is trying to access /tutor-admin but is not authorized.');
+      console.error('');
+      console.error('TO FIX THIS:');
+      console.error('1. Open check-tutor-status.html to diagnose the issue');
+      console.error('2. Verify your tutor admin account exists');
+      console.error('3. Make sure you\'re signed in with the correct Google account');
+      console.error('4. Sign out and sign in again');
+      console.error('5. Check browser console for detailed error messages');
+      console.error('═══════════════════════════════════════════════');
+      
+      toast.error('Access denied. Tutor admin privileges required. Check browser console for details (F12).');
+      
+      // Redirect after 3 seconds to give user time to see the message
+      setTimeout(() => {
+        navigate('/');
+      }, 3000);
     }
   }, [isTutorAdmin, isLoading, navigate]);
 
@@ -100,22 +117,64 @@ export default function TutorAdminPortal() {
     if (!tutor) return;
 
     try {
+      console.log('📥 Loading tutor data for:', tutor.id);
+      
       // Load uploaded content
       const contentRes = await fetch(getApiUrl(`tutor-admin/content/${tutor.id}`));
       const contentData = await contentRes.json();
-      setUploadedContent(contentData);
+      console.log('📦 Content response:', contentData);
+      
+      // Validate it's an array before setting
+      if (Array.isArray(contentData)) {
+        setUploadedContent(contentData);
+      } else {
+        console.error('❌ Content data is not an array:', contentData);
+        setUploadedContent([]);
+        if (contentData?.error) {
+          toast.error(`Failed to load content: ${contentData.error}`);
+        }
+      }
 
       // Load messages
       const messagesRes = await fetch(getApiUrl(`tutor-admin/messages/${tutor.id}`));
       const messagesData = await messagesRes.json();
-      setMessages(messagesData);
+      console.log('💬 Messages response:', messagesData);
+      
+      // Validate it's an array before setting
+      if (Array.isArray(messagesData)) {
+        setMessages(messagesData);
+      } else {
+        console.error('❌ Messages data is not an array:', messagesData);
+        setMessages([]);
+        if (messagesData?.error) {
+          toast.error(`Failed to load messages: ${messagesData.error}`);
+        }
+      }
 
       // Load quiz requests
       const quizRes = await fetch(getApiUrl('tutor-admin/quiz-requests'));
       const quizData = await quizRes.json();
-      setQuizRequests(quizData);
+      console.log('📝 Quiz requests response:', quizData);
+      
+      // Validate it's an array before setting
+      if (Array.isArray(quizData)) {
+        setQuizRequests(quizData);
+      } else {
+        console.error('❌ Quiz data is not an array:', quizData);
+        setQuizRequests([]);
+        if (quizData?.error) {
+          toast.error(`Failed to load quiz requests: ${quizData.error}`);
+        }
+      }
+      
+      console.log('✅ Tutor data loaded successfully');
     } catch (error) {
-      console.error('Failed to load tutor data:', error);
+      console.error('❌ Failed to load tutor data:', error);
+      toast.error('Failed to load tutor data. Check console for details.');
+      // Ensure state is set to empty arrays to prevent .map() errors
+      setUploadedContent([]);
+      setMessages([]);
+      setQuizRequests([]);
     }
   };
 
