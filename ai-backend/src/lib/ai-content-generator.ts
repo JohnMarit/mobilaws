@@ -23,7 +23,7 @@ export interface GeneratedLesson {
   tips: string[]; // Learning tips
   examples: string[]; // Real-world examples
   keyTerms: { term: string; definition: string }[]; // Vocabulary
-  hasAudio?: boolean;
+  hasAudio: boolean; // Audio available for all tiers on tutor-uploaded content
 }
 
 export interface GeneratedQuiz {
@@ -226,14 +226,10 @@ Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educationa
       (sum: number, lesson: any) => sum + (lesson.estimatedMinutes || 5), 0
     ) / 60;
 
-    // Add audio availability based on access level
-    const hasAudio = accessLevels.includes('premium') || accessLevels.includes('standard');
-    generatedContent.lessons = generatedContent.lessons.map((lesson: any, index: number) => ({
+    // Add audio availability - ALL tutor-uploaded content has audio for ALL tiers (free to premium)
+    generatedContent.lessons = generatedContent.lessons.map((lesson: any) => ({
       ...lesson,
-      hasAudio: hasAudio && (
-        accessLevels.includes('premium') || 
-        (accessLevels.includes('standard') && index % 3 === 0)
-      )
+      hasAudio: true // Audio available for all tiers on tutor-uploaded content
     }));
 
     // Create module object
