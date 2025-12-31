@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Published Modules</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .module-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .published {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .unpublished {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .badge-published {
+            background: #28a745;
+            color: white;
+        }
+        .badge-unpublished {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Published Modules</h1>
+        <p class="subtitle">Check which modules are published and visible to users</p>
+        
+        <div>
+            <button onclick="checkAllModules()">Check All Modules</button>
+            <button onclick="checkPublishedModules()">Check Published Modules Only</button>
+            <button onclick="checkByTier('free')">Check Free Tier</button>
+            <button onclick="checkByTier('basic')">Check Basic Tier</button>
+            <button onclick="checkByTier('standard')">Check Standard Tier</button>
+            <button onclick="checkByTier('premium')">Check Premium Tier</button>
+        </div>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Try to detect the correct API URL
+        const API_URL = prompt('Enter your backend API URL:', 'https://mobilaws-ympe.vercel.app/api') || 'https://mobilaws-ympe.vercel.app/api';
+        console.log('Using API URL:', API_URL);
+        
+        async function checkAllModules() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔄 Loading all modules...';
+            
+            try {
+                console.log('Fetching from:', `${API_URL}/tutor-admin/modules`);
+                const response = await fetch(`${API_URL}/tutor-admin/modules`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const modules = await response.json();
+                
+                if (!Array.isArray(modules)) {
+                    resultDiv.innerHTML = `❌ Error: ${JSON.stringify(modules, null, 2)}`;
+                    return;
+                }
+                
+                let html = `<h2>📊 All Modules (${modules.length} total)</h2>`;
+                
+                const published = modules.filter(m => m.published === true);
+                const unpublished = modules.filter(m => m.published !== true);
+                
+                html += `<p><strong>Published:</strong> ${published.length} | <strong>Unpublished:</strong> ${unpublished.length}</p>`;
+                
+                modules.forEach(module => {
+                    const isPublished = module.published === true;
+                    html += `
+                        <div class="module-card ${isPublished ? 'published' : 'unpublished'}">
+                            <div>
+                                <span class="badge ${isPublished ? 'badge-published' : 'badge-unpublished'}">
+                                    ${isPublished ? 'PUBLISHED' : 'UNPUBLISHED'}
+                                </span>
+                                <strong>${module.title || 'Untitled'}</strong>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 12px;">
+                                <div><strong>ID:</strong> ${module.id}</div>
+                                <div><strong>Description:</strong> ${module.description || 'N/A'}</div>
+                                <div><strong>Category:</strong> ${module.category || 'N/A'}</div>
+                                <div><strong>Access Levels:</strong> ${(module.accessLevels || []).join(', ')}</div>
+                                <div><strong>Tutor:</strong> ${module.tutorName || 'Unknown'} (${module.tutorId})</div>
+                                <div><strong>Lessons:</strong> ${module.totalLessons || (module.lessons?.length || 0)}</div>
+                                <div><strong>Total XP:</strong> ${module.totalXp || 0}</div>
+                                <div><strong>Published:</strong> ${module.published === true ? '✅ YES' : '❌ NO'}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}\n\nCheck console for details.`;
+                console.error(error);
+            }
+        }
+        
+        async function checkPublishedModules() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔄 Loading published modules...';
+            
+            try {
+                // This mimics what users see
+                const tiers = ['free', 'basic', 'standard', 'premium'];
+                let html = '<h2>📚 Published Modules by Tier (What Users See)</h2>';
+                
+                for (const tier of tiers) {
+                    const response = await fetch(`${API_URL}/tutor-admin/modules/level/${tier}`);
+                    const modules = await response.json();
+                    
+                    html += `
+                        <div style="margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+                            <h3>${tier.toUpperCase()} Tier (${Array.isArray(modules) ? modules.length : 0} modules)</h3>
+                    `;
+                    
+                    if (!Array.isArray(modules)) {
+                        html += `<p>❌ Error: ${JSON.stringify(modules)}</p>`;
+                    } else if (modules.length === 0) {
+                        html += `<p>⚠️ No published modules available for this tier</p>`;
+                    } else {
+                        modules.forEach(module => {
+                            html += `
+                                <div class="module-card published">
+                                    <strong>${module.title}</strong>
+                                    <div style="font-size: 12px; margin-top: 5px;">
+                                        ${module.description || 'No description'}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}\n\nCheck console for details.`;
+                console.error(error);
+            }
+        }
+        
+        async function checkByTier(tier) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `🔄 Loading ${tier} tier modules...`;
+            
+            try {
+                const response = await fetch(`${API_URL}/tutor-admin/modules/level/${tier}`);
+                const modules = await response.json();
+                
+                let html = `<h2>📚 ${tier.toUpperCase()} Tier Modules</h2>`;
+                
+                if (!Array.isArray(modules)) {
+                    html += `<p>❌ Error: ${JSON.stringify(modules, null, 2)}</p>`;
+                } else if (modules.length === 0) {
+                    html += `
+                        <div style="padding: 20px; background: #fff3cd; border-radius: 8px; margin: 10px 0;">
+                            <p><strong>⚠️ No modules found for ${tier} tier</strong></p>
+                            <p>Possible reasons:</p>
+                            <ul style="margin: 10px 0 0 20px;">
+                                <li>No modules have been published yet</li>
+                                <li>Modules are not assigned to the ${tier} access level</li>
+                                <li>Firestore composite index missing (check console)</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    html += `<p><strong>Found ${modules.length} modules</strong></p>`;
+                    modules.forEach(module => {
+                        html += `
+                            <div class="module-card published">
+                                <div>
+                                    <strong>${module.title}</strong>
+                                </div>
+                                <div style="margin-top: 10px; font-size: 12px;">
+                                    <div><strong>ID:</strong> ${module.id}</div>
+                                    <div><strong>Description:</strong> ${module.description || 'N/A'}</div>
+                                    <div><strong>Access Levels:</strong> ${(module.accessLevels || []).join(', ')}</div>
+                                    <div><strong>Lessons:</strong> ${module.totalLessons || (module.lessons?.length || 0)}</div>
+                                    <div><strong>Total XP:</strong> ${module.totalXp || 0}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}\n\nCheck console for details.`;
+                console.error(error);
+            }
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            checkPublishedModules();
+        });
+    </script>
+</body>
+</html>
+

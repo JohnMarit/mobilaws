@@ -118,16 +118,16 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const renderContent = () => {
     return (
       <Card className="touch-manipulation">
-        <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <span className="leading-tight">{lesson.title}</span>
+        <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm sm:text-base md:text-lg">
+            <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary flex-shrink-0" />
+            <span className="leading-tight break-words">{lesson.title}</span>
           </CardTitle>
-          <CardDescription className="text-sm sm:text-base">
+          <CardDescription className="text-xs sm:text-sm md:text-base">
             {audioEnabled ? 'Read or listen to the lesson content' : 'Read the lesson content before taking the quiz'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6 pt-0">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 pt-0 overflow-x-hidden">
           {audioEnabled && (
             <div className="flex justify-start pb-2 border-b">
               <AudioPlayer
@@ -137,7 +137,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               />
             </div>
           )}
-          <div className="prose prose-sm max-w-none">
+          <div className="prose prose-sm sm:prose-base max-w-none overflow-x-hidden">
             {audioEnabled ? (
               <HighlightedText
                 text={lesson.content}
@@ -145,7 +145,10 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
                 className="text-sm sm:text-base"
               />
             ) : (
-              <div className="whitespace-pre-line text-sm sm:text-base leading-relaxed">{lesson.content}</div>
+              <div 
+                className="text-sm sm:text-base leading-relaxed overflow-x-hidden break-words"
+                dangerouslySetInnerHTML={{ __html: lesson.content }}
+              />
             )}
           </div>
           <div className="pt-3 sm:pt-4 border-t space-y-3">
@@ -188,12 +191,12 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
     const isCorrect = showExplanation && selectedOption === currentQuiz.correctAnswer;
 
     return (
-      <Card className="touch-manipulation">
-        <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-3">
-          <CardTitle className="text-base sm:text-lg">Question {currentQuizIndex + 1} of {lesson.quiz.length}</CardTitle>
-          <CardDescription className="text-sm sm:text-base leading-relaxed">{currentQuiz.question}</CardDescription>
+      <Card className="touch-manipulation overflow-hidden">
+        <CardHeader className="p-3 sm:p-4 md:p-6 pb-2 sm:pb-3">
+          <CardTitle className="text-sm sm:text-base md:text-lg">Question {currentQuizIndex + 1} of {lesson.quiz.length}</CardTitle>
+          <CardDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words">{currentQuiz.question}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6 pt-0">
+        <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-4 md:p-6 pt-0 overflow-x-hidden">
           <div className="space-y-2">
             {currentQuiz.options.map((option, idx) => (
               <Button
@@ -274,13 +277,13 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   return (
     <>
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="space-y-2 pb-3 sm:pb-4">
-          <DialogTitle className="flex items-center gap-2 text-xl sm:text-2xl pr-8">
+      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto p-3 sm:p-6 overflow-x-hidden">
+        <DialogHeader className="space-y-2 pb-3 sm:pb-4 pr-8">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl">
             <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <span className="truncate">{module.title}</span>
+            <span className="truncate leading-tight">{module.title}</span>
           </DialogTitle>
-          <DialogDescription className="text-sm sm:text-base">{module.description}</DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm md:text-base leading-relaxed">{module.description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 sm:space-y-4">

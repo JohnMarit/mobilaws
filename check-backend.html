@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Backend Connection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Backend Connection Check</h1>
+        <p class="subtitle">Verify your backend is running and accessible</p>
+        
+        <div class="test-section">
+            <label for="apiUrl"><strong>Backend API URL:</strong></label>
+            <input 
+                type="text" 
+                id="apiUrl" 
+                class="url-input" 
+                value="https://mobilaws-ympe.vercel.app/api"
+                placeholder="Enter your backend URL"
+            />
+            <button onclick="runTests()">Run All Tests</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 1: Health Check <span id="health-status" class="status status-pending">Pending</span></h3>
+            <p>Testing: <code id="health-url"></code></p>
+            <pre id="health-result">Click "Run All Tests" to start</pre>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 2: Fetch All Modules <span id="modules-status" class="status status-pending">Pending</span></h3>
+            <p>Testing: <code id="modules-url"></code></p>
+            <pre id="modules-result">Click "Run All Tests" to start</pre>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test 3: Fetch Free Tier Modules <span id="free-status" class="status status-pending">Pending</span></h3>
+            <p>Testing: <code id="free-url"></code></p>
+            <pre id="free-result">Click "Run All Tests" to start</pre>
+        </div>
+        
+        <div class="test-section">
+            <h3>Summary</h3>
+            <div id="summary">Run tests to see summary</div>
+        </div>
+    </div>
+
+    <script>
+        async function runTests() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            
+            if (!apiUrl) {
+                alert('Please enter a backend API URL');
+                return;
+            }
+            
+            console.log('Testing backend at:', apiUrl);
+            
+            // Test 1: Health Check
+            await testHealth(apiUrl);
+            
+            // Test 2: Fetch All Modules
+            await testAllModules(apiUrl);
+            
+            // Test 3: Fetch Free Tier Modules
+            await testFreeTier(apiUrl);
+            
+            // Generate summary
+            generateSummary();
+        }
+        
+        async function testHealth(apiUrl) {
+            const statusEl = document.getElementById('health-status');
+            const resultEl = document.getElementById('health-result');
+            const urlEl = document.getElementById('health-url');
+            
+            const healthUrl = apiUrl.replace('/api', '') + '/healthz';
+            urlEl.textContent = healthUrl;
+            
+            statusEl.textContent = 'Testing...';
+            statusEl.className = 'status status-pending';
+            
+            try {
+                console.log('Testing health:', healthUrl);
+                const response = await fetch(healthUrl);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    statusEl.textContent = '✅ Success';
+                    statusEl.className = 'status status-success';
+                    resultEl.textContent = `Status: ${response.status}\nResponse: ${data}`;
+                } else {
+                    statusEl.textContent = '❌ Failed';
+                    statusEl.className = 'status status-error';
+                    resultEl.textContent = `Status: ${response.status}\nResponse: ${data}`;
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Error';
+                statusEl.className = 'status status-error';
+                resultEl.textContent = `Error: ${error.message}\n\nPossible causes:\n- Backend not deployed\n- Wrong URL\n- CORS issue\n- Network problem`;
+                console.error('Health check error:', error);
+            }
+        }
+        
+        async function testAllModules(apiUrl) {
+            const statusEl = document.getElementById('modules-status');
+            const resultEl = document.getElementById('modules-result');
+            const urlEl = document.getElementById('modules-url');
+            
+            const modulesUrl = apiUrl + '/tutor-admin/modules';
+            urlEl.textContent = modulesUrl;
+            
+            statusEl.textContent = 'Testing...';
+            statusEl.className = 'status status-pending';
+            
+            try {
+                console.log('Testing modules:', modulesUrl);
+                const response = await fetch(modulesUrl);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    const published = data.filter(m => m.published === true).length;
+                    const unpublished = data.filter(m => m.published !== true).length;
+                    
+                    statusEl.textContent = '✅ Success';
+                    statusEl.className = 'status status-success';
+                    resultEl.textContent = `Total modules: ${data.length}\nPublished: ${published}\nUnpublished: ${unpublished}\n\n${JSON.stringify(data.slice(0, 2), null, 2)}${data.length > 2 ? '\n... (showing first 2)' : ''}`;
+                } else {
+                    statusEl.textContent = '⚠️ Warning';
+                    statusEl.className = 'status status-error';
+                    resultEl.textContent = `Expected array, got:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Error';
+                statusEl.className = 'status status-error';
+                resultEl.textContent = `Error: ${error.message}\n\nCheck:\n- Backend is deployed\n- Firestore is configured\n- Firebase credentials are set`;
+                console.error('Modules fetch error:', error);
+            }
+        }
+        
+        async function testFreeTier(apiUrl) {
+            const statusEl = document.getElementById('free-status');
+            const resultEl = document.getElementById('free-result');
+            const urlEl = document.getElementById('free-url');
+            
+            const freeUrl = apiUrl + '/tutor-admin/modules/level/free';
+            urlEl.textContent = freeUrl;
+            
+            statusEl.textContent = 'Testing...';
+            statusEl.className = 'status status-pending';
+            
+            try {
+                console.log('Testing free tier:', freeUrl);
+                const response = await fetch(freeUrl);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    statusEl.textContent = '✅ Success';
+                    statusEl.className = 'status status-success';
+                    resultEl.textContent = `Free tier modules: ${data.length}\n\n${data.length > 0 ? JSON.stringify(data.slice(0, 1), null, 2) : 'No modules found for free tier\n\nThis might mean:\n- No modules published yet\n- Modules not assigned to free tier\n- Firestore index missing (deploy firestore indexes)'}`;
+                    
+                    if (data.length === 0) {
+                        resultEl.textContent += '\n\n⚠️ No modules found. Possible reasons:\n- No modules published yet\n- Modules not assigned to "free" access level\n- Firestore composite index missing\n\nRun: deploy-firestore-indexes.bat';
+                    }
+                } else {
+                    statusEl.textContent = '⚠️ Warning';
+                    statusEl.className = 'status status-error';
+                    resultEl.textContent = `Expected array, got:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Error';
+                statusEl.className = 'status status-error';
+                resultEl.textContent = `Error: ${error.message}\n\nCheck:\n- Firestore composite index exists\n- Modules are published\n- Access levels are set correctly`;
+                console.error('Free tier fetch error:', error);
+            }
+        }
+        
+        function generateSummary() {
+            const healthStatus = document.getElementById('health-status').textContent;
+            const modulesStatus = document.getElementById('modules-status').textContent;
+            const freeStatus = document.getElementById('free-status').textContent;
+            
+            let summary = '<ul style="margin: 10px 0 0 20px;">';
+            summary += `<li><strong>Health Check:</strong> ${healthStatus}</li>`;
+            summary += `<li><strong>Fetch Modules:</strong> ${modulesStatus}</li>`;
+            summary += `<li><strong>Free Tier:</strong> ${freeStatus}</li>`;
+            summary += '</ul>';
+            
+            const allSuccess = healthStatus.includes('✅') && modulesStatus.includes('✅') && freeStatus.includes('✅');
+            
+            if (allSuccess) {
+                summary = '<p style="color: #155724; background: #d4edda; padding: 15px; border-radius: 8px;"><strong>✅ All tests passed!</strong> Your backend is working correctly.</p>' + summary;
+            } else {
+                summary = '<p style="color: #721c24; background: #f8d7da; padding: 15px; border-radius: 8px;"><strong>❌ Some tests failed.</strong> Check the errors above.</p>' + summary;
+            }
+            
+            document.getElementById('summary').innerHTML = summary;
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runTests();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
+
