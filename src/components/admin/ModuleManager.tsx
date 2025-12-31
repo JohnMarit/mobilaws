@@ -124,13 +124,33 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
 
   const loadModules = async () => {
     setLoading(true);
+    console.log('🔍 Loading modules for tutor:', tutorId);
     try {
-      const response = await fetch(getApiUrl(`tutor-admin/modules/tutor/${tutorId}`));
+      const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}`);
+      console.log('📡 Fetching from:', url);
+      const response = await fetch(url);
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('❌ Response not OK:', response.statusText);
+        throw new Error(`Failed to fetch modules: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      console.log('📦 Received modules:', data);
+      console.log('📊 Number of modules:', data?.length || 0);
+      
       setModules(data || []);
+      
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No modules found for tutor:', tutorId);
+        toast.info('No modules found yet. Upload a document first.');
+      } else {
+        console.log('✅ Loaded', data.length, 'module(s)');
+      }
     } catch (error) {
-      console.error('Failed to load modules:', error);
-      toast.error('Failed to load modules');
+      console.error('❌ Failed to load modules:', error);
+      toast.error('Failed to load modules: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setLoading(false);
     }

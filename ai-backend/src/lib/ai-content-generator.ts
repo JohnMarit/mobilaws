@@ -647,20 +647,58 @@ export async function addReplyToMessage(
  */
 export async function getModulesByTutorId(tutorId: string): Promise<GeneratedModule[]> {
   const db = getFirestore();
-  if (!db) return [];
+  if (!db) {
+    console.error('❌ Firestore not initialized');
+    return [];
+  }
 
   try {
-    const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
-      .where('tutorId', '==', tutorId)
-      .orderBy('createdAt', 'desc')
-      .get();
+    console.log(`🔍 Querying generatedModules for tutorId: ${tutorId}`);
+    
+    // Try with orderBy first
+    try {
+      const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
+        .where('tutorId', '==', tutorId)
+        .orderBy('createdAt', 'desc')
+        .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as GeneratedModule[];
+      const modules = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as GeneratedModule[];
+      
+      console.log(`✅ Found ${modules.length} module(s) with orderBy`);
+      return modules;
+    } catch (indexError: any) {
+      // If index error, try without orderBy
+      if (indexError?.code === 9 || indexError?.message?.includes('index')) {
+        console.warn('⚠️ Index not found, querying without orderBy');
+        console.warn('⚠️ Please deploy Firestore indexes: firebase deploy --only firestore:indexes');
+        
+        const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
+          .where('tutorId', '==', tutorId)
+          .get();
+
+        const modules = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as GeneratedModule[];
+        
+        // Sort in memory
+        modules.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() || 0;
+          const bTime = b.createdAt?.toMillis?.() || 0;
+          return bTime - aTime;
+        });
+        
+        console.log(`✅ Found ${modules.length} module(s) without orderBy (sorted in memory)`);
+        return modules;
+      }
+      throw indexError;
+    }
   } catch (error) {
     console.error('❌ Error fetching modules by tutor:', error);
+    console.error('Error details:', error);
     return [];
   }
 }
