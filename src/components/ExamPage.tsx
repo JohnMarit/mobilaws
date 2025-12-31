@@ -7,7 +7,7 @@ import { Award, Trophy, Lock, CheckCircle2, Clock, Target, Download } from 'luci
 import { certificationExams, getExamQuestionsFromFirestore, type Certificate } from '@/lib/examContent';
 import { useLearning } from '@/contexts/LearningContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
-import { getUserCertificates } from '@/lib/examService';
+import { getUserCertificates, getUserExamAttempts } from '@/lib/examService';
 import ExamRunner from './ExamRunner';
 import CertificateGenerator from './CertificateGenerator';
 
@@ -21,22 +21,27 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
     const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
     const [examQuestions, setExamQuestions] = useState<any[]>([]);
     const [certificates, setCertificates] = useState<Certificate[]>([]);
+    const [examAttempts, setExamAttempts] = useState<any[]>([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
     const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
     const [showCertificateDialog, setShowCertificateDialog] = useState(false);
 
-    // Load certificates from Firebase on mount
+    // Load certificates and exam attempts from Firebase on mount
     useEffect(() => {
-        const loadCertificates = async () => {
+        const loadExamData = async () => {
             if (!user?.id) return;
             try {
-                const userCerts = await getUserCertificates(user.id);
+                const [userCerts, userAttempts] = await Promise.all([
+                    getUserCertificates(user.id),
+                    getUserExamAttempts(user.id)
+                ]);
                 setCertificates(userCerts);
+                setExamAttempts(userAttempts);
             } catch (error) {
-                console.error('Failed to load certificates:', error);
+                console.error('Failed to load exam data:', error);
             }
         };
-        loadCertificates();
+        loadExamData();
     }, [user?.id]);
 
     const handleStartExam = async (examId: string) => {
@@ -62,28 +67,23 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
     };
 
     const handleExamComplete = async (certificate: Certificate | null) => {
-        if (certificate) {
-            setCertificates(prev => {
-                // Avoid duplicates
-                const exists = prev.find(c => c.id === certificate.id);
-                return exists ? prev : [...prev, certificate];
-            });
-            if (onCertificateEarned) {
-                onCertificateEarned(certificate);
-            }
-            // Reload certificates from Firebase to ensure we have the latest
-            if (user?.id) {
-                try {
-                    const userCerts = await getUserCertificates(user.id);
-                    setCertificates(userCerts);
-                } catch (error) {
-                    console.error('Failed to reload certificates:', error);
+        if (user?.id) {
+            // Reload certificates and attempts from Firebase to ensure we have the latest
+            try {
+                const [userCerts, userAttempts] = await Promise.all([
+                    getUserCertificates(user.id),
+                    getUserExamAttempts(user.id)
+                ]);
+                setCertificates(userCerts);
+                setExamAttempts(userAttempts);
+                
+                if (certificate && onCertificateEarned) {
+                    onCertificateEarned(certificate);
                 }
+            } catch (error) {
+                console.error('Failed to reload exam data:', error);
             }
         }
-        // Don't reset immediately - let user see the results and certificate button
-        // setSelectedExamId(null);
-        // setExamQuestions([]);
     };
 
     const handleViewCertificate = (certificate: Certificate) => {
@@ -93,6 +93,16 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
 
     const selectedExam = certificationExams.find(e => e.id === selectedExamId);
     const hasCertificate = (examId: string) => certificates.some(c => c.examId === examId);
+    
+    // Check if user has failed attempts (no certificate but has attempts that didn't pass)
+    const hasFailedAttempts = (examId: string) => {
+        if (hasCertificate(examId)) return false; // If passed, no failed attempts
+        const attempts = examAttempts.filter(a => a.examId === examId);
+        return attempts.some(a => a.passed === false || (a.score && a.score < (certificationExams.find(e => e.id === examId)?.passMark || 70)));
+    };
+    
+    // Check if exam is completed (has certificate)
+    const isExamCompleted = (examId: string) => hasCertificate(examId);
 
     return (
         <div className="space-y-6">
@@ -133,10 +143,16 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                             <CardHeader>
                                 <div className="flex items-start justify-between">
                                     <div className="text-4xl">{exam.badge}</div>
-                                    {hasCert && (
+                                    {isExamCompleted(exam.id) && (
                                         <Badge variant="default" className="bg-green-500">
                                             <CheckCircle2 className="h-3 w-3 mr-1" />
-                                            Earned
+                                            Completed
+                                        </Badge>
+                                    )}
+                                    {hasFailedAttempts(exam.id) && !isExamCompleted(exam.id) && (
+                                        <Badge variant="secondary" className="bg-orange-500 text-white">
+                                            <Award className="h-3 w-3 mr-1" />
+                                            Failed
                                         </Badge>
                                     )}
                                     {isLocked && (
@@ -174,29 +190,33 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                                         <Lock className="h-4 w-4 mr-2" />
                                         Upgrade to {exam.requiredTier}
                                     </Button>
-                                ) : hasCert ? (
-                                    <div className="space-y-2">
-                                        <Button
-                                            variant="default"
-                                            className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
-                                            onClick={() => {
-                                                const cert = certificates.find(c => c.examId === exam.id);
-                                                if (cert) handleViewCertificate(cert);
-                                            }}
-                                        >
-                                            <Download className="h-4 w-4 mr-2" />
-                                            View & Download Certificate
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            onClick={() => handleStartExam(exam.id)}
-                                            disabled={isLoadingQuestions}
-                                        >
-                                            {isLoadingQuestions ? 'Loading...' : 'Retake Exam'}
-                                        </Button>
-                                    </div>
+                                ) : isExamCompleted(exam.id) ? (
+                                    // Exam passed - show certificate download only (no retake)
+                                    <Button
+                                        variant="default"
+                                        className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                                        onClick={() => {
+                                            const cert = certificates.find(c => c.examId === exam.id);
+                                            if (cert) handleViewCertificate(cert);
+                                        }}
+                                    >
+                                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                                        View & Download Certificate
+                                    </Button>
+                                ) : hasFailedAttempts(exam.id) ? (
+                                    // Exam failed - allow retake
+                                    <Button
+                                        variant="default"
+                                        className="w-full"
+                                        style={{ backgroundColor: exam.color }}
+                                        onClick={() => handleStartExam(exam.id)}
+                                        disabled={isLoadingQuestions}
+                                    >
+                                        <Award className="h-4 w-4 mr-2" />
+                                        {isLoadingQuestions ? 'Loading...' : 'Retake Exam'}
+                                    </Button>
                                 ) : (
+                                    // No attempts yet - start exam
                                     <Button
                                         className="w-full"
                                         style={{ backgroundColor: exam.color }}
