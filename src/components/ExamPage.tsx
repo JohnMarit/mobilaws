@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Award, Trophy, Lock, CheckCircle2, Clock, Target } from 'lucide-react';
+import { Award, Trophy, Lock, CheckCircle2, Clock, Target, Download } from 'lucide-react';
 import { certificationExams, getExamQuestionsFromFirestore, type Certificate } from '@/lib/examContent';
 import { useLearning } from '@/contexts/LearningContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
+import { getUserCertificates } from '@/lib/examService';
 import ExamRunner from './ExamRunner';
+import CertificateGenerator from './CertificateGenerator';
 
 interface ExamPageProps {
     onCertificateEarned?: (certificate: Certificate) => void;
@@ -14,10 +17,27 @@ interface ExamPageProps {
 
 export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
     const { tier } = useLearning();
+    const { user } = useAuth();
     const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
     const [examQuestions, setExamQuestions] = useState<any[]>([]);
     const [certificates, setCertificates] = useState<Certificate[]>([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+    const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+    const [showCertificateDialog, setShowCertificateDialog] = useState(false);
+
+    // Load certificates from Firebase on mount
+    useEffect(() => {
+        const loadCertificates = async () => {
+            if (!user?.id) return;
+            try {
+                const userCerts = await getUserCertificates(user.id);
+                setCertificates(userCerts);
+            } catch (error) {
+                console.error('Failed to load certificates:', error);
+            }
+        };
+        loadCertificates();
+    }, [user?.id]);
 
     const handleStartExam = async (examId: string) => {
         setIsLoadingQuestions(true);
@@ -41,15 +61,34 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
         }
     };
 
-    const handleExamComplete = (certificate: Certificate | null) => {
+    const handleExamComplete = async (certificate: Certificate | null) => {
         if (certificate) {
-            setCertificates(prev => [...prev, certificate]);
+            setCertificates(prev => {
+                // Avoid duplicates
+                const exists = prev.find(c => c.id === certificate.id);
+                return exists ? prev : [...prev, certificate];
+            });
             if (onCertificateEarned) {
                 onCertificateEarned(certificate);
             }
+            // Reload certificates from Firebase to ensure we have the latest
+            if (user?.id) {
+                try {
+                    const userCerts = await getUserCertificates(user.id);
+                    setCertificates(userCerts);
+                } catch (error) {
+                    console.error('Failed to reload certificates:', error);
+                }
+            }
         }
-        setSelectedExamId(null);
-        setExamQuestions([]);
+        // Don't reset immediately - let user see the results and certificate button
+        // setSelectedExamId(null);
+        // setExamQuestions([]);
+    };
+
+    const handleViewCertificate = (certificate: Certificate) => {
+        setSelectedCertificate(certificate);
+        setShowCertificateDialog(true);
     };
 
     const selectedExam = certificationExams.find(e => e.id === selectedExamId);
@@ -136,14 +175,27 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                                         Upgrade to {exam.requiredTier}
                                     </Button>
                                 ) : hasCert ? (
-                                    <Button
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => handleStartExam(exam.id)}
-                                        disabled={isLoadingQuestions}
-                                    >
-                                        {isLoadingQuestions ? 'Loading...' : 'Retake Exam'}
-                                    </Button>
+                                    <div className="space-y-2">
+                                        <Button
+                                            variant="default"
+                                            className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
+                                            onClick={() => {
+                                                const cert = certificates.find(c => c.examId === exam.id);
+                                                if (cert) handleViewCertificate(cert);
+                                            }}
+                                        >
+                                            <Download className="h-4 w-4 mr-2" />
+                                            View & Download Certificate
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full"
+                                            onClick={() => handleStartExam(exam.id)}
+                                            disabled={isLoadingQuestions}
+                                        >
+                                            {isLoadingQuestions ? 'Loading...' : 'Retake Exam'}
+                                        </Button>
+                                    </div>
                                 ) : (
                                     <Button
                                         className="w-full"
@@ -165,11 +217,26 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
             {selectedExam && examQuestions.length > 0 && (
                 <ExamRunner
                     open={!!selectedExamId}
-                    onClose={() => setSelectedExamId(null)}
+                    onClose={() => {
+                        setSelectedExamId(null);
+                        setExamQuestions([]);
+                    }}
                     examId={selectedExam.id}
                     examTitle={selectedExam.title}
                     questions={examQuestions}
                     onComplete={handleExamComplete}
+                />
+            )}
+
+            {/* Certificate Generator Dialog */}
+            {selectedCertificate && (
+                <CertificateGenerator
+                    open={showCertificateDialog}
+                    onClose={() => {
+                        setShowCertificateDialog(false);
+                        setSelectedCertificate(null);
+                    }}
+                    certificate={selectedCertificate}
                 />
             )}
         </div>

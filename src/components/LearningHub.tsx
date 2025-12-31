@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown } from 'lucide-react';
+import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
@@ -31,6 +31,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
+  const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -339,33 +340,21 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                             <div className="text-xs sm:text-sm text-muted-foreground mt-1">{percent}% complete</div>
                           </div>
                           <div className="space-y-2 sm:space-y-2.5">
-                            {module.lessons.map((lesson) => {
+                            {module.lessons.map((lesson, lessonIndex) => {
                               const lp = getLessonProgress(module.id, lesson.id);
                               const isLocked = lesson.locked;
                               const isCompleted = lp?.completed || false;
                               
-                              // Determine visibility based on tier
-                              let showLesson = true;
-                              let showLocked = false;
-                              const lessonIndex = module.lessons.indexOf(lesson);
+                              // Show 5 lessons initially, rest can be expanded
+                              const isExpanded = expandedLessons.has(module.id);
+                              const shouldShow = isExpanded || lessonIndex < 5;
                               
-                              if (tier === 'free') {
-                                showLesson = lessonIndex === 0;
-                                showLocked = lessonIndex > 0;
-                              } else if (tier === 'basic') {
-                                showLesson = lessonIndex === 0;
-                                showLocked = lessonIndex > 0;
-                              } else if (tier === 'standard') {
-                                showLesson = lessonIndex < 4;
-                                showLocked = lessonIndex >= 4;
-                              }
-                              
-                              if (!showLesson && !showLocked) return null;
+                              if (!shouldShow) return null;
                               
                               return (
                                 <div
                                   key={lesson.id}
-                                  className={`flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-all duration-300 gap-2 sm:gap-3 ${showLocked ? 'opacity-60' : ''}`}
+                                  className={`flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-all duration-300 gap-2 sm:gap-3 ${isLocked ? 'opacity-60' : ''}`}
                                 >
                                   <div className="flex-1 min-w-0 pr-2 overflow-hidden">
                                     <div className="text-sm sm:text-base font-medium flex items-center gap-1.5 sm:gap-2">
@@ -391,7 +380,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                       )}
                                     </div>
                                   </div>
-                                  {showLocked || isLocked ? (
+                                  {isLocked ? (
                                     <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm flex-shrink-0">
                                       <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
                                       <span className="hidden sm:inline">UPGRADE</span>
@@ -412,6 +401,37 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                 </div>
                               );
                             })}
+                            
+                            {/* Expand/Collapse Button */}
+                            {module.lessons.length > 5 && (
+                              <Button
+                                variant="ghost"
+                                className="w-full mt-2 text-sm"
+                                onClick={() => {
+                                  setExpandedLessons(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(module.id)) {
+                                      newSet.delete(module.id);
+                                    } else {
+                                      newSet.add(module.id);
+                                    }
+                                    return newSet;
+                                  });
+                                }}
+                              >
+                                {expandedLessons.has(module.id) ? (
+                                  <>
+                                    <ChevronUp className="h-4 w-4 mr-2" />
+                                    Show Less ({module.lessons.length - 5} hidden)
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="h-4 w-4 mr-2" />
+                                    Show {module.lessons.length - 5} More Lessons
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             
                             {/* Request More Lessons Button */}
                             {done && (

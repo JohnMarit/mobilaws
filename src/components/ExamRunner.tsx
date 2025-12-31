@@ -133,6 +133,18 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
         onClose();
     };
 
+    const handleViewCertificate = () => {
+        setShowCertificate(true);
+    };
+
+    const handleCloseWithCertificate = () => {
+        setShowCertificate(false);
+        // After closing certificate, allow closing the exam dialog
+        if (examResults?.passed && certificate) {
+            onClose();
+        }
+    };
+
     if (showResults && examResults) {
         return (
             <Dialog open={open} onOpenChange={handleClose}>
@@ -196,19 +208,28 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
                         )}
 
                         {/* Actions */}
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
+                        <div className="flex flex-col gap-3">
                             {examResults.passed && certificate && (
-                                <Button 
-                                    variant="outline" 
-                                    className="gap-2 w-full sm:w-auto"
-                                    onClick={() => setShowCertificate(true)}
-                                >
-                                    <Award className="h-4 w-4" />
-                                    <span className="hidden sm:inline">View & Download Certificate</span>
-                                    <span className="sm:hidden">Certificate</span>
-                                </Button>
+                                <div className="space-y-2">
+                                    <Button 
+                                        variant="default"
+                                        size="lg"
+                                        className="gap-2 w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-base font-semibold"
+                                        onClick={handleViewCertificate}
+                                    >
+                                        <Award className="h-5 w-5" />
+                                        <span>View & Download Certificate</span>
+                                    </Button>
+                                    <p className="text-xs text-center text-muted-foreground">
+                                        Your certificate has been saved. You can download it anytime from the exam page.
+                                    </p>
+                                </div>
                             )}
-                            <Button onClick={handleClose} className="w-full sm:w-auto">
+                            <Button 
+                                onClick={handleClose} 
+                                variant="outline"
+                                className="w-full"
+                            >
                                 Close
                             </Button>
                         </div>
@@ -217,7 +238,7 @@ export default function ExamRunner({ open, onClose, examId, examTitle, questions
                         {certificate && (
                             <CertificateGenerator
                                 open={showCertificate}
-                                onClose={() => setShowCertificate(false)}
+                                onClose={handleCloseWithCertificate}
                                 certificate={certificate}
                             />
                         )}
