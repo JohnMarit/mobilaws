@@ -7,7 +7,7 @@ import { Award, Trophy, Lock, CheckCircle2, Clock, Target, Download } from 'luci
 import { certificationExams, getExamQuestionsFromFirestore, type Certificate } from '@/lib/examContent';
 import { useLearning } from '@/contexts/LearningContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
-import { getUserCertificates, getUserExamAttempts } from '@/lib/examService';
+import { getUserCertificates, getUserExamAttempts, hasUserPassedExam } from '@/lib/examService';
 import ExamRunner from './ExamRunner';
 import CertificateGenerator from './CertificateGenerator';
 
@@ -132,8 +132,26 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
             {/* Available Exams */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {certificationExams.map((exam) => {
-                    const isLocked = tier === 'free' && exam.requiredTier !== 'free';
+                    // Access control based on tier
+                    let isLocked = false;
+                    let lockMessage = '';
+                    
+                    if (exam.requiredTier === 'free') {
+                        // Basic exam: available to all users
+                        isLocked = false;
+                    } else if (exam.requiredTier === 'basic') {
+                        // Standard exam: available to basic and standard users
+                        isLocked = tier === 'free';
+                        lockMessage = 'Upgrade to Basic or higher';
+                    } else if (exam.requiredTier === 'premium') {
+                        // Premium exam: available to premium users only
+                        isLocked = tier !== 'premium';
+                        lockMessage = 'Upgrade to Premium';
+                    }
+                    
                     const hasCert = hasCertificate(exam.id);
+                    const isPremiumExam = exam.id === 'premium-cert';
+                    const canRetake = isPremiumExam; // Only premium exam can be retaken
 
                     return (
                         <Card
@@ -188,10 +206,10 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                                 {isLocked ? (
                                     <Button variant="outline" className="w-full" disabled>
                                         <Lock className="h-4 w-4 mr-2" />
-                                        Upgrade to {exam.requiredTier}
+                                        {lockMessage}
                                     </Button>
-                                ) : isExamCompleted(exam.id) ? (
-                                    // Exam passed - show certificate download only (no retake)
+                                ) : isExamCompleted(exam.id) && !canRetake ? (
+                                    // Exam passed and cannot be retaken (Basic & Standard)
                                     <Button
                                         variant="default"
                                         className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
@@ -201,8 +219,32 @@ export default function ExamPage({ onCertificateEarned }: ExamPageProps) {
                                         }}
                                     >
                                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                                        View & Download Certificate
+                                        View Certificate
                                     </Button>
+                                ) : isExamCompleted(exam.id) && canRetake ? (
+                                    // Premium exam passed but can be regenerated
+                                    <div className="space-y-2">
+                                        <Button
+                                            variant="default"
+                                            className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                                            onClick={() => {
+                                                const cert = certificates.find(c => c.examId === exam.id);
+                                                if (cert) handleViewCertificate(cert);
+                                            }}
+                                        >
+                                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                                            View Certificate
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full"
+                                            onClick={() => handleStartExam(exam.id)}
+                                            disabled={isLoadingQuestions}
+                                        >
+                                            <Award className="h-4 w-4 mr-2" />
+                                            {isLoadingQuestions ? 'Loading...' : 'Take New Exam'}
+                                        </Button>
+                                    </div>
                                 ) : hasFailedAttempts(exam.id) ? (
                                     // Exam failed - allow retake
                                     <Button

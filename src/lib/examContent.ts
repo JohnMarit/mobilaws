@@ -55,9 +55,9 @@ export const certificationExams: Exam[] = [
     {
         id: 'basic-cert',
         title: 'Basic Legal Knowledge Certificate',
-        description: 'Demonstrate foundational understanding of South Sudan law across Constitution, International Law, Criminal Law, and Public Law',
+        description: 'Demonstrate foundational understanding of South Sudan law. Available for all users including free tier.',
         requiredTier: 'free',
-        questionCount: 75,
+        questionCount: 40,
         passMark: 70,
         badge: '🎓',
         color: '#3b82f6' // blue
@@ -65,9 +65,9 @@ export const certificationExams: Exam[] = [
     {
         id: 'standard-cert',
         title: 'Standard Legal Proficiency Certificate',
-        description: 'Advanced certification covering beginner and intermediate legal concepts',
-        requiredTier: 'standard',
-        questionCount: 200,
+        description: 'Advanced certification covering intermediate legal concepts. Available for Basic and Standard users.',
+        requiredTier: 'basic', // Changed from 'standard' to allow basic users
+        questionCount: 100,
         passMark: 70,
         badge: '⚖️',
         color: '#8b5cf6' // purple
@@ -75,9 +75,9 @@ export const certificationExams: Exam[] = [
     {
         id: 'premium-cert',
         title: 'Premium Legal Expert Certificate',
-        description: 'Comprehensive certification demonstrating expert-level legal knowledge',
+        description: 'Comprehensive certification demonstrating expert-level legal knowledge. Premium users only. Can be regenerated for continuous learning.',
         requiredTier: 'premium',
-        questionCount: 400,
+        questionCount: 200,
         passMark: 70,
         badge: '👨‍⚖️',
         color: '#f59e0b' // amber
@@ -1106,8 +1106,9 @@ export const basicExamQuestions: ExamQuestion[] = [
 /**
  * Get random questions for an exam
  * FETCHES FROM FIRESTORE (tutor-uploaded modules) ONLY
+ * Ensures no overlap between exam levels
  */
-export async function getExamQuestionsFromFirestore(examId: string, tier: string): Promise<ExamQuestion[]> {
+export async function getExamQuestionsFromFirestore(examId: string, tier: string, userId?: string): Promise<ExamQuestion[]> {
     try {
         // Fetch published modules from Firestore based on user's tier
         const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://mobilaws-ympe.vercel.app/api'}/tutor-admin/modules/level/${tier}`);
@@ -1122,7 +1123,7 @@ export async function getExamQuestionsFromFirestore(examId: string, tier: string
         const allQuestions: ExamQuestion[] = [];
         modules.forEach((module: any) => {
             if (module.lessons && Array.isArray(module.lessons)) {
-                module.lessons.forEach((lesson: any) => {
+                module.lessons.forEach((lesson: any, lessonIndex: number) => {
                     if (lesson.quiz && Array.isArray(lesson.quiz)) {
                         lesson.quiz.forEach((quiz: any, index: number) => {
                             allQuestions.push({
@@ -1132,8 +1133,9 @@ export async function getExamQuestionsFromFirestore(examId: string, tier: string
                                 options: quiz.options,
                                 correctAnswer: quiz.correctAnswer,
                                 explanation: quiz.explanation || 'No explanation provided',
-                                difficulty: quiz.difficulty || 'beginner'
-                            });
+                                difficulty: quiz.difficulty || 'beginner',
+                                lessonIndex // Track lesson index for stratification
+                            } as any);
                         });
                     }
                 });
@@ -1145,20 +1147,60 @@ export async function getExamQuestionsFromFirestore(examId: string, tier: string
             return [];
         }
         
-        // Shuffle questions
-        const shuffled = allQuestions.sort(() => Math.random() - 0.5);
-        
         // Get the required number of questions based on exam type
         const exam = certificationExams.find(e => e.id === examId);
-        const questionCount = exam?.questionCount || 75;
+        const questionCount = exam?.questionCount || 40;
         
-        // If we don't have enough questions, use all available and warn
-        if (shuffled.length < questionCount) {
-            console.warn(`⚠️ Only ${shuffled.length} questions available, exam requires ${questionCount}`);
-            return shuffled;
+        let selectedQuestions: ExamQuestion[] = [];
+        
+        // Stratify questions based on exam level to avoid overlap
+        if (examId === 'basic-cert') {
+            // Basic: First 40 questions from beginner difficulty
+            const beginnerQuestions = allQuestions.filter(q => q.difficulty === 'beginner' || q.difficulty === 'easy');
+            selectedQuestions = shuffleArray(beginnerQuestions).slice(0, 40);
+        } else if (examId === 'standard-cert') {
+            // Standard: 100 questions from intermediate difficulty (no overlap with basic)
+            const intermediateQuestions = allQuestions.filter(q => 
+                q.difficulty === 'intermediate' || q.difficulty === 'medium'
+            );
+            selectedQuestions = shuffleArray(intermediateQuestions).slice(0, 100);
+            
+            // If not enough intermediate, supplement with advanced
+            if (selectedQuestions.length < 100) {
+                const advancedQuestions = allQuestions.filter(q => 
+                    q.difficulty === 'advanced' || q.difficulty === 'hard'
+                );
+                const needed = 100 - selectedQuestions.length;
+                selectedQuestions = [...selectedQuestions, ...shuffleArray(advancedQuestions).slice(0, needed)];
+            }
+        } else if (examId === 'premium-cert') {
+            // Premium: 200 questions from all difficulties, excluding basic and standard ranges
+            // Use advanced questions and mixed difficulties
+            const advancedQuestions = allQuestions.filter(q => 
+                q.difficulty === 'advanced' || q.difficulty === 'hard'
+            );
+            const mixedQuestions = shuffleArray(allQuestions);
+            
+            // Prioritize advanced, then fill with mixed
+            selectedQuestions = shuffleArray(advancedQuestions).slice(0, 150);
+            const needed = 200 - selectedQuestions.length;
+            if (needed > 0) {
+                const additionalQuestions = mixedQuestions
+                    .filter(q => !selectedQuestions.find(sq => sq.id === q.id))
+                    .slice(0, needed);
+                selectedQuestions = [...selectedQuestions, ...additionalQuestions];
+            }
         }
         
-        return shuffled.slice(0, questionCount);
+        // If we don't have enough questions, use all available and warn
+        if (selectedQuestions.length < questionCount) {
+            console.warn(`⚠️ Only ${selectedQuestions.length} questions available, exam requires ${questionCount}`);
+            // Supplement with any remaining questions
+            const remaining = allQuestions.filter(q => !selectedQuestions.find(sq => sq.id === q.id));
+            selectedQuestions = [...selectedQuestions, ...shuffleArray(remaining)].slice(0, questionCount);
+        }
+        
+        return shuffleArray(selectedQuestions).slice(0, questionCount);
     } catch (error) {
         console.error('❌ Error fetching exam questions from Firestore:', error);
         return [];

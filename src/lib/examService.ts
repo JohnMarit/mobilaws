@@ -67,6 +67,26 @@ export async function getUserExamAttempts(userId: string): Promise<ExamAttempt[]
 }
 
 /**
+ * Check if user has passed a specific exam
+ */
+export async function hasUserPassedExam(userId: string, examId: string): Promise<boolean> {
+    try {
+        const attemptsRef = collection(db, 'examAttempts');
+        const q = query(
+            attemptsRef,
+            where('userId', '==', userId),
+            where('examId', '==', examId),
+            where('passed', '==', true)
+        );
+        const snapshot = await getDocs(q);
+        return !snapshot.empty;
+    } catch (error) {
+        console.error('❌ Error checking exam completion:', error);
+        return false;
+    }
+}
+
+/**
  * Get user's certificates
  */
 export async function getUserCertificates(userId: string): Promise<Certificate[]> {
