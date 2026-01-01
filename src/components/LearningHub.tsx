@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt } from '@fortawesome/free-solid-svg-icons';
@@ -32,6 +32,28 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
+
+  // Auto-expand modules that have user-requested lessons
+  useEffect(() => {
+    const modulesWithUserLessons = new Set<string>();
+    modules.forEach(module => {
+      const hasUserRequestedLessons = module.lessons.some((lesson: any) => lesson.userGenerated === true);
+      if (hasUserRequestedLessons) {
+        modulesWithUserLessons.add(module.id);
+      }
+    });
+    
+    // Auto-expand modules with user-requested lessons
+    if (modulesWithUserLessons.size > 0) {
+      setExpandedLessons(prev => {
+        const newSet = new Set(prev);
+        modulesWithUserLessons.forEach(moduleId => {
+          newSet.add(moduleId);
+        });
+        return newSet;
+      });
+    }
+  }, [modules]);
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -355,9 +377,14 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                               const isLocked = lesson.locked;
                               const isCompleted = lp?.completed || false;
                               
+                              // Check if this is a user-requested lesson (has userGenerated flag or is beyond original module lessons)
+                              // User-requested lessons should always be visible
+                              const isUserRequested = (lesson as any).userGenerated === true;
+                              
                               // Show 5 lessons initially, rest can be expanded
+                              // But always show user-requested lessons
                               const isExpanded = expandedLessons.has(module.id);
-                              const shouldShow = isExpanded || lessonIndex < 5;
+                              const shouldShow = isUserRequested || isExpanded || lessonIndex < 5;
                               
                               if (!shouldShow) return null;
                               

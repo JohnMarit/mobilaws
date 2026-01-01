@@ -292,6 +292,7 @@ function convertGeneratedModuleToModule(
       completed: isCompleted,
       tier: lessonRequiredTier === 'free' ? 'basic' : lessonRequiredTier,
       hasAudio: genLesson.hasAudio,
+      userGenerated: (genLesson as any).userGenerated || false, // Preserve user-generated flag
     };
   });
 
