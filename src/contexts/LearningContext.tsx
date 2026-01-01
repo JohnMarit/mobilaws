@@ -351,10 +351,15 @@ async function fetchModulesFromBackend(
       // Merge user-specific lessons with module lessons
       const userModuleLessons = userLessons?.[m.id] || [];
       
-      // Show first 5 module lessons initially, then ALL module lessons + user-requested lessons
-      // This ensures lessons don't disappear after requesting more
+      // Determine which module lessons to show
+      // If user has requested more lessons OR has completed the initial set, show all lessons
+      const completedCount = moduleProgress ? Object.keys(moduleProgress.lessonsCompleted).length : 0;
+      const initialLessonCount = Math.min(5, m.lessons.length);
+      const hasCompletedInitial = completedCount >= initialLessonCount;
       const hasRequestedMore = userModuleLessons.length > 0;
-      const moduleLessonsToShow = hasRequestedMore ? m.lessons : m.lessons.slice(0, 5);
+      
+      // Show all module lessons if: user requested more OR completed initial set
+      const moduleLessonsToShow = (hasRequestedMore || hasCompletedInitial) ? m.lessons : m.lessons.slice(0, 5);
       const allLessons = [...moduleLessonsToShow, ...userModuleLessons];
       
       const moduleWithLessons: GeneratedModule = {
