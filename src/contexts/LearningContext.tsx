@@ -213,9 +213,10 @@ function convertGeneratedModuleToModule(
   // Determine the minimum required tier for this module
   // If module has 'free' access, requiredTier is 'free', otherwise use the lowest tier in accessLevels
   const tierOrder: Tier[] = ['free', 'basic', 'standard', 'premium'];
-  const requiredTier = generatedModule.accessLevels.includes('free')
+  const moduleAccessLevels = Array.isArray(generatedModule.accessLevels) ? generatedModule.accessLevels : ['premium'];
+  const requiredTier = moduleAccessLevels.includes('free')
     ? 'free'
-    : generatedModule.accessLevels.reduce((min, tier) => {
+    : moduleAccessLevels.reduce((min, tier) => {
         const minIndex = tierOrder.indexOf(min);
         const tierIndex = tierOrder.indexOf(tier);
         return tierIndex < minIndex ? tier : min;
@@ -226,10 +227,13 @@ function convertGeneratedModuleToModule(
   const requiredTierIndex = tierOrder.indexOf(requiredTier);
   const isModuleLocked = userTierIndex < requiredTierIndex;
 
-  // Convert lessons
-  const lessons: Lesson[] = generatedModule.lessons.map((genLesson) => {
+  // Convert lessons - ensure lessons is an array
+  const moduleLessons = Array.isArray(generatedModule.lessons) ? generatedModule.lessons : [];
+  const lessons: Lesson[] = moduleLessons.map((genLesson) => {
     // Determine lesson access levels (use lesson-specific or fall back to module)
-    const lessonAccessLevels = genLesson.accessLevels || generatedModule.accessLevels;
+    const lessonAccessLevels = Array.isArray(genLesson.accessLevels) 
+      ? genLesson.accessLevels 
+      : moduleAccessLevels;
     
     // Determine lesson required tier
     const lessonRequiredTier = lessonAccessLevels.includes('free')
@@ -248,10 +252,11 @@ function convertGeneratedModuleToModule(
     const lessonProgress = moduleProgress?.lessonsCompleted[genLesson.id];
     const isCompleted = lessonProgress?.completed || false;
 
-    // Convert quiz questions with access control
-    const quiz: QuizQuestion[] = genLesson.quiz.map((q) => {
+    // Convert quiz questions with access control - ensure quiz is an array
+    const lessonQuiz = Array.isArray(genLesson.quiz) ? genLesson.quiz : [];
+    const quiz: QuizQuestion[] = lessonQuiz.map((q) => {
       // Determine quiz access levels (use quiz-specific, lesson-specific, or module)
-      const quizAccessLevels = q.accessLevels || lessonAccessLevels;
+      const quizAccessLevels = Array.isArray(q.accessLevels) ? q.accessLevels : lessonAccessLevels;
       
       // Check if quiz is accessible to user
       const quizRequiredTier = quizAccessLevels.includes('free')
@@ -349,24 +354,30 @@ async function fetchModulesFromBackend(
     return publishedModules.map(m => {
       const moduleProgress = progress?.[m.id];
       // Merge user-specific lessons with module lessons
-      const userModuleLessons = userLessons?.[m.id] || [];
+      // Ensure both are arrays to prevent iteration errors
+      const userModuleLessons = Array.isArray(userLessons?.[m.id]) ? userLessons[m.id] : [];
+      const moduleLessons = Array.isArray(m.lessons) ? m.lessons : [];
       
       // Determine which module lessons to show
       // If user has requested more lessons OR has completed the initial set, show all lessons
       const completedCount = moduleProgress ? Object.keys(moduleProgress.lessonsCompleted).length : 0;
-      const initialLessonCount = Math.min(5, m.lessons.length);
+      const initialLessonCount = Math.min(5, moduleLessons.length);
       const hasCompletedInitial = completedCount >= initialLessonCount;
       const hasRequestedMore = userModuleLessons.length > 0;
       
       // Show all module lessons if: user requested more OR completed initial set
-      const moduleLessonsToShow = (hasRequestedMore || hasCompletedInitial) ? m.lessons : m.lessons.slice(0, 5);
-      const allLessons = [...moduleLessonsToShow, ...userModuleLessons];
+      const moduleLessonsToShow = (hasRequestedMore || hasCompletedInitial) 
+        ? moduleLessons 
+        : moduleLessons.slice(0, 5);
+      
+      // Ensure we're spreading arrays
+      const allLessons = [...(Array.isArray(moduleLessonsToShow) ? moduleLessonsToShow : []), ...userModuleLessons];
       
       const moduleWithLessons: GeneratedModule = {
         ...m,
         lessons: allLessons
       };
-      return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, m.lessons.length);
+      return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, moduleLessons.length);
     });
   } catch (error) {
     console.error('Error fetching modules from backend:', error);
