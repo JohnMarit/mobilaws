@@ -321,7 +321,16 @@ async function fetchUserLessons(userId: string): Promise<Record<string, Generate
     }
 
     const data = await response.json();
-    return data.modules || {};
+    const modulesData = data.modules || {};
+
+    // Normalize shape to: Record<moduleId, GeneratedLesson[]>
+    const normalized: Record<string, GeneratedLesson[]> = {};
+    Object.entries(modulesData).forEach(([moduleId, moduleValue]) => {
+      const lessons = (moduleValue as any)?.lessons;
+      normalized[moduleId] = Array.isArray(lessons) ? lessons : [];
+    });
+
+    return normalized;
   } catch (error) {
     console.error('Error fetching user lessons:', error);
     return {};
