@@ -33,28 +33,6 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
 
-  // Auto-expand modules that have user-requested lessons
-  useEffect(() => {
-    const modulesWithUserLessons = new Set<string>();
-    modules.forEach(module => {
-      const hasUserRequestedLessons = module.lessons.some((lesson: any) => lesson.userGenerated === true);
-      if (hasUserRequestedLessons) {
-        modulesWithUserLessons.add(module.id);
-      }
-    });
-    
-    // Auto-expand modules with user-requested lessons
-    if (modulesWithUserLessons.size > 0) {
-      setExpandedLessons(prev => {
-        const newSet = new Set(prev);
-        modulesWithUserLessons.forEach(moduleId => {
-          newSet.add(moduleId);
-        });
-        return newSet;
-      });
-    }
-  }, [modules]);
-
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
     return Math.min(100, Math.round((remainder / 120) * 100));
@@ -377,14 +355,10 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                               const isLocked = lesson.locked;
                               const isCompleted = lp?.completed || false;
                               
-                              // Check if this is a user-requested lesson (has userGenerated flag or is beyond original module lessons)
-                              // User-requested lessons should always be visible
-                              const isUserRequested = (lesson as any).userGenerated === true;
-                              
-                              // Show 5 lessons initially, rest can be expanded
-                              // But always show user-requested lessons
+                              // Show 5 lessons initially
+                              // When expanded, show ALL lessons
                               const isExpanded = expandedLessons.has(module.id);
-                              const shouldShow = isUserRequested || isExpanded || lessonIndex < 5;
+                              const shouldShow = isExpanded || lessonIndex < 5;
                               
                               if (!shouldShow) return null;
                               
@@ -459,12 +433,12 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                 {expandedLessons.has(module.id) ? (
                                   <>
                                     <ChevronUp className="h-4 w-4 mr-2" />
-                                    Show Less ({module.lessons.length - 5} hidden)
+                                    Show Less
                                   </>
                                 ) : (
                                   <>
                                     <ChevronDown className="h-4 w-4 mr-2" />
-                                    Show {module.lessons.length - 5} More Lessons
+                                    Show All {module.lessons.length} Lessons
                                   </>
                                 )}
                               </Button>
