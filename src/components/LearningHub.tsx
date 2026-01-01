@@ -102,6 +102,15 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
       });
 
       if (!response.ok) {
+        if (response.status === 403) {
+          // Request limit reached
+          const errorData = await response.json();
+          toast.error(errorData.message || 'Request limit reached', {
+            duration: 5000,
+          });
+          return;
+        }
+        
         const errorText = await response.text();
         let errorMessage = 'Failed to generate lessons';
         
@@ -116,7 +125,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
       }
 
       const data = await response.json();
-      toast.success(`Generated ${data.lessons.length} new lessons!`);
+      toast.success(`Generated ${data.lessons.length} new lessons! (${data.requestCount}/${data.maxRequests} requests used)`);
       
       // Reload modules to show new lessons (trigger context refresh)
       // The LearningContext will automatically fetch user lessons on next render

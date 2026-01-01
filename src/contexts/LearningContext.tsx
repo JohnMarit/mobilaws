@@ -207,7 +207,8 @@ interface GeneratedQuiz {
 function convertGeneratedModuleToModule(
   generatedModule: GeneratedModule,
   userTier: Tier,
-  moduleProgress?: ModuleProgress
+  moduleProgress?: ModuleProgress,
+  totalAvailableLessons?: number
 ): Module {
   // Determine the minimum required tier for this module
   // If module has 'free' access, requiredTier is 'free', otherwise use the lowest tier in accessLevels
@@ -349,15 +350,16 @@ async function fetchModulesFromBackend(
       const moduleProgress = progress?.[m.id];
       // Merge user-specific lessons with module lessons
       const userModuleLessons = userLessons?.[m.id] || [];
-      if (userModuleLessons.length > 0) {
-        // Create a copy with merged lessons
-        const moduleWithUserLessons: GeneratedModule = {
-          ...m,
-          lessons: [...m.lessons, ...userModuleLessons]
-        };
-        return convertGeneratedModuleToModule(moduleWithUserLessons, accessLevel, moduleProgress);
-      }
-      return convertGeneratedModuleToModule(m, accessLevel, moduleProgress);
+      
+      // Limit initial lessons to 5, then add user-requested lessons
+      const initialLessons = m.lessons.slice(0, 5);
+      const allLessons = [...initialLessons, ...userModuleLessons];
+      
+      const moduleWithLessons: GeneratedModule = {
+        ...m,
+        lessons: allLessons
+      };
+      return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, m.lessons.length);
     });
   } catch (error) {
     console.error('Error fetching modules from backend:', error);

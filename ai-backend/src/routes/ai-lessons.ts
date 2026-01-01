@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 import { env } from '../env';
 import { admin } from '../lib/firebase-admin';
+import { getRetriever } from '../rag/vectorstore';
+import { Document } from '@langchain/core/documents';
 
 const router = Router();
 
@@ -35,6 +37,36 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Database not available' });
     }
 
+    // Check request limits based on tier
+    const requestLimits = {
+      free: 1,
+      basic: 2,
+      standard: 4,
+      premium: Infinity
+    };
+
+    const userRequestsRef = db.collection('lessonRequests').doc(userId);
+    const userRequestsDoc = await userRequestsRef.get();
+    const userData = userRequestsDoc.exists ? userRequestsDoc.data() : {};
+    const moduleRequests = userData?.modules?.[moduleId]?.requestCount || 0;
+    const maxRequests = requestLimits[tier as keyof typeof requestLimits] || 1;
+
+    if (moduleRequests >= maxRequests) {
+      const upgradeMessages = {
+        free: 'You have reached your request limit. Upgrade to Basic or higher to request more lessons!',
+        basic: 'You have reached your request limit. Upgrade to Standard or Premium to request more lessons!',
+        standard: 'You have reached your request limit. Upgrade to Premium for unlimited lesson requests!',
+        premium: 'Unlimited requests available'
+      };
+      
+      return res.status(403).json({ 
+        error: 'Request limit reached',
+        message: upgradeMessages[tier as keyof typeof upgradeMessages],
+        requestCount: moduleRequests,
+        maxRequests
+      });
+    }
+
     // Get existing module to understand context
     const moduleDoc = await db.collection('generatedModules').doc(moduleId).get();
     if (!moduleDoc.exists) {
@@ -43,6 +75,26 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
 
     const moduleData = moduleDoc.data();
     const existingLessons = moduleData?.lessons || [];
+
+    // Retrieve relevant context from uploaded documents using RAG
+    let documentContext = '';
+    try {
+      const retriever = await getRetriever();
+      const relevantDocs = await retriever.getRelevantDocuments(
+        `${moduleName} ${moduleData?.description || ''} South Sudan law legal education`
+      );
+      
+      if (relevantDocs.length > 0) {
+        documentContext = relevantDocs
+          .slice(0, 5) // Use top 5 most relevant documents
+          .map((doc: Document) => doc.pageContent)
+          .join('\n\n');
+        console.log(`📚 Retrieved ${relevantDocs.length} relevant documents from uploaded content`);
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not retrieve documents from RAG:', error);
+      // Continue without document context
+    }
 
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -96,12 +148,15 @@ User Tier: ${tier}
 Context from existing lessons:
 ${existingLessons.slice(-2).map((l: any) => `- ${l.title}: ${l.summary}`).join('\n')}
 
+${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse the following authoritative content from uploaded legal documents as the PRIMARY source for lesson content:\n\n${documentContext}\n\n=== END REFERENCE MATERIAL ===\n` : ''}
+
 Create progressive lessons that:
 1. Build on the existing content
-2. Introduce new concepts gradually
+2. ${documentContext ? 'Base content PRIMARILY on the reference material from uploaded documents above' : 'Introduce new concepts gradually'}
 3. Include South Sudan-specific legal examples
 4. Are appropriate for ${tier} tier users
 5. Have varied difficulty levels
+${documentContext ? '6. Cite specific sections from the reference material when applicable' : ''}
 
 Generate ${numberOfLessons} engaging lessons now!`;
 
@@ -153,13 +208,27 @@ Generate ${numberOfLessons} engaging lessons now!`;
       updatedAt: admin.firestore.Timestamp.now()
     }, { merge: true });
 
+    // Update request count
+    await userRequestsRef.set({
+      userId,
+      modules: {
+        [moduleId]: {
+          requestCount: moduleRequests + 1,
+          lastRequestAt: admin.firestore.Timestamp.now()
+        }
+      },
+      updatedAt: admin.firestore.Timestamp.now()
+    }, { merge: true });
+
     console.log(`✅ Generated and saved ${newLessons.length} user-specific lessons for user ${userId}, module ${moduleId}`);
 
     return res.json({
       success: true,
       lessons: newLessons,
       totalLessons: existingLessons.length + updatedUserLessons.length,
-      message: `Successfully generated ${newLessons.length} new lessons!`
+      message: `Successfully generated ${newLessons.length} new lessons!`,
+      requestCount: moduleRequests + 1,
+      maxRequests
     });
 
   } catch (error) {
