@@ -51,7 +51,9 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
     const moduleRequests = userData?.modules?.[moduleId]?.requestCount || 0;
     const maxRequests = requestLimits[tier as keyof typeof requestLimits] || 1;
 
-    if (moduleRequests >= maxRequests) {
+    // Premium users have unlimited requests - skip limit check
+    // For other tiers, check if limit is reached
+    if (tier !== 'premium' && moduleRequests >= maxRequests) {
       const upgradeMessages = {
         free: 'You have reached your request limit. Upgrade to Basic or higher to request more lessons!',
         basic: 'You have reached your request limit. Upgrade to Standard or Premium to request more lessons!',
@@ -228,7 +230,7 @@ Generate ${numberOfLessons} engaging lessons now!`;
       totalLessons: existingLessons.length + updatedUserLessons.length,
       message: `Successfully generated ${newLessons.length} new lessons!`,
       requestCount: moduleRequests + 1,
-      maxRequests
+      maxRequests: tier === 'premium' ? 'unlimited' : maxRequests
     });
 
   } catch (error) {
