@@ -304,6 +304,8 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {filteredModules.map((module) => {
                     const { percent, done } = moduleStatus(module);
+                    const isExpanded = expandedLessons.has(module.id);
+                    const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
                     return (
                       <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
@@ -338,7 +340,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                           </CardTitle>
                           <CardDescription className="text-sm sm:text-base">{module.description}</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex-1 flex flex-col gap-2.5 sm:gap-3 p-3 sm:p-6 pt-0">
+                        <CardContent className="flex-1 flex flex-col gap-3 sm:gap-4 p-3 sm:p-6 pt-0">
                           <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
                             <Badge variant="outline" className="capitalize text-xs sm:text-sm">
                               {module.requiredTier}
@@ -349,123 +351,126 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                             <Progress value={percent} className="h-2 sm:h-2.5" />
                             <div className="text-xs sm:text-sm text-muted-foreground mt-1">{percent}% complete</div>
                           </div>
-                          <div className="space-y-2 sm:space-y-2.5">
-                            {module.lessons.map((lesson, lessonIndex) => {
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            {visibleLessons.map((lesson) => {
                               const lp = getLessonProgress(module.id, lesson.id);
                               const isLocked = lesson.locked;
-                              const isCompleted = lp?.completed || false;
-                              
-                              // Show 5 lessons initially
-                              // When expanded, show ALL lessons
-                              const isExpanded = expandedLessons.has(module.id);
-                              const shouldShow = isExpanded || lessonIndex < 5;
-                              
-                              if (!shouldShow) return null;
-                              
+                              const isCompleted = lp?.completed === true && !isLocked;
+
                               return (
-                                <div
+                                <Card
                                   key={lesson.id}
-                                  className={`flex items-center justify-between rounded-lg border px-3 sm:px-4 py-3 sm:py-3.5 bg-white touch-manipulation shadow-sm hover:shadow-md transition-all duration-300 gap-2 sm:gap-3 ${isLocked ? 'opacity-60' : ''}`}
+                                  className={`h-full flex flex-col justify-between border shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-70' : ''}`}
                                 >
-                                  <div className="flex-1 min-w-0 pr-2 overflow-hidden">
-                                    <div className="text-sm sm:text-base font-medium flex items-center gap-1.5 sm:gap-2">
-                                      <span className="break-words line-clamp-1">{lesson.title}</span>
-                                      {isCompleted && <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0 animate-pulse" />}
-                                      {lesson.hasAudio && (
-                                        <Volume2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
-                                      )}
-                                    </div>
-                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
-                                      <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
-                                      <span>{lesson.xpReward} XP</span>
-                                      <span>•</span>
-                                      <span>{lesson.quiz.length} Q</span>
-                                      {lesson.hasAudio && (
-                                        <>
-                                          <span>•</span>
-                                          <span className="text-blue-500 flex items-center gap-1">
-                                            <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
-                                            <span className="hidden sm:inline">Audio</span>
+                                  <CardContent className="flex-1 flex flex-col gap-3 p-3 sm:p-4">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm sm:text-base font-semibold leading-tight line-clamp-2">{lesson.title}</span>
+                                          {isCompleted && (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                              Done
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                                          <span className="flex items-center gap-1">
+                                            <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
+                                            {lesson.xpReward} XP
                                           </span>
-                                        </>
+                                          <span>• {lesson.quiz.length} Q</span>
+                                          {lesson.hasAudio && (
+                                            <span className="flex items-center gap-1 text-blue-600">
+                                              <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
+                                              Audio
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {isLocked && (
+                                        <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
+                                          <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                                          <span className="hidden sm:inline">Locked</span>
+                                        </Badge>
                                       )}
                                     </div>
-                                  </div>
-                                  {isLocked ? (
-                                    <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm flex-shrink-0">
-                                      <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
-                                      <span className="hidden sm:inline">UPGRADE</span>
-                                      <span className="sm:hidden">🔒</span>
-                                    </Badge>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[60px] sm:min-w-[80px] hover:bg-blue-50 transition-colors"
-                                      onClick={() => handleStartLesson(module, lesson)}
-                                    >
-                                      <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
-                                      <span className="sm:hidden">{isCompleted ? '✓' : '▶'}</span>
-                                      <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1 hidden sm:inline" />
-                                    </Button>
-                                  )}
-                                </div>
+                                    <div className="flex items-center justify-between pt-1">
+                                      <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                        <Badge variant="outline" className="capitalize text-[11px] sm:text-xs">
+                                          {lesson.tier || 'basic'}
+                                        </Badge>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant={isCompleted ? 'outline' : 'default'}
+                                        className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[70px] sm:min-w-[90px]"
+                                        onClick={() => handleStartLesson(module, lesson)}
+                                        disabled={isLocked}
+                                      >
+                                        <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
+                                        <span className="sm:hidden">{isCompleted ? '✓' : '▶'}</span>
+                                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1 hidden sm:inline" />
+                                      </Button>
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               );
                             })}
-                            
-                            {/* Expand/Collapse Button */}
-                            {module.lessons.length > 5 && (
-                              <Button
-                                variant="ghost"
-                                className="w-full mt-2 text-sm"
-                                onClick={() => {
-                                  setExpandedLessons(prev => {
-                                    const newSet = new Set(prev);
-                                    if (newSet.has(module.id)) {
-                                      newSet.delete(module.id);
-                                    } else {
-                                      newSet.add(module.id);
-                                    }
-                                    return newSet;
-                                  });
-                                }}
-                              >
-                                {expandedLessons.has(module.id) ? (
-                                  <>
-                                    <ChevronUp className="h-4 w-4 mr-2" />
-                                    Show Less
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="h-4 w-4 mr-2" />
-                                    Show All {module.lessons.length} Lessons
-                                  </>
-                                )}
-                              </Button>
-                            )}
-                            
-                            {/* Request More Lessons Button */}
-                            {done && (
-                              <Button
-                                variant="outline"
-                                className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
-                                onClick={() => requestMoreLessons(module.id, module.title)}
-                                disabled={isRequestingLessons === module.id}
-                              >
-                                {isRequestingLessons === module.id ? (
-                                  <>
-                                    <div className="animate-spin mr-2">⏳</div>
-                                    Generating...
-                                  </>
-                                ) : (
-                                  <>
-                                    <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                    Request 5 More Lessons
-                                  </>
-                                )}
-                              </Button>
-                            )}
                           </div>
+                          
+                          {/* Expand/Collapse Button */}
+                          {module.lessons.length > 5 && (
+                            <Button
+                              variant="ghost"
+                              className="w-full mt-1 text-sm"
+                              onClick={() => {
+                                setExpandedLessons(prev => {
+                                  const newSet = new Set(prev);
+                                  if (newSet.has(module.id)) {
+                                    newSet.delete(module.id);
+                                  } else {
+                                    newSet.add(module.id);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                            >
+                              {expandedLessons.has(module.id) ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4 mr-2" />
+                                  Show Less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                  Show All {module.lessons.length} Lessons
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          
+                          {/* Request More Lessons Button */}
+                          {done && (
+                            <Button
+                              variant="outline"
+                              className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
+                              onClick={() => requestMoreLessons(module.id, module.title)}
+                              disabled={isRequestingLessons === module.id}
+                            >
+                              {isRequestingLessons === module.id ? (
+                                <>
+                                  <div className="animate-spin mr-2">⏳</div>
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                  Request 5 More Lessons
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </CardContent>
                       </Card>
                     );
