@@ -5,14 +5,11 @@ const isDevelopment = import.meta.env.MODE === 'development';
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 // Get API URL from environment or use defaults
-// In production, VITE_API_URL MUST be set in environment variables
+// In production, if VITE_API_URL is not set, use relative URLs which will work with Vercel proxy
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 
   (isDevelopment || isLocalhost 
     ? 'http://localhost:8000/api' 
-    : (() => {
-        console.error('❌ VITE_API_URL is not set! Please set it in Vercel environment variables.');
-        return 'http://localhost:8000/api'; // Fallback to prevent crashes
-      })());
+    : '/api'); // Use relative URL in production to leverage Vercel proxy
 
 // For backward compatibility, export individual API endpoints
 export const getApiUrl = (endpoint: string): string => {
@@ -37,11 +34,11 @@ export const checkBackendConnection = async (): Promise<boolean> => {
   }
 };
 
-// Log the current API configuration (development only)
-if (isDevelopment) {
-  console.log('🔧 API Configuration:');
-  console.log('  - Environment:', import.meta.env.MODE);
-  console.log('  - API Base URL:', API_BASE_URL);
-  console.log('  - Is Localhost:', isLocalhost);
-}
+// Log the current API configuration
+console.log('🔧 API Configuration:');
+console.log('  - Environment:', import.meta.env.MODE);
+console.log('  - VITE_API_URL:', import.meta.env.VITE_API_URL || 'NOT SET');
+console.log('  - API Base URL:', API_BASE_URL);
+console.log('  - Is Localhost:', isLocalhost);
+console.log('  - Is Development:', isDevelopment);
 

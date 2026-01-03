@@ -121,11 +121,18 @@ export async function markMessagesAsRead(
 export async function getChatByRequestId(requestId: string): Promise<CounselChatSession | null> {
   try {
     const apiUrl = getApiUrl(`counsel/chat/by-request/${requestId}`);
+    console.log(`🔍 Fetching chat for request ${requestId} from:`, apiUrl);
+    
     const response = await fetch(apiUrl);
+    console.log(`📡 Chat fetch response status:`, response.status, response.statusText);
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`❌ Chat fetch failed:`, response.status, await response.text());
+      return null;
+    }
 
     const data = await response.json();
+    console.log(`✅ Chat data received:`, data);
     return data.chat;
   } catch (error) {
     console.error('❌ Error getting chat:', error);
