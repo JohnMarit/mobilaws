@@ -199,10 +199,10 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   }, [state]);
 
   const handleSubmit = async () => {
-    if (!note.trim() || !state || !category) {
+    if (!note.trim() || !state) {
       toast({
         title: 'Missing Information',
-        description: 'Please fill in all required fields.',
+        description: 'Please enter your location and describe your problem.',
         variant: 'destructive',
       });
       return;
@@ -217,6 +217,9 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       return;
     }
 
+    // Auto-set category to first available if not selected
+    const finalCategory = category || (categories.length > 0 ? categories[0].id : 'general');
+
     setIsSubmitting(true);
     setStep('broadcasting');
 
@@ -225,9 +228,9 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
         user.id,
         user.displayName || 'User',
         user.email || '',
-        phone,
+        phone || user.email || '', // Use email if no phone
         note.trim(),
-        category,
+        finalCategory,
         state
       );
 
@@ -389,63 +392,27 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
               )}
             </div>
 
-            {/* Category Selection */}
+            {/* Description - Simplified */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Scale className="h-4 w-4" />
-                Legal Matter <span className="text-red-500">*</span>
+              <Label className="text-base font-semibold">
+                Describe Your Problem <span className="text-red-500">*</span>
               </Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="What do you need help with?" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="mr-2">{c.icon}</span>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Phone Number */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Phone Number (optional)
-              </Label>
-              <Input
-                type="tel"
-                placeholder="+211 9XX XXX XXX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                For the counsel to contact you directly
-              </p>
-            </div>
-
-            {/* Note */}
-            <div className="space-y-2">
-              <Label>Describe Your Legal Need <span className="text-red-500">*</span></Label>
               <Textarea
-                placeholder="Briefly describe your legal situation..."
+                placeholder="Please describe your legal problem or question in detail..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                rows={4}
-                className="resize-none"
+                rows={8}
+                className="resize-none text-base"
               />
               <p className="text-xs text-muted-foreground">
-                This helps counselors understand your case before accepting
+                Provide as much detail as possible to help the counsel understand your situation
               </p>
             </div>
 
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || !note.trim() || !state || !category}
+              disabled={isSubmitting || !note.trim() || !state}
               className="w-full h-12 text-lg"
             >
               {isSubmitting ? (

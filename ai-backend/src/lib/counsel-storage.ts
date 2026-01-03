@@ -903,14 +903,27 @@ export async function setCounselorOnlineStatus(
     const now = admin.firestore.Timestamp.now();
 
     if (counselorDoc.exists) {
-      await counselorRef.update({
+      const updateData: any = {
         isOnline,
         isAvailable: isOnline,
         lastSeenAt: now,
         updatedAt: now,
-        ...(phone && { phone }),
-        ...(state && { state }),
-      });
+      };
+      
+      if (phone) updateData.phone = phone;
+      if (state) {
+        updateData.state = state;
+        // Ensure servingStates includes the current state
+        const currentData = counselorDoc.data() as Counselor;
+        const currentServingStates = currentData.servingStates || [];
+        if (!currentServingStates.includes(state)) {
+          updateData.servingStates = [...currentServingStates, state];
+        }
+      }
+      
+      console.log(`📊 Updating counselor ${userId} online status:`, { isOnline, state, ...updateData });
+      
+      await counselorRef.update(updateData);
     } else {
       // Auto-register counselor if not exists
       await counselorRef.set({
