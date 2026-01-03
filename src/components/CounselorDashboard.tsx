@@ -142,10 +142,15 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
       
       // Play notification sound if there are new requests
       if (requests.length > pendingRequests.length && pendingRequests.length > 0) {
+        const newCount = requests.length - pendingRequests.length;
+        console.log(`🔔 ${newCount} NEW REQUEST(S) in dashboard! Playing sound...`);
+        
         notificationSound.playRequestNotification();
+        
         toast({
           title: '🔔 New Counsel Request!',
-          description: `${requests.length - pendingRequests.length} new request(s) received.`,
+          description: `${newCount} new request(s) received.`,
+          duration: 10000,
         });
       }
       
@@ -229,18 +234,30 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         phone
       );
 
+      console.log('✅ Accept result:', result);
+
       if (result.success) {
-        if (result.chatId) {
+        toast({
+          title: '✅ Request Accepted',
+          description: `You accepted ${request.userName}'s request. Opening chat...`,
+        });
+        
+        // Wait a moment for chat to be created, then fetch it
+        setTimeout(async () => {
           const chat = await getChatByRequestId(request.id);
+          console.log('💬 Chat fetched:', chat);
           if (chat) {
             setChatSession(chat);
             setShowChat(true);
+            toast({
+              title: '💬 Chat Ready',
+              description: `You can now chat with ${request.userName}.`,
+            });
+          } else {
+            console.error('❌ Chat not found for request:', request.id);
           }
-        }
-        toast({
-          title: '✅ Request Accepted',
-          description: `You accepted ${request.userName}'s request.`,
-        });
+        }, 1000);
+        
         loadRequests();
       } else {
         toast({
@@ -250,6 +267,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         });
       }
     } catch (error) {
+      console.error('❌ Error accepting request:', error);
       toast({
         title: 'Error',
         description: 'Failed to accept request.',
@@ -269,27 +287,40 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         phone
       );
 
+      console.log('✅ Accept appointment result:', result);
+
       if (result.success) {
-        if (result.chatId) {
+        toast({
+          title: '✅ Appointment Accepted',
+          description: `You accepted ${appointment.userName}'s scheduled appointment. Opening chat...`,
+        });
+        
+        // Wait a moment for chat to be created, then fetch it
+        setTimeout(async () => {
           const chat = await getChatByAppointmentId(appointment.id);
+          console.log('💬 Chat fetched:', chat);
           if (chat) {
             setChatSession(chat);
             setShowChat(true);
+            toast({
+              title: '💬 Chat Ready',
+              description: `You can now chat with ${appointment.userName}.`,
+            });
+          } else {
+            console.error('❌ Chat not found for appointment:', appointment.id);
           }
-        }
-        toast({
-          title: '✅ Appointment Accepted',
-          description: `You accepted ${appointment.userName}'s scheduled appointment.`,
-        });
+        }, 1000);
+        
         loadRequests();
       } else {
         toast({
           title: 'Failed',
-          description: result.error,
+          description: result.error || 'Appointment may have been accepted by someone else.',
           variant: 'destructive',
         });
       }
     } catch (error) {
+      console.error('❌ Error accepting appointment:', error);
       toast({
         title: 'Error',
         description: 'Failed to accept appointment.',

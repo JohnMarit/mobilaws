@@ -48,27 +48,50 @@ class NotificationSound {
   async playRequestNotification() {
     if (!this.enabled) return;
     
+    console.log('🔔 Playing request notification...');
+    
     try {
       // Use Web Audio API for reliable cross-browser sound
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
       // Resume context if suspended (browser autoplay policy)
       if (audioContext.state === 'suspended') {
+        console.log('⏸️ Audio context suspended, resuming...');
         await audioContext.resume();
       }
       
+      console.log('🎵 Audio context state:', audioContext.state);
+      
       const now = audioContext.currentTime;
       
-      // Create three ascending tones (like WhatsApp)
-      await this.playTone(audioContext, 659.25, now, 0.15); // E5
-      await this.playTone(audioContext, 783.99, now + 0.15, 0.15); // G5
-      await this.playTone(audioContext, 987.77, now + 0.3, 0.2); // B5
+      // Create three ascending tones (like WhatsApp) - play them sequentially
+      await this.playTone(audioContext, 659.25, now + 0.1, 0.15); // E5
+      await this.playTone(audioContext, 783.99, now + 0.3, 0.15); // G5
+      await this.playTone(audioContext, 987.77, now + 0.5, 0.2); // B5
       
-      console.log('🔔 Request notification played');
+      console.log('✅ Request notification played successfully');
+      
+      // Also try HTML5 audio as backup
+      this.playHTML5Beep();
     } catch (error) {
       console.error('❌ Error playing notification:', error);
       // Fallback: try system beep
       this.fallbackBeep();
+      this.playHTML5Beep();
+    }
+  }
+  
+  /**
+   * Play using HTML5 Audio API as backup
+   */
+  private playHTML5Beep() {
+    try {
+      // Create a simple beep sound using data URI
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuAzvLZiTYIG2m98OScTgwOUKfk8LNlHAU4kdb0zHosBSN2yPLdkUAKFV+z6+2nVRQKRaDg8r5sIAUsgs/y2Ik2CBlou+7mnEwND0+n5PCzZBwGOJLW8sx6KwUjdsny3ZFBChVfs+vup1UUCkahoP');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log('HTML5 audio failed:', e));
+    } catch (e) {
+      // Silent fail
     }
   }
 

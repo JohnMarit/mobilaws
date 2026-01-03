@@ -121,17 +121,41 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
         setRequest(req);
         
         if (req.status === 'accepted') {
+          console.log('🎉 Request accepted! Counselor:', req.counselorName);
           setStep('accepted');
-          const chat = await getChatByRequestId(requestId);
-          if (chat) {
-            setChatSession(chat);
-            setShowChat(true);
-          }
           stopPolling();
+          
           toast({
             title: '🎉 Counsel Found!',
-            description: `${req.counselorName} has accepted your request.`,
+            description: `${req.counselorName} has accepted your request. Opening chat...`,
           });
+          
+          // Fetch chat with retry logic
+          let attempts = 0;
+          const maxAttempts = 5;
+          const fetchChat = async () => {
+            attempts++;
+            const chat = await getChatByRequestId(requestId);
+            console.log(`💬 Chat fetch attempt ${attempts}:`, chat);
+            
+            if (chat) {
+              setChatSession(chat);
+              setShowChat(true);
+              toast({
+                title: '💬 Chat Ready',
+                description: `You can now chat with ${req.counselorName}.`,
+              });
+            } else if (attempts < maxAttempts) {
+              console.log(`⏳ Chat not ready yet, retrying in 1 second...`);
+              setTimeout(fetchChat, 1000);
+            } else {
+              console.error('❌ Failed to fetch chat after', maxAttempts, 'attempts');
+            }
+          };
+          
+          // Start fetching chat after a brief delay
+          setTimeout(fetchChat, 500);
+          
         } else if (req.status === 'expired' || req.status === 'cancelled') {
           stopPolling();
         }

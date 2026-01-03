@@ -40,18 +40,26 @@ export function CounselorAlertListener() {
             ['broadcasting', 'pending'].includes(r.status)
           );
 
+          console.log(`🔍 Counselor polling: ${activeRequests.length} active requests (previous: ${lastCountRef.current})`);
+
           if (activeRequests.length > lastCountRef.current) {
-            // New requests arrived
+            const newCount = activeRequests.length - lastCountRef.current;
+            console.log(`🆕 ${newCount} NEW REQUEST(S)! Playing sound...`);
+            
+            // Play notification sound
             notificationSound.playRequestNotification();
+            
+            // Show toast
             toast({
-              title: '🔔 Incoming Counsel Request',
-              description: `${activeRequests.length - lastCountRef.current} new request(s) need attention.`,
+              title: '🔔 Incoming Counsel Request!',
+              description: `${newCount} new request(s) need your attention. Click to view.`,
+              duration: 10000,
             });
           }
 
           lastCountRef.current = activeRequests.length;
         } catch (error) {
-          console.error('Error polling counselor requests:', error);
+          console.error('❌ Error polling counselor requests:', error);
         }
       }, 5000);
     };
