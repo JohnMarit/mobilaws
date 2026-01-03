@@ -11,12 +11,6 @@
       "src": "/(.*)",
       "dest": "api/index.ts"
     }
-  ],
-  "crons": [
-    { 
-      "path": "/api/push/dispatch-daily", 
-      "schedule": "0 * * * *"
-    }
   ]
 }
 
