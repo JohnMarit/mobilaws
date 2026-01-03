@@ -24,6 +24,7 @@ import tutorAdminRouter from '../src/routes/tutor-admin';
 import aiLessonsRouter from '../src/routes/ai-lessons';
 import userLessonsRouter from '../src/routes/user-lessons';
 import pushRouter from '../src/routes/push';
+import counselRouter from '../src/routes/counsel';
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use('/api', tutorAdminRouter);
 app.use('/api', aiLessonsRouter);
 app.use('/api', userLessonsRouter);
 app.use('/api', pushRouter);
+app.use('/api/counsel', counselRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -101,6 +103,13 @@ app.get('/', (_req: Request, res: Response) => {
       { method: 'POST', path: '/api/ai-lessons/request-more', description: 'Request more lessons for a module' },
       { method: 'GET', path: '/api/user-lessons/:userId', description: 'Get all user-specific lessons' },
       { method: 'GET', path: '/api/user-lessons/:userId/:moduleId', description: 'Get user-specific lessons for a module' },
+      { method: 'GET', path: '/api/counsel/config', description: 'Get counsel booking config (states, categories)' },
+      { method: 'POST', path: '/api/counsel/request', description: 'Create a counsel request' },
+      { method: 'POST', path: '/api/counsel/counselor/apply', description: 'Apply to become a counselor' },
+      { method: 'GET', path: '/api/counsel/counselor/status/:userId', description: 'Get counselor application status' },
+      { method: 'GET', path: '/api/counsel/admin/applications/pending', description: 'Admin: Get pending applications' },
+      { method: 'POST', path: '/api/counsel/admin/approve/:counselorId', description: 'Admin: Approve a counselor' },
+      { method: 'POST', path: '/api/counsel/admin/reject/:counselorId', description: 'Admin: Reject a counselor' },
     ],
   });
 });
