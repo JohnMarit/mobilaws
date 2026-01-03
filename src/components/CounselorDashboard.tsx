@@ -154,6 +154,12 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         });
       }
       
+      // Stop ringing if no more pending requests
+      if (requests.length === 0 && pendingRequests.length > 0) {
+        console.log('🔕 No more pending requests, stopping sound');
+        notificationSound.stopRinging();
+      }
+      
       setPendingRequests(requests);
       setQueuedAppointments(appointments);
     } catch (error) {
@@ -225,6 +231,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
   const handleAcceptRequest = async (request: CounselRequest) => {
     if (!user) return;
+
+    // Stop the ringing sound
+    notificationSound.stopRinging();
 
     try {
       const result = await acceptCounselRequest(

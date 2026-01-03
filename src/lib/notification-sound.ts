@@ -4,9 +4,13 @@
  */
 
 class NotificationSound {
-  private audio: HTMLAudioElement | null = null;
+  private audioContext: AudioContext | null = null;
   private enabled: boolean = true;
   private initialized: boolean = false;
+  private currentRinging: {
+    intervalId: number | null;
+    stopCallback: (() => void) | null;
+  } = { intervalId: null, stopCallback: null };
 
   constructor() {
     // Initialize on first user interaction
@@ -20,21 +24,7 @@ class NotificationSound {
     if (this.initialized) return;
     
     try {
-      // Create a simple beep using data URI
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Generate a simple notification sound
-      const sampleRate = audioContext.sampleRate;
-      const duration = 0.5;
-      const frequency = 800;
-      
-      const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      for (let i = 0; i < buffer.length; i++) {
-        data[i] = Math.sin(2 * Math.PI * frequency * i / sampleRate) * Math.exp(-3 * i / buffer.length);
-      }
-      
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.initialized = true;
       console.log('✅ Notification sound initialized');
     } catch (error) {
@@ -43,103 +33,173 @@ class NotificationSound {
   }
 
   /**
-   * Play notification sound for incoming counsel request
+   * Play phone-style ringback tone for incoming counsel request
+   * Rings repeatedly until stopped
    */
   async playRequestNotification() {
     if (!this.enabled) return;
     
-    console.log('🔔 Playing request notification...');
+    console.log('📞 Playing incoming call ringtone...');
+    
+    // Stop any previous ringing
+    this.stopRinging();
     
     try {
-      // Use Web Audio API for reliable cross-browser sound
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Resume context if suspended (browser autoplay policy)
-      if (audioContext.state === 'suspended') {
-        console.log('⏸️ Audio context suspended, resuming...');
-        await audioContext.resume();
+      if (!this.audioContext) {
+        this.init();
       }
       
-      console.log('🎵 Audio context state:', audioContext.state);
+      if (!this.audioContext) {
+        console.error('❌ Audio context not available');
+        return;
+      }
       
-      const now = audioContext.currentTime;
+      // Resume context if suspended (browser autoplay policy)
+      if (this.audioContext.state === 'suspended') {
+        console.log('⏸️ Audio context suspended, resuming...');
+        await this.audioContext.resume();
+      }
       
-      // Create three ascending tones (like WhatsApp) - play them sequentially
-      await this.playTone(audioContext, 659.25, now + 0.1, 0.15); // E5
-      await this.playTone(audioContext, 783.99, now + 0.3, 0.15); // G5
-      await this.playTone(audioContext, 987.77, now + 0.5, 0.2); // B5
+      console.log('🎵 Audio context state:', this.audioContext.state);
       
-      console.log('✅ Request notification played successfully');
+      // Play initial ring
+      await this.playPhoneRing();
       
-      // Also try HTML5 audio as backup
-      this.playHTML5Beep();
+      // Set up repeating ring every 4 seconds (like a real phone)
+      this.currentRinging.intervalId = window.setInterval(async () => {
+        await this.playPhoneRing();
+      }, 4000);
+      
+      console.log('✅ Phone ringtone started (will repeat every 4 seconds)');
     } catch (error) {
       console.error('❌ Error playing notification:', error);
-      // Fallback: try system beep
-      this.fallbackBeep();
-      this.playHTML5Beep();
-    }
-  }
-  
-  /**
-   * Play using HTML5 Audio API as backup
-   */
-  private playHTML5Beep() {
-    try {
-      // Create a simple beep sound using data URI
-      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuAzvLZiTYIG2m98OScTgwOUKfk8LNlHAU4kdb0zHosBSN2yPLdkUAKFV+z6+2nVRQKRaDg8r5sIAUsgs/y2Ik2CBlou+7mnEwND0+n5PCzZBwGOJLW8sx6KwUjdsny3ZFBChVfs+vup1UUCkahoP');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log('HTML5 audio failed:', e));
-    } catch (e) {
-      // Silent fail
     }
   }
 
   /**
-   * Play notification sound for incoming message
+   * Stop the ringing
+   */
+  stopRinging() {
+    if (this.currentRinging.intervalId) {
+      clearInterval(this.currentRinging.intervalId);
+      this.currentRinging.intervalId = null;
+      console.log('🔕 Ringtone stopped');
+    }
+    if (this.currentRinging.stopCallback) {
+      this.currentRinging.stopCallback();
+      this.currentRinging.stopCallback = null;
+    }
+  }
+
+  /**
+   * Play a single phone ring cycle (ring-ring pattern)
+   * Standard phone ringtone uses dual-tone: 440Hz + 480Hz
+   */
+  private async playPhoneRing() {
+    if (!this.audioContext) return;
+    
+    const now = this.audioContext.currentTime;
+    
+    // Ring pattern: RING (0.4s) - PAUSE (0.2s) - RING (0.4s) - PAUSE (2s)
+    // First ring
+    await this.playDualTone(440, 480, now, 0.4, 0.3);
+    // Short pause (200ms)
+    // Second ring
+    await this.playDualTone(440, 480, now + 0.6, 0.4, 0.3);
+  }
+
+  /**
+   * Play dual-tone (like a real phone ringtone)
+   */
+  private async playDualTone(
+    freq1: number,
+    freq2: number,
+    startTime: number,
+    duration: number,
+    volume: number = 0.3
+  ) {
+    if (!this.audioContext) return;
+
+    const oscillator1 = this.audioContext.createOscillator();
+    const oscillator2 = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator1.connect(gainNode);
+    oscillator2.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    oscillator1.frequency.value = freq1;
+    oscillator2.frequency.value = freq2;
+    oscillator1.type = 'sine';
+    oscillator2.type = 'sine';
+
+    // Envelope: quick attack, sustain, quick release
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+    gainNode.gain.setValueAtTime(volume, startTime + duration - 0.05);
+    gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
+
+    oscillator1.start(startTime);
+    oscillator2.start(startTime);
+    oscillator1.stop(startTime + duration);
+    oscillator2.stop(startTime + duration);
+
+    // Return a promise that resolves when the tone finishes
+    return new Promise(resolve => {
+      setTimeout(resolve, duration * 1000);
+    });
+  }
+
+  /**
+   * Play notification sound for incoming message (single beep)
    */
   async playMessageNotification() {
     if (!this.enabled) return;
     
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
+      if (!this.audioContext) {
+        this.init();
       }
       
-      const now = audioContext.currentTime;
-      await this.playTone(audioContext, 800, now, 0.1);
+      if (!this.audioContext) return;
+      
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      
+      const now = this.audioContext.currentTime;
+      await this.playTone(800, now, 0.1, 0.2);
       
       console.log('💬 Message notification played');
     } catch (error) {
       console.error('❌ Error playing notification:', error);
-      this.fallbackBeep();
     }
   }
 
   /**
-   * Play a tone at specified frequency
+   * Play a single tone at specified frequency
    */
   private async playTone(
-    audioContext: AudioContext,
     frequency: number,
     startTime: number,
-    duration: number
+    duration: number,
+    volume: number = 0.3
   ) {
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    if (!this.audioContext) return;
+
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
 
     oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    gainNode.connect(this.audioContext.destination);
 
     oscillator.frequency.value = frequency;
     oscillator.type = 'sine';
 
     // Envelope: quick attack, sustain, quick release
     gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(0.5, startTime + 0.01);
-    gainNode.gain.setValueAtTime(0.5, startTime + duration - 0.05);
+    gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
+    gainNode.gain.setValueAtTime(volume, startTime + duration - 0.05);
     gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
 
     oscillator.start(startTime);
@@ -152,24 +212,13 @@ class NotificationSound {
   }
 
   /**
-   * Fallback beep using system alert
-   */
-  private fallbackBeep() {
-    try {
-      // Try to play a system beep
-      const utterance = new SpeechSynthesisUtterance('');
-      utterance.volume = 0;
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      // Silent fail
-    }
-  }
-
-  /**
    * Enable/disable notifications
    */
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
+    if (!enabled) {
+      this.stopRinging();
+    }
   }
 
   /**
