@@ -94,6 +94,15 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
       return;
     }
 
+    if (!user.email) {
+      toast({
+        title: 'Email Required',
+        description: 'Your account must have an email address to apply.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!name.trim() || !phone.trim() || !nationalIdNumber.trim() || !state) {
       toast({
         title: 'Missing Information',
@@ -103,13 +112,22 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
       return;
     }
 
+    console.log('Submitting application:', {
+      userId: user.uid,
+      name: name.trim(),
+      email: user.email,
+      phone: phone.trim(),
+      nationalIdNumber: nationalIdNumber.trim(),
+      state: state,
+    });
+
     setIsSubmitting(true);
 
     try {
       const result = await applyCounselor(
         user.uid,
         name.trim(),
-        user.email || '',
+        user.email,
         phone.trim(),
         nationalIdNumber.trim(),
         '', // ID document URL (can be added later with file upload)

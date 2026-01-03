@@ -344,9 +344,29 @@ router.post('/counselor/apply', async (req: Request, res: Response) => {
   try {
     const { userId, name, email, phone, nationalIdNumber, idDocumentUrl, state, servingStates, specializations } = req.body;
 
+    console.log('📝 Counselor application received:', {
+      userId: userId ? '✓' : '✗',
+      name: name ? '✓' : '✗',
+      email: email ? '✓' : '✗',
+      phone: phone ? '✓' : '✗',
+      nationalIdNumber: nationalIdNumber ? '✓' : '✗',
+      state: state ? '✓' : '✗',
+      body: req.body
+    });
+
     if (!userId || !name || !email || !phone || !nationalIdNumber || !state) {
+      const missing = [];
+      if (!userId) missing.push('userId');
+      if (!name) missing.push('name');
+      if (!email) missing.push('email');
+      if (!phone) missing.push('phone');
+      if (!nationalIdNumber) missing.push('nationalIdNumber');
+      if (!state) missing.push('state');
+      
+      console.error('❌ Missing fields:', missing);
       return res.status(400).json({ 
-        error: 'Missing required fields: userId, name, email, phone, nationalIdNumber, state' 
+        error: `Missing required fields: ${missing.join(', ')}`,
+        received: { userId: !!userId, name: !!name, email: !!email, phone: !!phone, nationalIdNumber: !!nationalIdNumber, state: !!state }
       });
     }
 
