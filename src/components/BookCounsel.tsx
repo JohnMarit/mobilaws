@@ -20,13 +20,12 @@ import {
   getCounselRequest,
   cancelCounselRequest,
   getAvailableCounselors,
-  getChatByRequestId,
   type SouthSudanState,
   type LegalCategory,
   type CounselRequest,
 } from '@/lib/counsel-service';
+import { getChatByRequestId, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselChatInterface } from './CounselChatInterface';
-import type { CounselChatSession } from '@/lib/counsel-chat-service';
 
 interface BookCounselProps {
   open: boolean;

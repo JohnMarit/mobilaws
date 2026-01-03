@@ -476,7 +476,7 @@ export async function getAvailableCounselorsForState(state: StateCode): Promise<
       .where('isOnline', '==', true)
       .get();
 
-    console.log(`Found ${snapshot.size} online approved counselors total`);
+    console.log(`📊 Found ${snapshot.size} online approved counselors total`);
 
     const counselors = snapshot.docs
       .map(doc => doc.data() as Counselor)
@@ -485,7 +485,16 @@ export async function getAvailableCounselorsForState(state: StateCode): Promise<
         const hasCapacity = (c.activeRequests || 0) < (c.maxActiveRequests || 5);
         const isAvailable = c.isAvailable !== false; // Default to true if not set
         
-        console.log(`  Counselor ${c.name}: servesState=${servesState}, hasCapacity=${hasCapacity}, isAvailable=${isAvailable}`);
+        console.log(`  📋 Counselor ${c.name} (${c.id}):`, {
+          state: c.state,
+          servingStates: c.servingStates,
+          servesState,
+          activeRequests: c.activeRequests,
+          maxActiveRequests: c.maxActiveRequests,
+          hasCapacity,
+          isAvailable: c.isAvailable,
+          passes: servesState && hasCapacity && isAvailable
+        });
         
         return servesState && hasCapacity && isAvailable;
       })
@@ -498,7 +507,7 @@ export async function getAvailableCounselorsForState(state: StateCode): Promise<
         return (a.activeRequests || 0) - (b.activeRequests || 0);
       });
     
-    console.log(`✅ Found ${counselors.length} available counselors for state ${state}`);
+    console.log(`✅ Found ${counselors.length} available counselors for state ${state}:`, counselors.map(c => c.name));
     return counselors;
   } catch (error) {
     console.error('❌ Error fetching available counselors:', error);

@@ -25,18 +25,15 @@ import {
   getCounselorProfile,
   getCounselConfig,
   getCounselorApplicationStatus,
-  getChatByRequestId,
-  getChatByAppointmentId,
   type CounselRequest,
   type Appointment,
   type Counselor,
   type SouthSudanState,
   type LegalCategory,
 } from '@/lib/counsel-service';
+import { getChatByRequestId, getChatByAppointmentId, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
-import type { CounselChatSession } from '@/lib/counsel-chat-service';
-import { notificationSound } from '@/lib/notification-sound';
 import { notificationSound } from '@/lib/notification-sound';
 
 interface CounselorDashboardProps {
