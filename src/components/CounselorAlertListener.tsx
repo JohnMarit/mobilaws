@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getCounselorProfile, getRequestsForCounselor } from '@/lib/counsel-service';
+import { ensureDailyPushRegistration } from '@/lib/pushNotifications';
 import { notificationSound } from '@/lib/notification-sound';
 
 /**
@@ -20,6 +21,9 @@ export function CounselorAlertListener() {
   useEffect(() => {
     const startPolling = async () => {
       if (!user) return;
+
+      // Register push notifications (once per day prompt)
+      ensureDailyPushRegistration(user.id);
 
       // Check counselor profile to ensure approved/online
       const profile = await getCounselorProfile(user.id);

@@ -447,6 +447,11 @@ export async function createCounselRequest(
     await requestRef.set(requestData);
     console.log(`✅ Counsel request created: ${requestRef.id}, broadcast to ${availableCounselors.length} counselors`);
     
+    // Fire-and-forget push notifications to available counselors
+    sendPushNotificationsToCounselors(availableCounselors, requestData).catch(err => {
+      console.error('❌ Error sending push notifications:', err);
+    });
+    
     return {
       requestId: requestRef.id,
       broadcastCount: availableCounselors.length,
@@ -975,6 +980,87 @@ export async function getOnlineCounselors(): Promise<Counselor[]> {
   } catch (error) {
     console.error('❌ Error fetching online counselors:', error);
     return [];
+  }
+}
+
+/**
+ * Send push notifications to counselors for a new request (fire-and-forget)
+ */
+async function sendPushNotificationsToCounselors(
+  counselors: Counselor[],
+  request: CounselRequest
+): Promise<void> {
+  if (!counselors.length) return;
+
+  const db = getFirestore();
+  if (!db) return;
+
+  try {
+    const tokenPromises = counselors.map(async (counselor) => {
+      const tokensSnap = await db
+        .collection('userPushTokens')
+        .doc(counselor.id)
+        .collection('tokens')
+        .get();
+      return tokensSnap.docs.map((d) => d.data().token as string).filter(Boolean);
+    });
+
+    const tokenArrays = await Promise.all(tokenPromises);
+    const tokens = tokenArrays.flat().filter(Boolean);
+
+    if (!tokens.length) {
+      console.log('ℹ️ No push tokens found for counselors, skipping push');
+      return;
+    }
+
+    const messaging = admin.messaging();
+    const note = (request.note || '').slice(0, 120);
+    const title = `Incoming counsel request (${request.state})`;
+    const body = note.length ? note : 'New request waiting for your acceptance';
+
+    const messages = tokens.map((token) => ({
+      token,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: 'counsel_request',
+        requestId: request.id,
+        state: request.state,
+        userName: request.userName || 'User',
+        note: note || '',
+        click_action: '/counselor',
+      },
+      android: {
+        priority: 'high',
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+          },
+        },
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          vibrate: [200, 100, 200, 100, 200],
+        },
+      },
+    }));
+
+    const response = await messaging.sendAll(messages);
+    console.log(
+      `📨 Push sent to counselors: success=${response.successCount}, failure=${response.failureCount}, tokens=${tokens.length}`
+    );
+  } catch (error) {
+    console.error('❌ Error sending push notifications to counselors:', error);
   }
 }
 
