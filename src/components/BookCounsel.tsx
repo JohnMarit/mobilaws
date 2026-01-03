@@ -187,7 +187,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
 
     try {
       const result = await createCounselRequest(
-        user.uid,
+        user.id,
         user.displayName || 'User',
         user.email || '',
         phone,
@@ -251,7 +251,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
 
     try {
       const result = await scheduleBooking(
-        user.uid,
+        user.id,
         user.displayName || 'User',
         user.email || '',
         phone,

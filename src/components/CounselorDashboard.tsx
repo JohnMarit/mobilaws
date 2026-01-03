@@ -72,7 +72,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     
     setIsCheckingApproval(true);
     try {
-      const status = await getCounselorApplicationStatus(user.uid);
+      const status = await getCounselorApplicationStatus(user.id);
       
       if (status?.exists && status.status) {
         setApprovalStatus(status.status);
@@ -101,7 +101,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     setCategories(config.categories);
     
     if (user) {
-      const profile = await getCounselorProfile(user.uid);
+      const profile = await getCounselorProfile(user.id);
       if (profile) {
         setCounselorProfile(profile);
         setIsOnline(profile.isOnline);
@@ -166,7 +166,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
     try {
       const result = await setCounselorOnlineStatus(
-        user.uid,
+        user.id,
         user.displayName || 'Counselor',
         user.email || '',
         newStatus,
@@ -208,7 +208,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     try {
       const result = await acceptCounselRequest(
         request.id,
-        user.uid,
+        user.id,
         user.displayName || 'Counselor',
         phone
       );
@@ -241,7 +241,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     try {
       const result = await acceptQueuedAppointment(
         appointment.id,
-        user.uid,
+        user.id,
         user.displayName || 'Counselor',
         phone
       );

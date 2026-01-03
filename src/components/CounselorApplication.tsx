@@ -62,7 +62,7 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
     
     setIsChecking(true);
     try {
-      const status = await getCounselorApplicationStatus(user.uid);
+      const status = await getCounselorApplicationStatus(user.id);
       
       if (status?.exists && status.status) {
         setApplicationStatus(status.status);
@@ -113,7 +113,7 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
     }
 
     console.log('Submitting application:', {
-      userId: user.uid,
+      userId: user.id,
       name: name.trim(),
       email: user.email,
       phone: phone.trim(),
@@ -125,7 +125,7 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
 
     try {
       const result = await applyCounselor(
-        user.uid,
+        user.id,
         name.trim(),
         user.email,
         phone.trim(),
