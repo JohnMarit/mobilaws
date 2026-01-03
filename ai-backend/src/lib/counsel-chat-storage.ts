@@ -152,7 +152,7 @@ export async function sendChatMessage(
 
     const now = admin.firestore.Timestamp.now();
 
-    const chatMessage: ChatMessage = {
+    const chatMessage: any = {
       id: messageRef.id,
       chatId,
       senderId,
@@ -160,11 +160,17 @@ export async function sendChatMessage(
       senderRole,
       message,
       messageType,
-      voiceUrl,
-      voiceDuration,
       read: false,
       createdAt: now,
     };
+    
+    // Only add voice fields if they exist (Firestore doesn't allow undefined)
+    if (voiceUrl) {
+      chatMessage.voiceUrl = voiceUrl;
+    }
+    if (voiceDuration !== undefined && voiceDuration !== null) {
+      chatMessage.voiceDuration = voiceDuration;
+    }
 
     await messageRef.set(chatMessage);
 
@@ -212,7 +218,7 @@ export async function sendSystemMessage(
 
     const now = admin.firestore.Timestamp.now();
 
-    const chatMessage: ChatMessage = {
+    const chatMessage: any = {
       id: messageRef.id,
       chatId,
       senderId: 'system',
