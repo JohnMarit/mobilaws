@@ -15,12 +15,14 @@ import {
   Activity,
   AlertCircle,
   MessageSquare,
-  Gift
+  Gift,
+  Scale
 } from 'lucide-react';
 import UserManagement from '../components/admin/UserManagement';
 import SubscriptionManagement from '../components/admin/SubscriptionManagement';
 import SupportManagement from '../components/admin/SupportManagement';
 import AdminPlanGrant from '../components/AdminPlanGrant';
+import { AdminCounselorApprovals } from '../components/AdminCounselorApprovals';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -115,7 +117,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 lg:w-auto mb-8">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 lg:w-auto mb-8">
             <TabsTrigger value="overview" className="text-xs sm:text-sm">
               <TrendingUp className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Overview</span>
@@ -127,6 +129,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="subscriptions" className="text-xs sm:text-sm">
               <CreditCard className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Subscriptions</span>
+            </TabsTrigger>
+            <TabsTrigger value="counselors" className="text-xs sm:text-sm">
+              <Scale className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Counselors</span>
             </TabsTrigger>
             <TabsTrigger value="grant-plan" className="text-xs sm:text-sm">
               <Gift className="h-4 w-4 sm:mr-2" />
@@ -375,6 +381,24 @@ export default function AdminDashboard() {
           {/* Subscriptions Tab */}
           <TabsContent value="subscriptions">
             <SubscriptionManagement />
+          </TabsContent>
+
+          {/* Counselors Tab */}
+          <TabsContent value="counselors">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Scale className="h-5 w-5" />
+                  <div>
+                    <CardTitle>Counselor Approvals</CardTitle>
+                    <CardDescription>Review and approve counselor applications</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <AdminCounselorApprovals open={true} onOpenChange={() => {}} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Grant Plan Tab */}

@@ -201,21 +201,13 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
   const approvedCounselors = allCounselors.filter(c => c.applicationStatus === 'approved');
   const rejectedCounselors = allCounselors.filter(c => c.applicationStatus === 'rejected');
 
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[800px] max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Counselor Approvals (Admin)
-            </DialogTitle>
-            <DialogDescription>
-              Review and approve counselor applications
-            </DialogDescription>
-          </DialogHeader>
+  // If open is false, don't render anything (for when used as dialog)
+  // If open is true and onOpenChange is a no-op, render inline (for admin dashboard)
+  const isInline = open && onOpenChange.toString().includes('{}');
 
-          <div className="flex items-center justify-between mb-2">
+  const content = (
+    <>
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4 text-yellow-600" />
@@ -408,6 +400,76 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
               </ScrollArea>
             </TabsContent>
           </Tabs>
+    </>
+  );
+
+  if (isInline) {
+    return (
+      <>
+        {content}
+        {/* Rejection Reason Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Reject Application</DialogTitle>
+            <DialogDescription>
+              Provide a reason for rejecting {selectedCounselor?.name}'s application
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Rejection Reason</Label>
+              <Textarea
+                placeholder="Enter the reason for rejection..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowRejectDialog(false)}
+                disabled={isRejecting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleReject}
+                disabled={isRejecting || !rejectionReason.trim()}
+              >
+                {isRejecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Reject Application'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      </>
+    );
+  }
+
+  // Render as dialog
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[800px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Counselor Approvals (Admin)
+            </DialogTitle>
+            <DialogDescription>
+              Review and approve counselor applications
+            </DialogDescription>
+          </DialogHeader>
+          {content}
         </DialogContent>
       </Dialog>
 
