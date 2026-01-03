@@ -453,6 +453,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log('✅ User signed out');
   }, [firebaseAvailable]);
 
+  // Register web push token for daily learning reminders
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        const { ensureDailyPushRegistration } = await import('@/lib/pushNotifications');
+        await ensureDailyPushRegistration(user.id);
+      } catch (err) {
+        console.warn('Push registration skipped', err);
+      }
+    })();
+  }, [user?.id]);
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
