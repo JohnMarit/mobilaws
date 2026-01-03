@@ -241,7 +241,7 @@ router.post('/request/:requestId/accept', async (req: Request, res: Response) =>
 
     if (!result.success) {
       return res.status(400).json({ 
-        error: 'Failed to accept request. It may have already been accepted by another counselor.' 
+        error: 'Failed to accept request. It may have already been accepted by another counselor or chat creation failed.' 
       });
     }
 
@@ -329,7 +329,7 @@ router.post('/appointment/:appointmentId/accept', async (req: Request, res: Resp
     );
 
     if (!result.success) {
-      return res.status(400).json({ error: 'Failed to accept appointment' });
+      return res.status(400).json({ error: 'Failed to accept appointment or create chat' });
     }
 
     res.json({ success: true, chatId: result.chatId, message: 'Appointment accepted' });

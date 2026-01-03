@@ -684,6 +684,10 @@ export async function acceptCounselRequest(
       counselorId,
       counselorName
     );
+    if (!chatId) {
+      console.error('❌ Failed to create chat session for request:', requestId);
+      return { success: false };
+    }
 
     await requestRef.update({
       status: 'accepted',
@@ -835,6 +839,10 @@ export async function acceptQueuedAppointment(
       counselorId,
       counselorName
     );
+    if (!chatId) {
+      console.error('❌ Failed to create chat session for appointment:', appointmentId);
+      return { success: false };
+    }
 
     // Update appointment
     await appointmentRef.update({
