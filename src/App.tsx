@@ -31,25 +31,25 @@ const App = () => (
             <TutorAdminProvider>
             <LearningProvider>
               <PromptLimitProvider>
-                <CountryProvider>
-                  <ChatProvider>
-                    <Toaster />
-                    <Sonner />
-                    <BrowserRouter>
-                      <Routes>
-                        <Route path="/" element={<Index />} />
-                        <Route path="/admin/login" element={<AdminLogin />} />
-                        <Route path="/admin/verify" element={<AdminVerify />} />
-                        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                          <Route path="/tutor-admin" element={<TutorAdminPortal />} />
-                        <Route path="/payment/success" element={<PaymentSuccess />} />
-                        <Route path="/payment/cancel" element={<PaymentCancel />} />
-                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </BrowserRouter>
-                  </ChatProvider>
-                </CountryProvider>
+                  <CountryProvider>
+                    <ChatProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BrowserRouter>
+                        <Routes>
+                          <Route path="/" element={<Index />} />
+                          <Route path="/admin/login" element={<AdminLogin />} />
+                          <Route path="/admin/verify" element={<AdminVerify />} />
+                          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                            <Route path="/tutor-admin" element={<TutorAdminPortal />} />
+                          <Route path="/payment/success" element={<PaymentSuccess />} />
+                          <Route path="/payment/cancel" element={<PaymentCancel />} />
+                          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </BrowserRouter>
+                    </ChatProvider>
+                  </CountryProvider>
               </PromptLimitProvider>
             </LearningProvider>
             </TutorAdminProvider>
