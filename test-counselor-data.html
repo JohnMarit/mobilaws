@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Counselor Data in Firestore</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 20px;
+    }
+    .counselor {
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .pending { background: #fff3cd; }
+    .approved { background: #d4edda; }
+    .rejected { background: #f8d7da; }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #0056b3; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Counselor Data Test</h1>
+  <p>This page checks if counselor applications are stored in Firestore</p>
+  
+  <button onclick="checkCounselors()">Check Counselors Collection</button>
+  <button onclick="checkPending()">Check Pending Applications</button>
+  <button onclick="checkAll()">Check All Counselors</button>
+  
+  <div id="output"></div>
+
+  <script>
+    // Initialize Firebase (use your config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDaKjmXz2-PD6Vy8iyuMhTZUULkqwTWo4",
+      authDomain: "mobilaws-46056.firebaseapp.com",
+      projectId: "mobilaws-46056",
+      storageBucket: "mobilaws-46056.firebasestorage.app",
+      messagingSenderId: "1050567476362",
+      appId: "1:1050567476362:web:7b0e6f4e3b4c8e9f3e8e9f"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    function log(message, type = 'info') {
+      const output = document.getElementById('output');
+      const div = document.createElement('div');
+      div.className = type;
+      div.innerHTML = message;
+      output.appendChild(div);
+    }
+
+    async function checkCounselors() {
+      document.getElementById('output').innerHTML = '<h2>📊 Checking Counselors Collection...</h2>';
+      
+      try {
+        const snapshot = await db.collection('counselors').get();
+        log(`<h3>✅ Found ${snapshot.size} total counselors</h3>`, 'success');
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const statusClass = data.applicationStatus || 'unknown';
+          log(`
+            <div class="counselor ${statusClass}">
+              <strong>ID:</strong> ${doc.id}<br>
+              <strong>Name:</strong> ${data.name}<br>
+              <strong>Email:</strong> ${data.email}<br>
+              <strong>Phone:</strong> ${data.phone || 'N/A'}<br>
+              <strong>National ID:</strong> ${data.nationalIdNumber || 'N/A'}<br>
+              <strong>State:</strong> ${data.state}<br>
+              <strong>Status:</strong> <strong>${data.applicationStatus}</strong><br>
+              <strong>Applied:</strong> ${data.appliedAt ? new Date(data.appliedAt.seconds * 1000).toLocaleString() : 'N/A'}<br>
+              <strong>Created:</strong> ${data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
+            </div>
+          `);
+        });
+      } catch (error) {
+        log(`<h3>❌ Error: ${error.message}</h3>`, 'error');
+        console.error(error);
+      }
+    }
+
+    async function checkPending() {
+      document.getElementById('output').innerHTML = '<h2>⏳ Checking Pending Applications...</h2>';
+      
+      try {
+        const snapshot = await db.collection('counselors')
+          .where('applicationStatus', '==', 'pending')
+          .get();
+        
+        log(`<h3>✅ Found ${snapshot.size} pending applications</h3>`, 'success');
+        
+        if (snapshot.size === 0) {
+          log('<p>No pending applications found. This could mean:</p><ul><li>No one has applied yet</li><li>All applications have been approved/rejected</li><li>The data is stored with a different status value</li></ul>');
+        }
+        
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          log(`
+            <div class="counselor pending">
+              <strong>ID:</strong> ${doc.id}<br>
+              <strong>Name:</strong> ${data.name}<br>
+              <strong>Email:</strong> ${data.email}<br>
+              <strong>Phone:</strong> ${data.phone || 'N/A'}<br>
+              <strong>National ID:</strong> ${data.nationalIdNumber || 'N/A'}<br>
+              <strong>State:</strong> ${data.state}<br>
+              <strong>Status:</strong> ${data.applicationStatus}<br>
+              <strong>Applied:</strong> ${data.appliedAt ? new Date(data.appliedAt.seconds * 1000).toLocaleString() : 'N/A'}
+            </div>
+          `);
+        });
+      } catch (error) {
+        log(`<h3>❌ Error: ${error.message}</h3>`, 'error');
+        console.error(error);
+      }
+    }
+
+    async function checkAll() {
+      document.getElementById('output').innerHTML = '<h2>📋 All Counselors by Status...</h2>';
+      
+      try {
+        const snapshot = await db.collection('counselors')
+          .orderBy('createdAt', 'desc')
+          .get();
+        
+        log(`<h3>✅ Total: ${snapshot.size} counselors</h3>`, 'success');
+        
+        const byStatus = {};
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const status = data.applicationStatus || 'unknown';
+          if (!byStatus[status]) byStatus[status] = [];
+          byStatus[status].push({ id: doc.id, ...data });
+        });
+        
+        Object.keys(byStatus).forEach(status => {
+          log(`<h4>${status.toUpperCase()}: ${byStatus[status].length}</h4>`);
+          byStatus[status].forEach(counselor => {
+            log(`
+              <div class="counselor ${status}">
+                <strong>Name:</strong> ${counselor.name}<br>
+                <strong>Email:</strong> ${counselor.email}<br>
+                <strong>Status:</strong> ${counselor.applicationStatus}<br>
+                <strong>Created:</strong> ${counselor.createdAt ? new Date(counselor.createdAt.seconds * 1000).toLocaleString() : 'N/A'}
+              </div>
+            `);
+          });
+        });
+      } catch (error) {
+        log(`<h3>❌ Error: ${error.message}</h3>`, 'error');
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>
+
