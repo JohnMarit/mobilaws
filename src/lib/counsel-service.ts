@@ -661,6 +661,11 @@ export async function acceptCounselRequest(
 ): Promise<{ success: boolean; chatId?: string; message?: string; error?: string }> {
   try {
     const apiUrl = getApiUrl(`counsel/request/${requestId}/accept`);
+    console.log(`📡 Calling accept API:`, apiUrl);
+    console.log(`   - requestId: ${requestId}`);
+    console.log(`   - counselorId: ${counselorId}`);
+    console.log(`   - counselorName: ${counselorName}`);
+    
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -671,7 +676,10 @@ export async function acceptCounselRequest(
       }),
     });
 
+    console.log(`📡 Accept response status:`, response.status, response.statusText);
+    
     const data = await response.json();
+    console.log(`📡 Accept response data:`, data);
 
     if (!response.ok) {
       return { success: false, error: data.error };
