@@ -82,10 +82,8 @@ export async function createChatSession(
     
     const now = admin.firestore.Timestamp.now();
 
-    const chatSession: CounselChatSession = {
+    const chatSession: any = {
       id: chatRef.id,
-      requestId: requestId || undefined,
-      appointmentId: appointmentId || undefined,
       userId,
       userName,
       counselorId,
@@ -96,6 +94,14 @@ export async function createChatSession(
       createdAt: now,
       updatedAt: now,
     };
+    
+    // Only add requestId/appointmentId if they exist (Firestore doesn't allow undefined)
+    if (requestId) {
+      chatSession.requestId = requestId;
+    }
+    if (appointmentId) {
+      chatSession.appointmentId = appointmentId;
+    }
 
     console.log('📤 Saving chat session to Firestore...');
     await chatRef.set(chatSession);
