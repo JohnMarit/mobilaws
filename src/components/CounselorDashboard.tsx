@@ -32,6 +32,7 @@ import {
   type LegalCategory,
 } from '@/lib/counsel-service';
 import { CounselorApplication } from './CounselorApplication';
+import { notificationSound } from '@/lib/notification-sound';
 
 interface CounselorDashboardProps {
   open: boolean;
@@ -133,6 +134,16 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         getPendingCounselRequests(),
         getQueuedAppointments(selectedState),
       ]);
+      
+      // Play notification sound if there are new requests
+      if (requests.length > pendingRequests.length && pendingRequests.length > 0) {
+        notificationSound.playRequestNotification();
+        toast({
+          title: '🔔 New Counsel Request!',
+          description: `${requests.length - pendingRequests.length} new request(s) received.`,
+        });
+      }
+      
       setPendingRequests(requests);
       setQueuedAppointments(appointments);
     } catch (error) {
