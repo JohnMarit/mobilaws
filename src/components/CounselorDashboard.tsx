@@ -25,6 +25,8 @@ import {
   getCounselorProfile,
   getCounselConfig,
   getCounselorApplicationStatus,
+  getChatByRequestId,
+  getChatByAppointmentId,
   type CounselRequest,
   type Appointment,
   type Counselor,
@@ -32,6 +34,9 @@ import {
   type LegalCategory,
 } from '@/lib/counsel-service';
 import { CounselorApplication } from './CounselorApplication';
+import { CounselChatInterface } from './CounselChatInterface';
+import type { CounselChatSession } from '@/lib/counsel-chat-service';
+import { notificationSound } from '@/lib/notification-sound';
 import { notificationSound } from '@/lib/notification-sound';
 
 interface CounselorDashboardProps {
@@ -50,6 +55,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const [phone, setPhone] = useState('');
   const [states, setStates] = useState<SouthSudanState[]>([]);
   const [categories, setCategories] = useState<LegalCategory[]>([]);
+  
+  const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
+  const [showChat, setShowChat] = useState(false);
   
   // Approval status
   const [isCheckingApproval, setIsCheckingApproval] = useState(true);
@@ -225,6 +233,13 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
       );
 
       if (result.success) {
+        if (result.chatId) {
+          const chat = await getChatByRequestId(request.id);
+          if (chat) {
+            setChatSession(chat);
+            setShowChat(true);
+          }
+        }
         toast({
           title: '✅ Request Accepted',
           description: `You accepted ${request.userName}'s request.`,
@@ -258,6 +273,13 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
       );
 
       if (result.success) {
+        if (result.chatId) {
+          const chat = await getChatByAppointmentId(appointment.id);
+          if (chat) {
+            setChatSession(chat);
+            setShowChat(true);
+          }
+        }
         toast({
           title: '✅ Appointment Accepted',
           description: `You accepted ${appointment.userName}'s scheduled appointment.`,
@@ -607,6 +629,14 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </div>
         )}
       </DialogContent>
+      {chatSession && (
+        <CounselChatInterface
+          open={showChat}
+          onOpenChange={setShowChat}
+          chatSession={chatSession}
+          userRole="counselor"
+        />
+      )}
     </Dialog>
   );
 }

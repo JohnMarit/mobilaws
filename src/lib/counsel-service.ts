@@ -337,6 +337,26 @@ export async function getAvailableCounselors(state: string): Promise<Counselor[]
   }
 }
 
+/**
+ * Get requests for a specific counselor (to show only relevant incoming)
+ */
+export async function getRequestsForCounselor(counselorId: string): Promise<CounselRequest[]> {
+  try {
+    const apiUrl = getApiUrl(`counsel/requests/counselor/${counselorId}`);
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.requests || [];
+  } catch (error) {
+    console.error('❌ Error fetching counselor requests:', error);
+    return [];
+  }
+}
+
 // ========== COUNSELOR FUNCTIONS ==========
 
 /**
@@ -638,7 +658,7 @@ export async function acceptCounselRequest(
   counselorId: string,
   counselorName: string,
   counselorPhone?: string
-): Promise<{ success: boolean; message?: string; error?: string }> {
+): Promise<{ success: boolean; chatId?: string; message?: string; error?: string }> {
   try {
     const apiUrl = getApiUrl(`counsel/request/${requestId}/accept`);
     const response = await fetch(apiUrl, {
@@ -672,7 +692,7 @@ export async function acceptQueuedAppointment(
   counselorId: string,
   counselorName: string,
   counselorPhone?: string
-): Promise<{ success: boolean; message?: string; error?: string }> {
+): Promise<{ success: boolean; chatId?: string; message?: string; error?: string }> {
   try {
     const apiUrl = getApiUrl(`counsel/appointment/${appointmentId}/accept`);
     const response = await fetch(apiUrl, {

@@ -15,6 +15,7 @@ import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import SupportDialog from './SupportDialog';
 import MyTickets from './MyTickets';
 import { CounselorDashboard } from './CounselorDashboard';
+import { CounselorAlertListener } from './CounselorAlertListener';
 
 interface UserProfileNavProps {
   onManageSubscription?: () => void;
@@ -37,6 +38,7 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
   if (isAuthenticated && user) {
     return (
       <>
+      <CounselorAlertListener />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

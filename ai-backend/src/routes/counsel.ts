@@ -237,15 +237,15 @@ router.post('/request/:requestId/accept', async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'Missing required fields: counselorId, counselorName' });
     }
 
-    const success = await acceptCounselRequest(requestId, counselorId, counselorName, counselorPhone);
+    const result = await acceptCounselRequest(requestId, counselorId, counselorName, counselorPhone);
 
-    if (!success) {
+    if (!result.success) {
       return res.status(400).json({ 
         error: 'Failed to accept request. It may have already been accepted by another counselor.' 
       });
     }
 
-    res.json({ success: true, message: 'Request accepted successfully' });
+    res.json({ success: true, chatId: result.chatId, message: 'Request accepted successfully' });
   } catch (error) {
     console.error('❌ Error accepting request:', error);
     res.status(500).json({ error: 'Failed to accept request' });
@@ -321,18 +321,18 @@ router.post('/appointment/:appointmentId/accept', async (req: Request, res: Resp
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const success = await acceptQueuedAppointment(
+    const result = await acceptQueuedAppointment(
       appointmentId, 
       counselorId, 
       counselorName,
       counselorPhone
     );
 
-    if (!success) {
+    if (!result.success) {
       return res.status(400).json({ error: 'Failed to accept appointment' });
     }
 
-    res.json({ success: true, message: 'Appointment accepted' });
+    res.json({ success: true, chatId: result.chatId, message: 'Appointment accepted' });
   } catch (error) {
     console.error('❌ Error accepting appointment:', error);
     res.status(500).json({ error: 'Failed to accept appointment' });

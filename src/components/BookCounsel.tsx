@@ -20,10 +20,13 @@ import {
   getCounselRequest,
   cancelCounselRequest,
   getAvailableCounselors,
+  getChatByRequestId,
   type SouthSudanState,
   type LegalCategory,
   type CounselRequest,
 } from '@/lib/counsel-service';
+import { CounselChatInterface } from './CounselChatInterface';
+import type { CounselChatSession } from '@/lib/counsel-chat-service';
 
 interface BookCounselProps {
   open: boolean;
@@ -48,7 +51,9 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   const [request, setRequest] = useState<CounselRequest | null>(null);
   const [availableCount, setAvailableCount] = useState(0);
   const [broadcastCount, setBroadcastCount] = useState(0);
-  const [countdown, setCountdown] = useState(300); // 5 minutes
+  const [countdown, setCountdown] = useState(300); // 5 minutes default
+  const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
+  const [showChat, setShowChat] = useState(false);
   
   // Config
   const [states, setStates] = useState<SouthSudanState[]>([]);
@@ -102,6 +107,8 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
     setRequest(null);
     setCountdown(300);
     setBroadcastCount(0);
+    setChatSession(null);
+    setShowChat(false);
   };
 
   const startPolling = () => {
@@ -116,6 +123,11 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
         
         if (req.status === 'accepted') {
           setStep('accepted');
+          const chat = await getChatByRequestId(requestId);
+          if (chat) {
+            setChatSession(chat);
+            setShowChat(true);
+          }
           stopPolling();
           toast({
             title: '🎉 Counsel Found!',
@@ -209,19 +221,15 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       setRequestId(result.requestId || null);
       setBroadcastCount(result.broadcastCount || 0);
 
-      if (result.hasAvailableCounselors) {
-        setStep('waiting');
-        toast({
-          title: '📡 Broadcasting Request',
-          description: `Your request is being sent to ${result.broadcastCount} counselor(s).`,
-        });
-      } else {
-        setStep('schedule');
-        toast({
-          title: 'No Counselors Available',
-          description: 'You can schedule an appointment for later.',
-        });
-      }
+      // Always wait/search for 3 minutes before scheduling, even if none online
+      setStep('waiting');
+      setCountdown(180); // 3 minutes
+      toast({
+        title: result.broadcastCount > 0 ? '📡 Broadcasting Request' : 'Searching for Counselors',
+        description: result.broadcastCount > 0
+          ? `Your request is being sent to ${result.broadcastCount} counselor(s).`
+          : 'No counselors are online yet. We will keep searching for 3 minutes before scheduling.',
+      });
     } catch (error) {
       console.error('Error:', error);
       toast({
@@ -615,6 +623,14 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
           </div>
         )}
       </DialogContent>
+      {chatSession && (
+        <CounselChatInterface
+          open={showChat}
+          onOpenChange={setShowChat}
+          chatSession={chatSession}
+          userRole="user"
+        />
+      )}
     </Dialog>
   );
 }

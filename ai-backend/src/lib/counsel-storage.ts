@@ -638,10 +638,10 @@ export async function acceptCounselRequest(
   counselorId: string,
   counselorName: string,
   counselorPhone?: string
-): Promise<boolean> {
+): Promise<{ success: boolean; chatId?: string }> {
   const db = getFirestore();
   if (!db) {
-    return false;
+    return { success: false };
   }
 
   try {
@@ -650,19 +650,19 @@ export async function acceptCounselRequest(
 
     if (!requestDoc.exists) {
       console.error('❌ Counsel request not found:', requestId);
-      return false;
+      return { success: false };
     }
 
     const requestData = requestDoc.data() as CounselRequest;
     if (requestData.status !== 'broadcasting' && requestData.status !== 'pending' && requestData.status !== 'scheduled') {
       console.error('❌ Cannot accept request with status:', requestData.status);
-      return false;
+      return { success: false };
     }
 
     // Check if already accepted by another counselor
     if (requestData.counselorId) {
       console.error('❌ Request already accepted by another counselor');
-      return false;
+      return { success: false };
     }
 
     // Create chat session
@@ -689,10 +689,10 @@ export async function acceptCounselRequest(
     await incrementCounselorActiveRequests(counselorId, 1);
 
     console.log(`✅ Counsel request accepted: ${requestId} by ${counselorName}, chat: ${chatId}`);
-    return true;
+    return { success: true, chatId: chatId || undefined };
   } catch (error) {
     console.error('❌ Error accepting counsel request:', error);
-    return false;
+    return { success: false };
   }
 }
 
@@ -797,10 +797,10 @@ export async function acceptQueuedAppointment(
   counselorId: string,
   counselorName: string,
   counselorPhone?: string
-): Promise<boolean> {
+): Promise<{ success: boolean; chatId?: string }> {
   const db = getFirestore();
   if (!db) {
-    return false;
+    return { success: false };
   }
 
   try {
@@ -808,13 +808,24 @@ export async function acceptQueuedAppointment(
     const appointmentDoc = await appointmentRef.get();
 
     if (!appointmentDoc.exists) {
-      return false;
+      return { success: false };
     }
 
     const appointment = appointmentDoc.data() as Appointment;
     if (appointment.status !== 'queued') {
-      return false;
+      return { success: false };
     }
+
+    // Create chat session for this appointment
+    const { createChatSession } = await import('./counsel-chat-storage');
+    const chatId = await createChatSession(
+      null,
+      appointmentId,
+      appointment.userId,
+      appointment.userName,
+      counselorId,
+      counselorName
+    );
 
     // Update appointment
     await appointmentRef.update({
@@ -839,11 +850,11 @@ export async function acceptQueuedAppointment(
     // Update counselor stats
     await incrementCounselorActiveRequests(counselorId, 1);
 
-    console.log(`✅ Appointment accepted: ${appointmentId} by ${counselorName}`);
-    return true;
+    console.log(`✅ Appointment accepted: ${appointmentId} by ${counselorName}, chat: ${chatId}`);
+    return { success: true, chatId: chatId || undefined };
   } catch (error) {
     console.error('❌ Error accepting appointment:', error);
-    return false;
+    return { success: false };
   }
 }
 
