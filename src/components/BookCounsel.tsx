@@ -283,14 +283,18 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
 
     setIsSubmitting(true);
 
+    // Default category in case none selected
+    const finalCategory = category || (categories.length > 0 ? categories[0].id : 'general');
+    const finalPhone = phone || user.email || '';
+
     try {
       const result = await scheduleBooking(
         user.id,
         user.displayName || 'User',
         user.email || '',
-        phone,
+        finalPhone,
         note.trim(),
-        category,
+        finalCategory,
         state,
         preferredDate,
         preferredTime
