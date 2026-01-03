@@ -204,18 +204,37 @@ export async function applyCounselor(application: {
 export async function getPendingCounselorApplications(): Promise<Counselor[]> {
   const db = getFirestore();
   if (!db) {
+    console.warn('⚠️ Firestore not available');
     return [];
   }
 
   try {
+    console.log('🔍 Querying Firestore for pending counselor applications...');
     const snapshot = await db.collection(COUNSELORS_COLLECTION)
       .where('applicationStatus', '==', 'pending')
       .orderBy('appliedAt', 'asc')
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as Counselor);
+    console.log(`✅ Found ${snapshot.size} pending applications in Firestore`);
+    const applications = snapshot.docs.map(doc => {
+      const data = doc.data() as Counselor;
+      console.log('  - Application:', {
+        id: doc.id,
+        name: data.name,
+        email: data.email,
+        status: data.applicationStatus,
+        appliedAt: data.appliedAt
+      });
+      return data;
+    });
+    
+    return applications;
   } catch (error) {
     console.error('❌ Error fetching pending applications:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return [];
   }
 }

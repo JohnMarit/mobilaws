@@ -65,15 +65,33 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
 
   const loadData = async () => {
     setIsLoading(true);
+    console.log('📥 Loading counselor applications...');
     try {
       const [pending, all] = await Promise.all([
         getPendingCounselorApplications(),
         getAllCounselors(),
       ]);
+      console.log('📊 Counselor data loaded:', {
+        pending: pending.length,
+        all: all.length,
+        pendingDetails: pending
+      });
       setPendingApplications(pending);
       setAllCounselors(all);
+      
+      if (pending.length > 0) {
+        toast({
+          title: `${pending.length} Pending Application${pending.length > 1 ? 's' : ''}`,
+          description: 'Waiting for your review',
+        });
+      }
     } catch (error) {
-      console.error('Error loading applications:', error);
+      console.error('❌ Error loading applications:', error);
+      toast({
+        title: 'Error Loading Applications',
+        description: 'Failed to fetch counselor applications. Check console for details.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }

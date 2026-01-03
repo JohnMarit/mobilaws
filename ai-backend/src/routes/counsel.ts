@@ -440,7 +440,14 @@ router.get('/counselor/approved/:userId', async (req: Request, res: Response) =>
  */
 router.get('/admin/applications/pending', async (_req: Request, res: Response) => {
   try {
+    console.log('📥 Admin requesting pending counselor applications...');
     const applications = await getPendingCounselorApplications();
+    console.log(`✅ Found ${applications.length} pending applications:`, applications.map(a => ({
+      name: a.name,
+      email: a.email,
+      status: a.applicationStatus,
+      appliedAt: a.appliedAt
+    })));
     res.json({ success: true, applications });
   } catch (error) {
     console.error('❌ Error fetching pending applications:', error);
@@ -454,7 +461,9 @@ router.get('/admin/applications/pending', async (_req: Request, res: Response) =
  */
 router.get('/admin/counselors', async (_req: Request, res: Response) => {
   try {
+    console.log('📥 Admin requesting all counselors...');
     const counselors = await getAllCounselors();
+    console.log(`✅ Found ${counselors.length} total counselors`);
     res.json({ success: true, counselors });
   } catch (error) {
     console.error('❌ Error fetching counselors:', error);
