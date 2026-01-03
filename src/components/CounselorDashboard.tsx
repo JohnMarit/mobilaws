@@ -140,16 +140,19 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         getQueuedAppointments(selectedState),
       ]);
       
-      // Play notification sound if there are new requests
-      if (requests.length > pendingRequests.length && pendingRequests.length > 0) {
+      // Play notification sound if there are new requests (including first one)
+      if (requests.length > pendingRequests.length) {
         const newCount = requests.length - pendingRequests.length;
         console.log(`🔔 ${newCount} NEW REQUEST(S) in dashboard! Playing sound...`);
         
         notificationSound.playRequestNotification();
+        if (navigator?.vibrate) {
+          navigator.vibrate([200, 100, 200, 100, 200]); // short vibration pattern
+        }
         
         toast({
-          title: '🔔 New Counsel Request!',
-          description: `${newCount} new request(s) received.`,
+          title: '🔔 Incoming Counsel Request!',
+          description: `${newCount} new request(s) need attention.`,
           duration: 10000,
         });
       }

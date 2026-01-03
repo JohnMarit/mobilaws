@@ -48,6 +48,9 @@ export function CounselorAlertListener() {
             
             // Play notification sound
             notificationSound.playRequestNotification();
+            if (navigator?.vibrate) {
+              navigator.vibrate([200, 100, 200, 100, 200]);
+            }
             
             // Show toast
             toast({
