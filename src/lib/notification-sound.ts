@@ -15,8 +15,14 @@ class NotificationSound {
   constructor() {
     // Initialize on first user interaction
     if (typeof window !== 'undefined') {
-      document.addEventListener('click', () => this.init(), { once: true });
-      document.addEventListener('touchstart', () => this.init(), { once: true });
+      const initHandler = () => {
+        this.init();
+        console.log('👆 User interaction detected, initializing audio...');
+      };
+      
+      document.addEventListener('click', initHandler, { once: true });
+      document.addEventListener('touchstart', initHandler, { once: true });
+      document.addEventListener('keydown', initHandler, { once: true });
     }
   }
 
@@ -25,10 +31,52 @@ class NotificationSound {
     
     try {
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Try to resume immediately
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().then(() => {
+          console.log('✅ Audio context resumed');
+        });
+      }
+      
       this.initialized = true;
-      console.log('✅ Notification sound initialized');
+      console.log('✅ Notification sound initialized successfully!');
+      console.log('   Audio context state:', this.audioContext.state);
     } catch (error) {
       console.error('❌ Error initializing notification sound:', error);
+    }
+  }
+  
+  /**
+   * Manually test/initialize the sound system
+   */
+  async testSound() {
+    console.log('🔊 Testing notification sound...');
+    
+    if (!this.initialized) {
+      this.init();
+    }
+    
+    if (!this.audioContext) {
+      console.error('❌ Audio context not available');
+      return false;
+    }
+    
+    try {
+      // Resume if suspended
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      
+      // Play a short test beep
+      const now = this.audioContext.currentTime;
+      await this.playTone(800, now, 0.2, 0.3);
+      
+      console.log('✅ Test sound played successfully!');
+      return true;
+    } catch (error) {
+      console.error('❌ Test sound failed:', error);
+      return false;
     }
   }
 
