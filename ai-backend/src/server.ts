@@ -27,6 +27,7 @@ import learningRouter from './routes/learning';
 import tutorAdminRouter from './routes/tutor-admin';
 import aiLessonsRouter from './routes/ai-lessons';
 import counselRouter from './routes/counsel';
+import counselChatRouter from './routes/counsel-chat';
 
 const app = express();
 
@@ -93,6 +94,7 @@ app.use('/api', learningRouter);
 app.use('/api', tutorAdminRouter);
 app.use('/api', aiLessonsRouter);
 app.use('/api/counsel', counselRouter);
+app.use('/api/counsel', counselChatRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

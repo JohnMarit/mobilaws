@@ -25,6 +25,7 @@ import aiLessonsRouter from '../src/routes/ai-lessons';
 import userLessonsRouter from '../src/routes/user-lessons';
 import pushRouter from '../src/routes/push';
 import counselRouter from '../src/routes/counsel';
+import counselChatRouter from '../src/routes/counsel-chat';
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api', aiLessonsRouter);
 app.use('/api', userLessonsRouter);
 app.use('/api', pushRouter);
 app.use('/api/counsel', counselRouter);
+app.use('/api/counsel', counselChatRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

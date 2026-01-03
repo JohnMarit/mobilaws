@@ -570,6 +570,7 @@ export async function getRequestsForCounselor(counselorId: string): Promise<Coun
 
 /**
  * Get all pending requests (for counselors to see)
+ * Only shows 'broadcasting' and 'pending' (not 'scheduled' or 'expired')
  */
 export async function getPendingCounselRequests(): Promise<CounselRequest[]> {
   const db = getFirestore();
@@ -578,8 +579,11 @@ export async function getPendingCounselRequests(): Promise<CounselRequest[]> {
   }
 
   try {
+    const now = admin.firestore.Timestamp.now();
     const snapshot = await db.collection(COUNSEL_REQUESTS_COLLECTION)
-      .where('status', 'in', ['broadcasting', 'pending', 'scheduled'])
+      .where('status', 'in', ['broadcasting', 'pending'])
+      .where('expiresAt', '>', now)
+      .orderBy('expiresAt', 'asc')
       .orderBy('createdAt', 'desc')
       .get();
 
@@ -648,6 +652,17 @@ export async function acceptCounselRequest(
       return false;
     }
 
+    // Create chat session
+    const { createChatSession } = await import('./counsel-chat-storage');
+    const chatId = await createChatSession(
+      requestId,
+      null,
+      requestData.userId,
+      requestData.userName,
+      counselorId,
+      counselorName
+    );
+
     await requestRef.update({
       status: 'accepted',
       counselorId,
@@ -660,7 +675,7 @@ export async function acceptCounselRequest(
     // Update counselor active requests count
     await incrementCounselorActiveRequests(counselorId, 1);
 
-    console.log(`✅ Counsel request accepted: ${requestId} by ${counselorName}`);
+    console.log(`✅ Counsel request accepted: ${requestId} by ${counselorName}, chat: ${chatId}`);
     return true;
   } catch (error) {
     console.error('❌ Error accepting counsel request:', error);
