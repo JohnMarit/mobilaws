@@ -43,6 +43,34 @@
       ]
     },
     {
+      "collectionGroup": "counselors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "applicationStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "appliedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "counselors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "applicationStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "appointments",
       "queryScope": "COLLECTION",
       "fields": [

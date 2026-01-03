@@ -526,15 +526,6 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
                     Study Law
                   </Button>
                 </div>
-                {aiConnected ? (
-                  <span className="block text-sm text-green-600 mt-4">
-                    🤖 AI Legal Assistant Online
-                  </span>
-                ) : (
-                  <span className="block text-sm text-orange-500 mt-4">
-                    ⚠️ Backend Offline
-                  </span>
-                )}
               </div>
             </div>
             <div className="pb-6 md:pb-8 safe-area-inset-bottom">

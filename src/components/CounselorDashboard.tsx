@@ -1,6 +1,7 @@
 /**
  * Counselor Dashboard
  * Interface for counselors to go online, view and accept requests
+ * Only accessible to admin-approved counselors
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -23,12 +24,14 @@ import {
   setCounselorOnlineStatus,
   getCounselorProfile,
   getCounselConfig,
+  getCounselorApplicationStatus,
   type CounselRequest,
   type Appointment,
   type Counselor,
   type SouthSudanState,
   type LegalCategory,
 } from '@/lib/counsel-service';
+import { CounselorApplication } from './CounselorApplication';
 
 interface CounselorDashboardProps {
   open: boolean;
@@ -46,30 +49,67 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const [phone, setPhone] = useState('');
   const [states, setStates] = useState<SouthSudanState[]>([]);
   const [categories, setCategories] = useState<LegalCategory[]>([]);
+  
+  // Approval status
+  const [isCheckingApproval, setIsCheckingApproval] = useState(true);
+  const [approvalStatus, setApprovalStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
+  
   const { user } = useAuth();
   const { toast } = useToast();
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load config and profile
+  // Check approval status first
   useEffect(() => {
-    if (open) {
-      getCounselConfig().then(config => {
-        setStates(config.states);
-        setCategories(config.categories);
-      });
-      
-      if (user) {
-        getCounselorProfile(user.uid).then(profile => {
-          if (profile) {
-            setCounselorProfile(profile);
-            setIsOnline(profile.isOnline);
-            setSelectedState(profile.state);
-            setPhone(profile.phone || '');
-          }
-        });
-      }
+    if (open && user) {
+      checkApprovalStatus();
     }
   }, [open, user]);
+
+  const checkApprovalStatus = async () => {
+    if (!user) return;
+    
+    setIsCheckingApproval(true);
+    try {
+      const status = await getCounselorApplicationStatus(user.uid);
+      
+      if (status?.exists && status.status) {
+        setApprovalStatus(status.status);
+        if (status.rejectionReason) {
+          setRejectionReason(status.rejectionReason);
+        }
+        
+        // If approved, load the full profile
+        if (status.status === 'approved') {
+          loadConfigAndProfile();
+        }
+      } else {
+        setApprovalStatus('none');
+      }
+    } catch (error) {
+      console.error('Error checking approval:', error);
+    } finally {
+      setIsCheckingApproval(false);
+    }
+  };
+
+  // Load config and profile (only for approved counselors)
+  const loadConfigAndProfile = async () => {
+    const config = await getCounselConfig();
+    setStates(config.states);
+    setCategories(config.categories);
+    
+    if (user) {
+      const profile = await getCounselorProfile(user.uid);
+      if (profile) {
+        setCounselorProfile(profile);
+        setIsOnline(profile.isOnline);
+        setSelectedState(profile.state);
+        setPhone(profile.phone || '');
+      }
+    }
+  };
 
   // Poll for requests when online
   useEffect(() => {
@@ -242,6 +282,27 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     return date.toLocaleString();
   };
 
+  // Show application form if needed
+  if (showApplicationForm) {
+    return (
+      <CounselorApplication
+        open={open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setShowApplicationForm(false);
+            checkApprovalStatus();
+          }
+          onOpenChange(isOpen);
+        }}
+        onApproved={() => {
+          setApprovalStatus('approved');
+          setShowApplicationForm(false);
+          loadConfigAndProfile();
+        }}
+      />
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col">
@@ -251,13 +312,75 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             Counselor Dashboard
           </DialogTitle>
           <DialogDescription>
-            Go online to receive and accept counsel requests
+            {approvalStatus === 'approved' 
+              ? 'Go online to receive and accept counsel requests'
+              : 'Apply to become an approved counselor'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col space-y-4 min-h-0">
-          {/* Setup Section */}
-          <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+        {/* Checking approval status */}
+        {isCheckingApproval ? (
+          <div className="py-12 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : approvalStatus === 'none' ? (
+          // Not applied yet
+          <div className="py-8 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <FileText className="h-10 w-10 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold">Become a Counselor</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Apply to join Mobilaws as a legal counsel.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Admin approval is required.
+              </p>
+            </div>
+            <Button onClick={() => setShowApplicationForm(true)} className="w-full max-w-xs">
+              Apply Now
+            </Button>
+          </div>
+        ) : approvalStatus === 'pending' ? (
+          // Pending approval
+          <div className="py-8 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+              <Clock className="h-10 w-10 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-yellow-700">Application Pending</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Your application is being reviewed by our admin team.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You'll be able to access the dashboard once approved.
+              </p>
+            </div>
+          </div>
+        ) : approvalStatus === 'rejected' ? (
+          // Rejected
+          <div className="py-8 text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+              <XCircle className="h-10 w-10 text-red-600" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-red-700">Application Rejected</p>
+              {rejectionReason && (
+                <p className="text-sm text-red-600 mt-2 bg-red-50 p-3 rounded-lg max-w-sm mx-auto">
+                  Reason: {rejectionReason}
+                </p>
+              )}
+            </div>
+            <Button onClick={() => setShowApplicationForm(true)} className="w-full max-w-xs">
+              Apply Again
+            </Button>
+          </div>
+        ) : (
+          // Approved - show full dashboard
+          <div className="flex-1 flex flex-col space-y-4 min-h-0">
+            {/* Setup Section */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
@@ -458,19 +581,20 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             </Tabs>
           )}
 
-          {/* Offline Message */}
-          {!isOnline && (
-            <div className="flex-1 flex items-center justify-center p-8 text-center border rounded-lg bg-gray-50">
-              <div>
-                <Circle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-lg font-medium text-gray-600">You are offline</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Go online to start receiving counsel requests
-                </p>
+            {/* Offline Message */}
+            {!isOnline && (
+              <div className="flex-1 flex items-center justify-center p-8 text-center border rounded-lg bg-gray-50">
+                <div>
+                  <Circle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-600">You are offline</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Go online to start receiving counsel requests
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

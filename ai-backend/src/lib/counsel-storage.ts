@@ -66,12 +66,22 @@ export interface Counselor {
   name: string;
   email: string;
   phone?: string;
+  // Registration info
+  nationalIdNumber?: string; // National ID number
+  idDocumentUrl?: string; // URL to uploaded ID document
+  applicationStatus: 'pending' | 'approved' | 'rejected'; // Admin approval status
+  rejectionReason?: string; // Reason if rejected
+  appliedAt?: admin.firestore.Timestamp; // When they applied
+  approvedAt?: admin.firestore.Timestamp; // When approved
+  approvedBy?: string; // Admin who approved
+  // Operational status
   isOnline: boolean;
-  isVerified: boolean; // Admin-verified counselor
+  isVerified: boolean; // Admin-verified counselor (same as approved)
   isAvailable: boolean; // Can accept new requests
   state: StateCode; // Counselor's primary state
   servingStates: StateCode[]; // States the counselor serves
   specializations: string[]; // Legal specializations
+  // Stats
   rating: number;
   totalCases: number;
   completedCases: number;
@@ -116,39 +126,271 @@ export const LEGAL_CATEGORIES = [
 ] as const;
 
 /**
- * Register a new counselor
+ * Apply to become a counselor (requires admin approval)
  */
-export async function registerCounselor(
-  counselor: Omit<Counselor, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'totalCases' | 'completedCases' | 'activeRequests'>
-): Promise<string | null> {
+export async function applyCounselor(application: {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  nationalIdNumber: string;
+  idDocumentUrl?: string;
+  state: StateCode;
+  servingStates?: StateCode[];
+  specializations?: string[];
+}): Promise<{ success: boolean; message: string }> {
   const db = getFirestore();
   if (!db) {
     console.warn('⚠️ Firebase Admin not initialized');
-    return null;
+    return { success: false, message: 'Database not available' };
   }
 
   try {
-    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselor.userId);
+    // Check if already applied
+    const existingRef = db.collection(COUNSELORS_COLLECTION).doc(application.userId);
+    const existing = await existingRef.get();
+    
+    if (existing.exists) {
+      const data = existing.data() as Counselor;
+      if (data.applicationStatus === 'approved') {
+        return { success: false, message: 'You are already an approved counselor' };
+      }
+      if (data.applicationStatus === 'pending') {
+        return { success: false, message: 'Your application is already pending review' };
+      }
+      // If rejected, allow re-application
+    }
+
     const now = admin.firestore.Timestamp.now();
     
     const counselorData: Counselor = {
-      ...counselor,
-      id: counselor.userId,
+      id: application.userId,
+      userId: application.userId,
+      name: application.name,
+      email: application.email,
+      phone: application.phone,
+      nationalIdNumber: application.nationalIdNumber,
+      idDocumentUrl: application.idDocumentUrl || '',
+      applicationStatus: 'pending',
+      appliedAt: now,
+      isOnline: false,
+      isVerified: false,
+      isAvailable: false,
+      state: application.state,
+      servingStates: application.servingStates || [application.state],
+      specializations: application.specializations || [],
       rating: 0,
       totalCases: 0,
       completedCases: 0,
       activeRequests: 0,
+      maxActiveRequests: 5,
+      lastSeenAt: now,
       createdAt: now,
       updatedAt: now,
     };
 
-    await counselorRef.set(counselorData);
-    console.log(`✅ Counselor registered: ${counselor.name} (${counselor.userId})`);
-    return counselor.userId;
+    await existingRef.set(counselorData);
+    console.log(`✅ Counselor application submitted: ${application.name} (${application.userId})`);
+    return { success: true, message: 'Application submitted successfully. Please wait for admin approval.' };
   } catch (error) {
-    console.error('❌ Error registering counselor:', error);
+    console.error('❌ Error submitting counselor application:', error);
+    return { success: false, message: 'Failed to submit application' };
+  }
+}
+
+/**
+ * Get pending counselor applications (for admin)
+ */
+export async function getPendingCounselorApplications(): Promise<Counselor[]> {
+  const db = getFirestore();
+  if (!db) {
+    return [];
+  }
+
+  try {
+    const snapshot = await db.collection(COUNSELORS_COLLECTION)
+      .where('applicationStatus', '==', 'pending')
+      .orderBy('appliedAt', 'asc')
+      .get();
+
+    return snapshot.docs.map(doc => doc.data() as Counselor);
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all counselors (for admin)
+ */
+export async function getAllCounselors(): Promise<Counselor[]> {
+  const db = getFirestore();
+  if (!db) {
+    return [];
+  }
+
+  try {
+    const snapshot = await db.collection(COUNSELORS_COLLECTION)
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return snapshot.docs.map(doc => doc.data() as Counselor);
+  } catch (error) {
+    console.error('❌ Error fetching all counselors:', error);
+    return [];
+  }
+}
+
+/**
+ * Approve a counselor application (admin only)
+ */
+export async function approveCounselor(
+  counselorId: string,
+  approvedBy: string
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      console.error('❌ Counselor not found:', counselorId);
+      return false;
+    }
+
+    await counselorRef.update({
+      applicationStatus: 'approved',
+      isVerified: true,
+      approvedAt: admin.firestore.Timestamp.now(),
+      approvedBy,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Counselor approved: ${counselorId} by ${approvedBy}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error approving counselor:', error);
+    return false;
+  }
+}
+
+/**
+ * Reject a counselor application (admin only)
+ */
+export async function rejectCounselor(
+  counselorId: string,
+  rejectedBy: string,
+  reason: string
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      console.error('❌ Counselor not found:', counselorId);
+      return false;
+    }
+
+    await counselorRef.update({
+      applicationStatus: 'rejected',
+      rejectionReason: reason,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Counselor rejected: ${counselorId} - ${reason}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error rejecting counselor:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if user is an approved counselor
+ */
+export async function isApprovedCounselor(userId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(userId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      return false;
+    }
+
+    const data = counselorDoc.data() as Counselor;
+    return data.applicationStatus === 'approved';
+  } catch (error) {
+    console.error('❌ Error checking counselor status:', error);
+    return false;
+  }
+}
+
+/**
+ * Get counselor application status
+ */
+export async function getCounselorApplicationStatus(userId: string): Promise<{
+  exists: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+} | null> {
+  const db = getFirestore();
+  if (!db) {
     return null;
   }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(userId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      return { exists: false };
+    }
+
+    const data = counselorDoc.data() as Counselor;
+    return {
+      exists: true,
+      status: data.applicationStatus,
+      rejectionReason: data.rejectionReason,
+    };
+  } catch (error) {
+    console.error('❌ Error getting counselor status:', error);
+    return null;
+  }
+}
+
+/**
+ * Legacy: Register a new counselor (kept for backward compatibility, now creates pending application)
+ */
+export async function registerCounselor(
+  counselor: Omit<Counselor, 'id' | 'createdAt' | 'updatedAt' | 'rating' | 'totalCases' | 'completedCases' | 'activeRequests'>
+): Promise<string | null> {
+  const result = await applyCounselor({
+    userId: counselor.userId,
+    name: counselor.name,
+    email: counselor.email,
+    phone: counselor.phone || '',
+    nationalIdNumber: counselor.nationalIdNumber || '',
+    idDocumentUrl: counselor.idDocumentUrl,
+    state: counselor.state,
+    servingStates: counselor.servingStates,
+    specializations: counselor.specializations,
+  });
+  
+  return result.success ? counselor.userId : null;
 }
 
 /**

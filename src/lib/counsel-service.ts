@@ -47,12 +47,22 @@ export interface Counselor {
   name: string;
   email: string;
   phone?: string;
+  // Application info
+  nationalIdNumber?: string;
+  idDocumentUrl?: string;
+  applicationStatus: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  appliedAt?: any;
+  approvedAt?: any;
+  approvedBy?: string;
+  // Operational status
   isOnline: boolean;
   isVerified: boolean;
   isAvailable: boolean;
   state: string;
   servingStates: string[];
   specializations: string[];
+  // Stats
   rating: number;
   totalCases: number;
   completedCases: number;
@@ -330,19 +340,21 @@ export async function getAvailableCounselors(state: string): Promise<Counselor[]
 // ========== COUNSELOR FUNCTIONS ==========
 
 /**
- * Register as a counselor
+ * Apply to become a counselor
  */
-export async function registerAsCounselor(
+export async function applyCounselor(
   userId: string,
   name: string,
   email: string,
   phone: string,
+  nationalIdNumber: string,
+  idDocumentUrl: string,
   state: string,
-  servingStates: string[],
-  specializations: string[]
-): Promise<{ success: boolean; counselorId?: string; message?: string; error?: string }> {
+  servingStates?: string[],
+  specializations?: string[]
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const apiUrl = getApiUrl('counsel/counselor/register');
+    const apiUrl = getApiUrl('counsel/counselor/apply');
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -351,9 +363,11 @@ export async function registerAsCounselor(
         name,
         email,
         phone,
+        nationalIdNumber,
+        idDocumentUrl,
         state,
-        servingStates,
-        specializations,
+        servingStates: servingStates || [state],
+        specializations: specializations || [],
       }),
     });
 
@@ -365,7 +379,154 @@ export async function registerAsCounselor(
 
     return data;
   } catch (error) {
-    console.error('❌ Error registering counselor:', error);
+    console.error('❌ Error applying as counselor:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Check if user is an approved counselor
+ */
+export async function isApprovedCounselor(userId: string): Promise<boolean> {
+  try {
+    const apiUrl = getApiUrl(`counsel/counselor/approved/${userId}`);
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    return data.approved || false;
+  } catch (error) {
+    console.error('❌ Error checking counselor approval:', error);
+    return false;
+  }
+}
+
+/**
+ * Get counselor application status
+ */
+export async function getCounselorApplicationStatus(userId: string): Promise<{
+  exists: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+} | null> {
+  try {
+    const apiUrl = getApiUrl(`counsel/counselor/status/${userId}`);
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return {
+      exists: data.exists,
+      status: data.status,
+      rejectionReason: data.rejectionReason,
+    };
+  } catch (error) {
+    console.error('❌ Error getting counselor status:', error);
+    return null;
+  }
+}
+
+// ========== ADMIN FUNCTIONS ==========
+
+/**
+ * Get pending counselor applications (admin)
+ */
+export async function getPendingCounselorApplications(): Promise<Counselor[]> {
+  try {
+    const apiUrl = getApiUrl('counsel/admin/applications/pending');
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.applications || [];
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all counselors (admin)
+ */
+export async function getAllCounselors(): Promise<Counselor[]> {
+  try {
+    const apiUrl = getApiUrl('counsel/admin/counselors');
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.counselors || [];
+  } catch (error) {
+    console.error('❌ Error fetching counselors:', error);
+    return [];
+  }
+}
+
+/**
+ * Approve a counselor (admin)
+ */
+export async function approveCounselorApplication(
+  counselorId: string,
+  adminEmail: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const apiUrl = getApiUrl(`counsel/admin/approve/${counselorId}`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminEmail }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Error approving counselor:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Reject a counselor (admin)
+ */
+export async function rejectCounselorApplication(
+  counselorId: string,
+  adminEmail: string,
+  reason: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const apiUrl = getApiUrl(`counsel/admin/reject/${counselorId}`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminEmail, reason }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error };
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Error rejecting counselor:', error);
     return { success: false, error: 'Network error' };
   }
 }

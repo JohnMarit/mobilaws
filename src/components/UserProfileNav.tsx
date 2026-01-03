@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Settings, MessageSquare, Inbox, Briefcase } from 'lucide-react';
+import { User, LogOut, Settings, MessageSquare, Inbox, Briefcase, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -15,6 +15,14 @@ import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import SupportDialog from './SupportDialog';
 import MyTickets from './MyTickets';
 import { CounselorDashboard } from './CounselorDashboard';
+import { AdminCounselorApprovals } from './AdminCounselorApprovals';
+
+// Admin email addresses (can be moved to environment config)
+const ADMIN_EMAILS = [
+  'admin@mobilaws.org',
+  'admin@mobilaws.com',
+  // Add more admin emails as needed
+];
 
 interface UserProfileNavProps {
   onManageSubscription?: () => void;
@@ -28,6 +36,10 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [ticketsDialogOpen, setTicketsDialogOpen] = useState(false);
   const [counselorDashboardOpen, setCounselorDashboardOpen] = useState(false);
+  const [adminApprovalsOpen, setAdminApprovalsOpen] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
 
   // Show nothing while auth is loading (prevents flickering and premature sign-in prompts)
   if (isLoading) {
@@ -93,6 +105,15 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
             <Briefcase className="h-4 w-4 mr-2" />
             Counselor Dashboard
           </DropdownMenuItem>
+          {isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setAdminApprovalsOpen(true)} className="text-purple-600">
+                <Shield className="h-4 w-4 mr-2" />
+                Admin: Approve Counselors
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600">
             <LogOut className="h-4 w-4 mr-2" />
@@ -105,6 +126,9 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
       <SupportDialog open={supportDialogOpen} onOpenChange={setSupportDialogOpen} />
       <MyTickets open={ticketsDialogOpen} onOpenChange={setTicketsDialogOpen} />
       <CounselorDashboard open={counselorDashboardOpen} onOpenChange={setCounselorDashboardOpen} />
+      {isAdmin && (
+        <AdminCounselorApprovals open={adminApprovalsOpen} onOpenChange={setAdminApprovalsOpen} />
+      )}
     </>
     );
   }

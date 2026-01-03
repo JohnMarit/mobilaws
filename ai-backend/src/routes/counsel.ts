@@ -21,7 +21,13 @@ import {
   getAvailableCounselorsForState,
   getRequestsForCounselor,
   getCounselorStats,
-  registerCounselor,
+  applyCounselor,
+  getPendingCounselorApplications,
+  getAllCounselors,
+  approveCounselor,
+  rejectCounselor,
+  isApprovedCounselor,
+  getCounselorApplicationStatus,
   SOUTH_SUDAN_STATES,
   LEGAL_CATEGORIES,
   type StateCode,
@@ -331,44 +337,160 @@ router.post('/appointment/:appointmentId/accept', async (req: Request, res: Resp
 });
 
 /**
- * Register as a counselor
- * POST /api/counsel/counselor/register
+ * Apply to become a counselor
+ * POST /api/counsel/counselor/apply
  */
-router.post('/counselor/register', async (req: Request, res: Response) => {
+router.post('/counselor/apply', async (req: Request, res: Response) => {
   try {
-    const { userId, name, email, phone, state, servingStates, specializations } = req.body;
+    const { userId, name, email, phone, nationalIdNumber, idDocumentUrl, state, servingStates, specializations } = req.body;
 
-    if (!userId || !name || !email || !state) {
-      return res.status(400).json({ error: 'Missing required fields: userId, name, email, state' });
+    if (!userId || !name || !email || !phone || !nationalIdNumber || !state) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: userId, name, email, phone, nationalIdNumber, state' 
+      });
     }
 
-    const counselorId = await registerCounselor({
+    const result = await applyCounselor({
       userId,
       name,
       email,
-      phone: phone || '',
-      isOnline: false,
-      isVerified: false,
-      isAvailable: false,
+      phone,
+      nationalIdNumber,
+      idDocumentUrl: idDocumentUrl || '',
       state: state as StateCode,
       servingStates: servingStates || [state],
       specializations: specializations || [],
-      maxActiveRequests: 5,
-      lastSeenAt: null as any,
     });
 
-    if (!counselorId) {
-      return res.status(500).json({ error: 'Failed to register counselor' });
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
     }
 
     res.json({ 
       success: true, 
-      counselorId,
-      message: 'Registration submitted. Please wait for admin verification.' 
+      message: result.message 
     });
   } catch (error) {
-    console.error('❌ Error registering counselor:', error);
-    res.status(500).json({ error: 'Failed to register counselor' });
+    console.error('❌ Error submitting counselor application:', error);
+    res.status(500).json({ error: 'Failed to submit application' });
+  }
+});
+
+/**
+ * Get counselor application status
+ * GET /api/counsel/counselor/status/:userId
+ */
+router.get('/counselor/status/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const status = await getCounselorApplicationStatus(userId);
+
+    if (!status) {
+      return res.status(500).json({ error: 'Failed to check status' });
+    }
+
+    res.json({ success: true, ...status });
+  } catch (error) {
+    console.error('❌ Error checking counselor status:', error);
+    res.status(500).json({ error: 'Failed to check status' });
+  }
+});
+
+/**
+ * Check if user is an approved counselor
+ * GET /api/counsel/counselor/approved/:userId
+ */
+router.get('/counselor/approved/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const approved = await isApprovedCounselor(userId);
+
+    res.json({ success: true, approved });
+  } catch (error) {
+    console.error('❌ Error checking counselor approval:', error);
+    res.status(500).json({ error: 'Failed to check approval status' });
+  }
+});
+
+// ========== ADMIN ENDPOINTS ==========
+
+/**
+ * Get pending counselor applications (admin only)
+ * GET /api/counsel/admin/applications/pending
+ */
+router.get('/admin/applications/pending', async (_req: Request, res: Response) => {
+  try {
+    const applications = await getPendingCounselorApplications();
+    res.json({ success: true, applications });
+  } catch (error) {
+    console.error('❌ Error fetching pending applications:', error);
+    res.status(500).json({ error: 'Failed to fetch applications' });
+  }
+});
+
+/**
+ * Get all counselors (admin only)
+ * GET /api/counsel/admin/counselors
+ */
+router.get('/admin/counselors', async (_req: Request, res: Response) => {
+  try {
+    const counselors = await getAllCounselors();
+    res.json({ success: true, counselors });
+  } catch (error) {
+    console.error('❌ Error fetching counselors:', error);
+    res.status(500).json({ error: 'Failed to fetch counselors' });
+  }
+});
+
+/**
+ * Approve a counselor application (admin only)
+ * POST /api/counsel/admin/approve/:counselorId
+ */
+router.post('/admin/approve/:counselorId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId } = req.params;
+    const { adminEmail } = req.body;
+
+    if (!adminEmail) {
+      return res.status(400).json({ error: 'Admin email required' });
+    }
+
+    const success = await approveCounselor(counselorId, adminEmail);
+
+    if (!success) {
+      return res.status(400).json({ error: 'Failed to approve counselor' });
+    }
+
+    res.json({ success: true, message: 'Counselor approved successfully' });
+  } catch (error) {
+    console.error('❌ Error approving counselor:', error);
+    res.status(500).json({ error: 'Failed to approve counselor' });
+  }
+});
+
+/**
+ * Reject a counselor application (admin only)
+ * POST /api/counsel/admin/reject/:counselorId
+ */
+router.post('/admin/reject/:counselorId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId } = req.params;
+    const { adminEmail, reason } = req.body;
+
+    if (!adminEmail || !reason) {
+      return res.status(400).json({ error: 'Admin email and rejection reason required' });
+    }
+
+    const success = await rejectCounselor(counselorId, adminEmail, reason);
+
+    if (!success) {
+      return res.status(400).json({ error: 'Failed to reject counselor' });
+    }
+
+    res.json({ success: true, message: 'Counselor application rejected' });
+  } catch (error) {
+    console.error('❌ Error rejecting counselor:', error);
+    res.status(500).json({ error: 'Failed to reject counselor' });
   }
 });
 
