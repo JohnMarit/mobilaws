@@ -196,6 +196,26 @@ service cloud.firestore {
       allow write: if false; // Only backend (Admin SDK) can write
     }
     
+    // Counsel booking - requests
+    match /counselRequests/{requestId} {
+      // Users can read their own requests, counselors can read all pending
+      allow read: if isAuthenticated();
+      // Only backend can write (Admin SDK handles all writes)
+      allow write: if false;
+    }
+    
+    // Counsel booking - appointments
+    match /appointments/{appointmentId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only backend (Admin SDK) can write
+    }
+    
+    // Counselors collection
+    match /counselors/{counselorId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only backend (Admin SDK) can write
+    }
+    
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

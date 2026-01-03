@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { HelpCircle, GraduationCap, Bot, Bug } from 'lucide-react';
+import { HelpCircle, GraduationCap, Bot, Bug, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
 import ChatInput from './ChatInput';
-import CounselNameSelector from './CounselNameSelector';
 import CountrySelector from './CountrySelector';
 import UserProfileNav from './UserProfileNav';
 import LoginModal from './LoginModal';
-import AnimatedCounselIntroduction from './AnimatedCounselIntroduction';
 import LearningHub from './LearningHub';
+import { BookCounsel } from './BookCounsel';
 import { useChatContext } from '@/contexts/ChatContext';
-import { useCounselName } from '@/contexts/CounselNameContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -37,12 +35,11 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
     mentionedArticles: [],
   });
   const [aiConnected, setAiConnected] = useState(false);
-  const [showAnimatedIntro, setShowAnimatedIntro] = useState(false);
   const [showLearningHub, setShowLearningHub] = useState(false);
+  const [showBookCounsel, setShowBookCounsel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
-  const { selectedName } = useCounselName();
   const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const {
     promptCount,
@@ -58,26 +55,6 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
     tokensResetDate
   } = usePromptLimit();
   const { userSubscription, isLoading: subscriptionLoading } = useSubscription();
-
-  // Initialize with welcome message after animated intro completes
-  const handleAnimatedIntroComplete = () => {
-    setShowAnimatedIntro(false);
-    // Don't add welcome message to chat - just show the static message
-    // The static message will appear after animation completes
-  };
-
-  // Show animated intro on initial load
-  useEffect(() => {
-    // Show animation on initial load when there are no messages
-    if (messages.length === 0 && !showAnimatedIntro) {
-      setShowAnimatedIntro(true);
-    }
-  }, [selectedName, messages.length, showAnimatedIntro]);
-
-  // Initialize animation on component mount
-  useEffect(() => {
-    setShowAnimatedIntro(true);
-  }, []);
 
   // Create a new chat if none exists
   useEffect(() => {
@@ -96,11 +73,9 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
         setMessages(storedChat.messages);
         setConversationContext(storedChat.conversationContext);
         setExpandedArticles(new Set(storedChat.expandedArticles));
-        setShowAnimatedIntro(false); // Don't show intro for existing chats
       } else {
         // New chat - reset everything immediately
         setMessages([]);
-        setShowAnimatedIntro(true);
 
         // Reset conversation context
         setConversationContext({
@@ -453,7 +428,7 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
         {/* AI Status and User Info */}
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-blue-600" />
-          <CounselNameSelector />
+          <span className="font-medium text-sm">Mobilaws</span>
           <CountrySelector />
           {aiConnected ? (
             <span className="text-xs text-green-600">● Secure Backend Online</span>
@@ -489,6 +464,15 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setShowBookCounsel(true)}
+            className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            title="Book a Counsel"
+          >
+            <Scale className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onShowHelp || handleShowHelp}
             className="h-8 px-2 text-gray-600 hover:bg-gray-100"
           >
@@ -520,28 +504,38 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
         /* Centered Search Bar - No Chat Yet */
         <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-8 min-h-0 overflow-y-auto">
           <div className="max-w-5xl w-full px-4 mx-auto">
-            <div className="text-center mb-8 md:mb-12 min-h-[120px] md:min-h-[200px] flex items-center justify-center">
-              {showAnimatedIntro ? (
-                <div className="flex justify-center w-full -mt-8 md:mt-0">
-                  <AnimatedCounselIntroduction
-                    counselName={selectedName}
-                    onComplete={handleAnimatedIntroComplete}
-                  />
-                </div>
-              ) : (
-                <p className="text-lg text-gray-600 mb-4">
-                  I am Counsel {selectedName}, let's address your legal matter.
-                  {aiConnected ? (
-                    <span className="block text-sm text-green-600 mt-2">
-                      🤖 Secure AI Backend Online - RAG-powered with legal document citations
-                    </span>
-                  ) : (
-                    <span className="block text-sm text-orange-500 mt-2">
-                      ⚠️ Backend Offline - Using local search. Start the backend server for AI responses
-                    </span>
-                  )}
+            <div className="text-center mb-8 md:mb-12 min-h-[120px] md:min-h-[200px] flex flex-col items-center justify-center">
+              <div className="space-y-4">
+                <p className="text-lg text-gray-600">
+                  I am Your South Sudan Legal Assistant
                 </p>
-              )}
+                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-4">
+                  <Button
+                    onClick={() => setShowBookCounsel(true)}
+                    className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg shadow-md"
+                  >
+                    <Scale className="h-4 w-4 mr-2" />
+                    Book a Counsel
+                  </Button>
+                  <Button
+                    onClick={() => setShowLearningHub(true)}
+                    variant="outline"
+                    className="px-6 py-2 rounded-lg shadow-md"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Study Law
+                  </Button>
+                </div>
+                {aiConnected ? (
+                  <span className="block text-sm text-green-600 mt-4">
+                    🤖 AI Legal Assistant Online
+                  </span>
+                ) : (
+                  <span className="block text-sm text-orange-500 mt-4">
+                    ⚠️ Backend Offline
+                  </span>
+                )}
+              </div>
             </div>
             <div className="pb-6 md:pb-8 safe-area-inset-bottom">
               <ChatInput
@@ -594,6 +588,12 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
       )}
 
       <LearningHub open={showLearningHub} onOpenChange={setShowLearningHub} />
+
+      {/* Book Counsel Dialog */}
+      <BookCounsel
+        open={showBookCounsel}
+        onOpenChange={setShowBookCounsel}
+      />
 
       {/* Login Modal */}
       {showLoginModal && (

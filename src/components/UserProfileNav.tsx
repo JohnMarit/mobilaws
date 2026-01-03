@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Settings, MessageSquare, Inbox } from 'lucide-react';
+import { User, LogOut, Settings, MessageSquare, Inbox, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -14,6 +14,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import SupportDialog from './SupportDialog';
 import MyTickets from './MyTickets';
+import { CounselorDashboard } from './CounselorDashboard';
 
 interface UserProfileNavProps {
   onManageSubscription?: () => void;
@@ -26,6 +27,7 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
   const { setShowLoginModal, promptCount, maxPrompts, dailyTokensUsed, maxDailyTokens } = usePromptLimit();
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [ticketsDialogOpen, setTicketsDialogOpen] = useState(false);
+  const [counselorDashboardOpen, setCounselorDashboardOpen] = useState(false);
 
   // Show nothing while auth is loading (prevents flickering and premature sign-in prompts)
   if (isLoading) {
@@ -87,6 +89,11 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
             My Tickets
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setCounselorDashboardOpen(true)}>
+            <Briefcase className="h-4 w-4 mr-2" />
+            Counselor Dashboard
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout} className="text-red-600 focus:text-red-600">
             <LogOut className="h-4 w-4 mr-2" />
             Log out
@@ -97,6 +104,7 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
       {/* Support Dialogs */}
       <SupportDialog open={supportDialogOpen} onOpenChange={setSupportDialogOpen} />
       <MyTickets open={ticketsDialogOpen} onOpenChange={setTicketsDialogOpen} />
+      <CounselorDashboard open={counselorDashboardOpen} onOpenChange={setCounselorDashboardOpen} />
     </>
     );
   }

@@ -1,6 +1,66 @@
 {
   "indexes": [
     {
+      "collectionGroup": "counselRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "counselRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "counselors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isOnline",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isAvailable",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledTime",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "tutorContent",
       "queryScope": "COLLECTION",
       "fields": [

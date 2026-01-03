@@ -828,8 +828,8 @@ Would you like me to explain this in more detail or clarify any specific aspect?
   }
 
   // Generate welcome message
-  getWelcomeMessage(counselName: string = 'Poni'): string {
-    return `Hello! 👋 I'm Counsel ${counselName}, your South Sudan law assistant. I'm here to help you understand the Constitution and legal provisions in a clear, conversational way.\n\nYou can ask me anything - like "What are the fundamental rights?" or "Tell me about citizenship requirements." I'll explain the law in plain language and show you the relevant articles.`;
+  getWelcomeMessage(): string {
+    return `Hello! 👋 Welcome to Mobilaws, your South Sudan law assistant. I'm here to help you understand the Constitution and legal provisions in a clear, conversational way.\n\nYou can ask me anything - like "What are the fundamental rights?" or "Tell me about citizenship requirements." I'll explain the law in plain language and show you the relevant articles.\n\n**Need professional legal help?** Click "Book a Counsel" to connect with a registered legal counsel in your state.`;
   }
 
   // Generate help message

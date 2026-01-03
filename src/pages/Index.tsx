@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Menu, HelpCircle, GraduationCap } from 'lucide-react';
+import { Loader2, Menu, HelpCircle, GraduationCap, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
-import CounselNameSelector from '@/components/CounselNameSelector';
 import UserProfileNav from '@/components/UserProfileNav';
 import { useChatContext } from '@/contexts/ChatContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
 import CountrySelector from '@/components/CountrySelector';
+import { BookCounsel } from '@/components/BookCounsel';
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showBookCounsel, setShowBookCounsel] = useState(false);
   const { toast } = useToast();
   const {
     chatHistory,
@@ -116,10 +117,19 @@ const Index = () => {
             >
               <Menu className="h-4 w-4" />
             </Button>
-            <CounselNameSelector className="text-xs" />
+            <span className="font-medium text-sm">Mobilaws</span>
             <CountrySelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowBookCounsel(true)}
+              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              title="Book a Counsel"
+            >
+              <Scale className="h-4 w-4" />
+            </Button>
             <UserProfileNav
               onManageSubscription={() => setShowSubscriptionModal(true)}
               compact={true}
@@ -147,6 +157,9 @@ const Index = () => {
           onShowHelp={handleMobileShowHelp}
         />
       </div>
+
+      {/* Book Counsel Dialog */}
+      <BookCounsel open={showBookCounsel} onOpenChange={setShowBookCounsel} />
     </div>
   );
 };
