@@ -23,6 +23,7 @@ import learningRouter from '../src/routes/learning';
 import tutorAdminRouter from '../src/routes/tutor-admin';
 import aiLessonsRouter from '../src/routes/ai-lessons';
 import userLessonsRouter from '../src/routes/user-lessons';
+import pushRouter from '../src/routes/push';
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use('/api', learningRouter);
 app.use('/api', tutorAdminRouter);
 app.use('/api', aiLessonsRouter);
 app.use('/api', userLessonsRouter);
+app.use('/api', pushRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

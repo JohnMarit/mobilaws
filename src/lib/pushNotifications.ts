@@ -57,6 +57,9 @@ export async function ensureDailyPushRegistration(userId: string): Promise<void>
     if (!token) return;
     if (!db) return;
 
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const tzOffsetMinutes = -new Date().getTimezoneOffset(); // minutes east of UTC
+
     const tokenRef = doc(db, 'userPushTokens', userId, 'tokens', token);
     await setDoc(
       tokenRef,
@@ -64,6 +67,8 @@ export async function ensureDailyPushRegistration(userId: string): Promise<void>
         token,
         platform: 'web',
         userAgent: navigator.userAgent,
+        timeZone,
+        tzOffsetMinutes,
         enabled: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
