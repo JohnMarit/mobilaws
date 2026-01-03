@@ -4,15 +4,12 @@
 const isDevelopment = import.meta.env.MODE === 'development';
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// Decide API base URL
-const envApiUrl = import.meta.env.VITE_API_URL;
-// If a prod env var mistakenly points to the frontend domain, override to relative to use Vercel proxy
-const isBadFrontendUrl = envApiUrl && /mobilaws-ympe\.vercel\.app/i.test(envApiUrl);
-
-export const API_BASE_URL =
-  (isDevelopment || isLocalhost)
-    ? (envApiUrl || 'http://localhost:8000/api')
-    : (isBadFrontendUrl ? '/api' : (envApiUrl || '/api')); // default to relative in prod
+// Get API URL from environment or use defaults
+// In production, if VITE_API_URL is not set, use relative URLs which will work with Vercel proxy
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (isDevelopment || isLocalhost 
+    ? 'http://localhost:8000/api' 
+    : '/api'); // Use relative URL in production to leverage Vercel proxy
 
 // For backward compatibility, export individual API endpoints
 export const getApiUrl = (endpoint: string): string => {
@@ -44,7 +41,4 @@ console.log('  - VITE_API_URL:', import.meta.env.VITE_API_URL || 'NOT SET');
 console.log('  - API Base URL:', API_BASE_URL);
 console.log('  - Is Localhost:', isLocalhost);
 console.log('  - Is Development:', isDevelopment);
-if (isBadFrontendUrl) {
-  console.warn('⚠️ VITE_API_URL pointed to frontend; overriding to /api to use proxy.');
-}
 

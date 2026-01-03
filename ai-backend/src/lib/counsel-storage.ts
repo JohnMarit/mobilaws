@@ -674,19 +674,26 @@ export async function acceptCounselRequest(
       return { success: false };
     }
 
+    console.log(`🔄 Creating chat session for request ${requestId}...`);
+    console.log(`   - User: ${requestData.userId} (${requestData.userName})`);
+    console.log(`   - Counselor: ${counselorId} (${counselorName})`);
+    
     // Create chat session
     const { createChatSession } = await import('./counsel-chat-storage');
-    const chatId = await createChatSession(
-      requestId,
-      null,
-      requestData.userId,
-      requestData.userName,
-      counselorId,
-      counselorName
-    );
-    if (!chatId) {
-      console.error('❌ Failed to create chat session for request:', requestId);
-      return { success: false };
+    let chatId: string | null = null;
+    
+    try {
+      chatId = await createChatSession(
+        requestId,
+        null,
+        requestData.userId,
+        requestData.userName,
+        counselorId,
+        counselorName
+      );
+      console.log(`✅ Chat session created successfully: ${chatId}`);
+    } catch (chatError) {
+      console.error(`❌ Failed to create chat session:`, chatError);
     }
 
     await requestRef.update({
@@ -694,14 +701,17 @@ export async function acceptCounselRequest(
       counselorId,
       counselorName,
       counselorPhone: counselorPhone || null,
+      chatId: chatId || null,
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
     });
+    
+    console.log(`✅ Request ${requestId} updated with status: accepted`);
 
     // Update counselor active requests count
     await incrementCounselorActiveRequests(counselorId, 1);
 
-    console.log(`✅ Counsel request accepted: ${requestId} by ${counselorName}, chat: ${chatId}`);
+    console.log(`✅ Counsel request accepted: ${requestId} by ${counselorName}, chatId: ${chatId}`);
     return { success: true, chatId: chatId || undefined };
   } catch (error) {
     console.error('❌ Error accepting counsel request:', error);
@@ -839,10 +849,6 @@ export async function acceptQueuedAppointment(
       counselorId,
       counselorName
     );
-    if (!chatId) {
-      console.error('❌ Failed to create chat session for appointment:', appointmentId);
-      return { success: false };
-    }
 
     // Update appointment
     await appointmentRef.update({

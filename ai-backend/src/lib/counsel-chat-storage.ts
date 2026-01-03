@@ -59,11 +59,27 @@ export async function createChatSession(
   counselorId: string,
   counselorName: string
 ): Promise<string | null> {
+  console.log(`📝 createChatSession called with:`, {
+    requestId,
+    appointmentId,
+    userId,
+    userName,
+    counselorId,
+    counselorName
+  });
+  
   const db = getFirestore();
-  if (!db) return null;
+  if (!db) {
+    console.error('❌ Firestore not initialized!');
+    return null;
+  }
+  
+  console.log('✅ Firestore connection OK');
 
   try {
     const chatRef = db.collection(COUNSEL_CHATS_COLLECTION).doc();
+    console.log(`📄 Creating chat document with ID: ${chatRef.id}`);
+    
     const now = admin.firestore.Timestamp.now();
 
     const chatSession: CounselChatSession = {
@@ -81,18 +97,26 @@ export async function createChatSession(
       updatedAt: now,
     };
 
+    console.log('📤 Saving chat session to Firestore...');
     await chatRef.set(chatSession);
+    console.log('✅ Chat session saved!');
 
     // Send initial system message
+    console.log('📤 Sending system message...');
     await sendSystemMessage(
       chatRef.id,
       `Chat session started between ${userName} and ${counselorName}`
     );
+    console.log('✅ System message sent!');
 
-    console.log(`✅ Chat session created: ${chatRef.id}`);
+    console.log(`✅ Chat session created successfully: ${chatRef.id}`);
     return chatRef.id;
   } catch (error) {
     console.error('❌ Error creating chat session:', error);
+    if (error instanceof Error) {
+      console.error('   Error message:', error.message);
+      console.error('   Error stack:', error.stack);
+    }
     return null;
   }
 }
@@ -273,18 +297,32 @@ export async function markMessagesAsRead(
  * Get chat session by request ID
  */
 export async function getChatByRequestId(requestId: string): Promise<CounselChatSession | null> {
+  console.log(`🔍 getChatByRequestId called with requestId: ${requestId}`);
+  
   const db = getFirestore();
-  if (!db) return null;
+  if (!db) {
+    console.error('❌ Firestore not initialized!');
+    return null;
+  }
 
   try {
+    console.log(`📡 Querying counselChats collection for requestId: ${requestId}`);
     const snapshot = await db
       .collection(COUNSEL_CHATS_COLLECTION)
       .where('requestId', '==', requestId)
       .limit(1)
       .get();
 
-    if (snapshot.empty) return null;
-    return snapshot.docs[0].data() as CounselChatSession;
+    console.log(`📊 Query result: ${snapshot.size} document(s) found`);
+    
+    if (snapshot.empty) {
+      console.log(`⚠️ No chat found for requestId: ${requestId}`);
+      return null;
+    }
+    
+    const chat = snapshot.docs[0].data() as CounselChatSession;
+    console.log(`✅ Chat found:`, { id: chat.id, requestId: chat.requestId, status: chat.status });
+    return chat;
   } catch (error) {
     console.error('❌ Error getting chat by request:', error);
     return null;
