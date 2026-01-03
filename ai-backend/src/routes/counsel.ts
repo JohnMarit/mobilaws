@@ -95,11 +95,14 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to create counsel request' });
     }
 
+    console.log(`📊 Request result: ${result.broadcastCount} counselors, ${result.onlineCounselors.length} online`);
+
     res.json({
       success: true,
       requestId: result.requestId,
       broadcastCount: result.broadcastCount,
       hasAvailableCounselors: result.broadcastCount > 0,
+      onlineCounselorsCount: result.onlineCounselors.length,
       message: result.broadcastCount > 0
         ? `Request broadcast to ${result.broadcastCount} counselor(s) in ${validState.name}. Waiting for acceptance...`
         : `No counselors available in ${validState.name} right now. You can schedule an appointment.`,

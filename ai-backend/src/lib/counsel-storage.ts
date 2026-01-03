@@ -468,30 +468,43 @@ export async function getAvailableCounselorsForState(state: StateCode): Promise<
   }
 
   try {
-    // Get counselors who are online, available, and serve this state
+    console.log(`🔍 Looking for available counselors in state: ${state}`);
+    
+    // Get counselors who are verified and online
     const snapshot = await db.collection(COUNSELORS_COLLECTION)
+      .where('applicationStatus', '==', 'approved')
       .where('isOnline', '==', true)
-      .where('isAvailable', '==', true)
       .get();
+
+    console.log(`Found ${snapshot.size} online approved counselors total`);
 
     const counselors = snapshot.docs
       .map(doc => doc.data() as Counselor)
-      .filter(c => 
-        c.state === state || c.servingStates.includes(state)
-      )
-      .filter(c => c.activeRequests < c.maxActiveRequests)
+      .filter(c => {
+        const servesState = c.servingStates?.includes(state) || c.state === state;
+        const hasCapacity = (c.activeRequests || 0) < (c.maxActiveRequests || 5);
+        const isAvailable = c.isAvailable !== false; // Default to true if not set
+        
+        console.log(`  Counselor ${c.name}: servesState=${servesState}, hasCapacity=${hasCapacity}, isAvailable=${isAvailable}`);
+        
+        return servesState && hasCapacity && isAvailable;
+      })
       .sort((a, b) => {
         // Prioritize: same state > rating > fewer active requests
         const aInState = a.state === state ? 1 : 0;
         const bInState = b.state === state ? 1 : 0;
         if (aInState !== bInState) return bInState - aInState;
-        if (a.rating !== b.rating) return b.rating - a.rating;
-        return a.activeRequests - b.activeRequests;
+        if ((a.rating || 0) !== (b.rating || 0)) return (b.rating || 0) - (a.rating || 0);
+        return (a.activeRequests || 0) - (b.activeRequests || 0);
       });
-
+    
+    console.log(`✅ Found ${counselors.length} available counselors for state ${state}`);
     return counselors;
   } catch (error) {
     console.error('❌ Error fetching available counselors:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     return [];
   }
 }
