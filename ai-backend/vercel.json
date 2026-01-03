@@ -13,9 +13,10 @@
     }
   ],
   "crons": [
-    { "path": "/api/push/dispatch-daily", "schedule": "0 9 * * *" },
-    { "path": "/api/push/dispatch-daily", "schedule": "0 13 * * *" },
-    { "path": "/api/push/dispatch-daily", "schedule": "0 18 * * *" }
+    { 
+      "path": "/api/push/dispatch-daily", 
+      "schedule": "0 * * * *"
+    }
   ]
 }
 
