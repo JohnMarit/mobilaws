@@ -64,6 +64,12 @@ export function CounselorAlertListener() {
             });
           }
 
+          // Stop ringing when no active requests remain
+          if (activeRequests.length === 0 && lastCountRef.current > 0) {
+            console.log('🔕 No active requests, stopping sound');
+            notificationSound.stopRinging();
+          }
+
           lastCountRef.current = activeRequests.length;
         } catch (error) {
           console.error('❌ Error polling counselor requests:', error);
