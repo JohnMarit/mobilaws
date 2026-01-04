@@ -82,7 +82,7 @@ export function CounselorAlertListener() {
         } catch (error) {
           console.error('❌ Error polling counselor requests:', error);
         }
-      }, 5000);
+      }, 2000); // poll faster for quicker ring/stop
     };
 
     const stopPolling = () => {
