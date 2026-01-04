@@ -1023,7 +1023,6 @@ async function sendPushNotificationsToCounselors(
       notification: {
         title,
         body,
-        clickAction: 'https://www.mobilaws.com/counselor',
       },
       data: {
         type: 'counsel_request',
@@ -1052,10 +1051,6 @@ async function sendPushNotificationsToCounselors(
         },
         notification: {
           vibrate: [200, 100, 200, 100, 200],
-          click_action: 'https://www.mobilaws.com/counselor',
-        },
-        fcmOptions: {
-          link: 'https://www.mobilaws.com/counselor',
         },
       },
     }));
