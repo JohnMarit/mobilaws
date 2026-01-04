@@ -19,6 +19,23 @@ export function CounselorAlertListener() {
   const isOnlineRef = useRef<boolean>(false);
 
   useEffect(() => {
+    // Listen for service worker messages (e.g., background push to trigger sound)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const handler = (event: MessageEvent) => {
+        if (event.data?.type === 'NEW_COUNSEL_REQUEST') {
+          console.log('📩 SW message: NEW_COUNSEL_REQUEST -> playing sound');
+          notificationSound.playRequestNotification();
+          if (navigator?.vibrate) {
+            navigator.vibrate([200, 100, 200, 100, 200]);
+          }
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handler);
+      return () => navigator.serviceWorker.removeEventListener('message', handler);
+    }
+  }, []);
+
+  useEffect(() => {
     const startPolling = async () => {
       if (!user) return;
 

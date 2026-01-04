@@ -25,6 +25,16 @@ function initMessaging(config) {
       vibrate: [100, 50, 100],
       tag: 'learning-daily-reminder',
     });
+
+    // Notify all open clients so foreground tabs can ring immediately
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      clientList.forEach((client) => {
+        client.postMessage({
+          type: 'NEW_COUNSEL_REQUEST',
+          data,
+        });
+      });
+    });
   });
 }
 

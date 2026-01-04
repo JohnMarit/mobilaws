@@ -313,6 +313,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const handleAcceptAppointment = async (appointment: Appointment) => {
     if (!user) return;
 
+    // Stop the ringing sound
+    notificationSound.stopRinging();
+
     try {
       const result = await acceptQueuedAppointment(
         appointment.id,

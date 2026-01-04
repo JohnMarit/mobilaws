@@ -1056,20 +1056,38 @@ async function sendPushNotificationsToCounselors(
     }));
 
     // Some firebase-admin versions don't expose sendAll typings; fallback to per-message send
-    const responses = await messaging.sendEach(messages);
-    const successCount = responses.successCount;
-    const failureCount = responses.failureCount;
-
-    console.log(
-      `📨 Push sent to counselors: success=${successCount}, failure=${failureCount}, tokens=${tokens.length}`
-    );
-
-    // Log failures for visibility
-    responses.responses.forEach((r, idx) => {
-      if (!r.success) {
-        console.warn('⚠️ Push send failed for token', tokens[idx], r.error?.code);
-      }
-    });
+    // Try batch; if not supported, fallback to single send
+    const hasSendEach = typeof (messaging as any).sendEach === 'function';
+    if (hasSendEach) {
+      const responses = await (messaging as any).sendEach(messages);
+      const successCount = responses.successCount;
+      const failureCount = responses.failureCount;
+      console.log(
+        `📨 Push sent to counselors: success=${successCount}, failure=${failureCount}, tokens=${tokens.length}`
+      );
+      responses.responses.forEach((r: any, idx: number) => {
+        if (!r.success) {
+          console.warn('⚠️ Push send failed for token', tokens[idx], r.error?.code);
+        }
+      });
+    } else {
+      const results = await Promise.all(
+        messages.map(async (msg, idx) => {
+          try {
+            await messaging.send(msg);
+            return { success: true };
+          } catch (err) {
+            console.warn('⚠️ Push send failed for token', tokens[idx], (err as any)?.code);
+            return { success: false };
+          }
+        })
+      );
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.length - successCount;
+      console.log(
+        `📨 Push sent to counselors (fallback): success=${successCount}, failure=${failureCount}, tokens=${tokens.length}`
+      );
+    }
   } catch (error) {
     console.error('❌ Error sending push notifications to counselors:', error);
   }
