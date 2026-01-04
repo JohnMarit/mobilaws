@@ -45,7 +45,11 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  const targetUrl = event.notification?.data?.click_action || event.notification?.data?.url || '/';
+  // Force the counselor dashboard to open/focus for counsel requests
+  const isCounselRequest = event.notification?.data?.type === 'counsel_request';
+  const targetUrl = isCounselRequest
+    ? '/counselor'
+    : (event.notification?.data?.click_action || event.notification?.data?.url || '/');
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

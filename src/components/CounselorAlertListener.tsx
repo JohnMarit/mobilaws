@@ -29,6 +29,10 @@ export function CounselorAlertListener() {
             navigator.vibrate([200, 100, 200, 100, 200]);
           }
         }
+        if (event.data?.type === 'REQUEST_CANCELLED') {
+          console.log('📩 SW message: REQUEST_CANCELLED -> stopping sound');
+          notificationSound.stopRinging();
+        }
       };
       navigator.serviceWorker.addEventListener('message', handler);
       return () => navigator.serviceWorker.removeEventListener('message', handler);

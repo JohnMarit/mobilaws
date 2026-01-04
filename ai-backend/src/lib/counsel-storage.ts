@@ -1074,7 +1074,7 @@ async function sendPushNotificationsToCounselors(
       const results = await Promise.all(
         messages.map(async (msg, idx) => {
           try {
-            await messaging.send(msg);
+            await messaging.send(msg as any);
             return { success: true };
           } catch (err) {
             console.warn('⚠️ Push send failed for token', tokens[idx], (err as any)?.code);
