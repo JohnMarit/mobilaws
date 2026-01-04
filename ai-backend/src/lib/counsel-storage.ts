@@ -1055,10 +1055,31 @@ async function sendPushNotificationsToCounselors(
       },
     }));
 
-    const response = await messaging.sendAll(messages);
-    console.log(
-      `📨 Push sent to counselors: success=${response.successCount}, failure=${response.failureCount}, tokens=${tokens.length}`
+    // Some firebase-admin versions don't expose sendAll typings; fallback to per-message send
+    const results = await Promise.all(
+      messages.map(async (msg) => {
+        try {
+          await messaging.send(msg);
+          return { success: true };
+        } catch (err) {
+          return { success: false, error: err as Error };
+        }
+      })
     );
+
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.length - successCount;
+
+    console.log(
+      `📨 Push sent to counselors: success=${successCount}, failure=${failureCount}, tokens=${tokens.length}`
+    );
+
+    // Log failures for visibility
+    results.forEach((r, idx) => {
+      if (!r.success) {
+        console.warn('⚠️ Push send failed for token', tokens[idx], r.error);
+      }
+    });
   } catch (error) {
     console.error('❌ Error sending push notifications to counselors:', error);
   }
