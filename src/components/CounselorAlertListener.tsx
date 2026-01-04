@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getCounselorProfile, getRequestsForCounselor } from '@/lib/counsel-service';
+import { getCounselorProfile, getRequestsForCounselor, getPendingCounselRequests } from '@/lib/counsel-service';
 import { ensureDailyPushRegistration } from '@/lib/pushNotifications';
 import { notificationSound } from '@/lib/notification-sound';
 
@@ -39,12 +39,20 @@ export function CounselorAlertListener() {
 
       pollingRef.current = setInterval(async () => {
         try {
-          const requests = await getRequestsForCounselor(user.id);
-          const activeRequests = requests.filter(r =>
+          const [personal, globalPending] = await Promise.all([
+            getRequestsForCounselor(user.id),
+            getPendingCounselRequests(),
+          ]);
+
+          const personalActive = personal.filter(r =>
             ['broadcasting', 'pending'].includes(r.status)
           );
+          const globalActive = globalPending.filter(r =>
+            ['broadcasting', 'pending'].includes(r.status)
+          );
+          const activeRequests = personalActive.length > 0 ? personalActive : globalActive;
 
-          console.log(`🔍 Counselor polling: ${activeRequests.length} active requests (previous: ${lastCountRef.current})`);
+          console.log(`🔍 Counselor polling: personal=${personalActive.length}, global=${globalActive.length}, using=${activeRequests.length} (previous: ${lastCountRef.current})`);
 
           if (activeRequests.length > lastCountRef.current) {
             const newCount = activeRequests.length - lastCountRef.current;
