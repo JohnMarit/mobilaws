@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Menu, HelpCircle, GraduationCap, Scale } from 'lucide-react';
+import { Loader2, Menu, Heart, GraduationCap, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
@@ -10,12 +10,14 @@ import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
 import CountrySelector from '@/components/CountrySelector';
 import { BookCounsel } from '@/components/BookCounsel';
+import { DonationDialog } from '@/components/DonationDialog';
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showBookCounsel, setShowBookCounsel] = useState(false);
+  const [showDonationDialog, setShowDonationDialog] = useState(false);
   const { toast } = useToast();
   const {
     chatHistory,
@@ -79,8 +81,8 @@ const Index = () => {
     setIsMobileSidebarOpen(false);
   };
 
-  const handleMobileShowHelp = () => {
-    // This will be handled by the ChatInterface component
+  const handleMobileShowDonation = () => {
+    setShowDonationDialog(true);
   };
 
   const handleMobileOpenLearningPath = () => {
@@ -137,10 +139,11 @@ const Index = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleMobileShowHelp}
+              onClick={handleMobileShowDonation}
               className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              title="Donate"
             >
-              <HelpCircle className="h-4 w-4" />
+              <Heart className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -154,12 +157,15 @@ const Index = () => {
           </div>
         </div>
         <ChatInterface
-          onShowHelp={handleMobileShowHelp}
+          onShowDonation={handleMobileShowDonation}
         />
       </div>
 
       {/* Book Counsel Dialog */}
       <BookCounsel open={showBookCounsel} onOpenChange={setShowBookCounsel} />
+      
+      {/* Donation Dialog */}
+      <DonationDialog open={showDonationDialog} onOpenChange={setShowDonationDialog} />
     </div>
   );
 };

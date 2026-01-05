@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { HelpCircle, GraduationCap, Bot, Bug, Scale } from 'lucide-react';
+import { Heart, GraduationCap, Bot, Bug, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
@@ -9,6 +9,7 @@ import UserProfileNav from './UserProfileNav';
 import LoginModal from './LoginModal';
 import LearningHub from './LearningHub';
 import { BookCounsel } from './BookCounsel';
+import { DonationDialog } from './DonationDialog';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
@@ -21,12 +22,12 @@ import SubscriptionManager from './SubscriptionManager';
 
 interface ChatInterfaceProps {
   className?: string;
-  onShowHelp?: () => void;
+  onShowDonation?: () => void;
   onToggleDebug?: () => void;
   onOpenLearningPath?: () => void;
 }
 
-export default function ChatInterface({ className = '', onShowHelp, onToggleDebug, onOpenLearningPath }: ChatInterfaceProps) {
+export default function ChatInterface({ className = '', onShowDonation, onToggleDebug, onOpenLearningPath }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
@@ -37,6 +38,7 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
   const [aiConnected, setAiConnected] = useState(false);
   const [showLearningHub, setShowLearningHub] = useState(false);
   const [showBookCounsel, setShowBookCounsel] = useState(false);
+  const [showDonationDialog, setShowDonationDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
@@ -473,10 +475,17 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
           <Button
             variant="ghost"
             size="sm"
-            onClick={onShowHelp || handleShowHelp}
+            onClick={() => {
+              if (onShowDonation) {
+                onShowDonation();
+              } else {
+                setShowDonationDialog(true);
+              }
+            }}
             className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            title="Donate"
           >
-            <HelpCircle className="h-4 w-4" />
+            <Heart className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -611,6 +620,9 @@ export default function ChatInterface({ className = '', onShowHelp, onToggleDebu
           </div>
         </div>
       )}
+
+      {/* Donation Dialog */}
+      <DonationDialog open={showDonationDialog} onOpenChange={setShowDonationDialog} />
     </div>
   );
 }

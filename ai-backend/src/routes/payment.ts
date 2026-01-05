@@ -592,6 +592,175 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
 });
 
 /**
+ * Create a one-time donation payment
+ * POST /api/payment/create-donation
+ */
+router.post('/payment/create-donation', async (req: Request, res: Response) => {
+  try {
+    const { amount, userId, userEmail, userName } = req.body;
+    
+    // Input validation
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ 
+        error: 'Invalid donation amount. Amount must be greater than 0.' 
+      });
+    }
+
+    if (!userEmail) {
+      return res.status(400).json({ 
+        error: 'Email is required for donations' 
+      });
+    }
+
+    if (!paystackClient) {
+      console.error('❌ Paystack client not initialized');
+      return res.status(500).json({ 
+        error: 'Paystack API key not configured' 
+      });
+    }
+
+    console.log(`💝 Creating donation payment: $${amount} from user ${userId}`);
+
+    // Convert USD to KES (using approximate rate of 120 KES per USD)
+    const priceInKes = Math.round(amount * 120);
+    console.log(`💱 Currency conversion: $${amount} USD → KSh ${priceInKes}`);
+
+    // Generate a unique reference
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const reference = `donation_${userId}_${Date.now()}_${randomSuffix}`;
+
+    // Create one-time payment transaction (no plan/subscription)
+    let transaction: any;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      try {
+        const currency = env.PAYSTACK_CURRENCY || 'KES';
+        const amountInSubunits = Math.round(priceInKes * 100);
+        
+        console.log(`💳 Paystack donation amount: ${amountInSubunits} cents (KSh ${priceInKes})`);
+        
+        const response = await paystackClient.transaction.initialize({
+          email: userEmail,
+          amount: amountInSubunits,
+          currency: currency,
+          reference: reference,
+          callback_url: `${env.FRONTEND_URL}/payment/success?reference=${reference}`,
+          // No 'plan' field - this makes it a one-time payment, not a subscription
+          metadata: {
+            userId: userId || 'anonymous',
+            donationAmount: amount,
+            userName: userName || 'Anonymous Donor',
+            isDonation: true,
+            custom_fields: [
+              {
+                display_name: 'Donation Amount (USD)',
+                variable_name: 'donation_amount_usd',
+                value: `$${amount}`
+              },
+              {
+                display_name: 'Donation Amount (KES)',
+                variable_name: 'donation_amount_kes',
+                value: `KSh ${priceInKes}`
+              }
+            ]
+          }
+        });
+        
+        if (response.status && response.data) {
+          transaction = response.data;
+          console.log(`✅ Donation payment link created successfully on attempt ${retries + 1}`);
+          break;
+        } else {
+          throw new Error(response.message || 'Failed to create transaction');
+        }
+      } catch (sdkError: any) {
+        retries++;
+        console.error(`❌ Paystack SDK Error (attempt ${retries}/${maxRetries}):`, {
+          message: sdkError?.message,
+          status: sdkError?.status,
+        });
+        
+        if (retries >= maxRetries) {
+          throw sdkError;
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+      }
+    }
+
+    // Validate that authorization_url exists
+    if (!transaction?.authorization_url || !transaction?.reference) {
+      throw new Error('Authorization URL not returned from Paystack API');
+    }
+
+    const sessionReference = transaction.reference;
+
+    // Save payment session to Firestore (mark as donation)
+    await savePaymentSession({
+      paymentId: sessionReference,
+      userId: userId || 'anonymous',
+      planId: 'donation',
+      planName: 'Donation',
+      price: amount,
+      tokens: 0,
+      status: 'pending',
+      metadata: {
+        userEmail: userEmail || '',
+        userName: userName || 'Anonymous',
+        isDonation: true,
+        donationAmount: amount,
+        accessCode: transaction.access_code || '',
+      }
+    });
+
+    // Log donation as pending in Firestore
+    await logPurchase({
+      userId: userId || 'anonymous',
+      planId: 'donation',
+      planName: 'Donation',
+      tokens: 0,
+      price: amount,
+      paymentId: sessionReference,
+      paymentStatus: 'pending',
+      paymentMethod: 'paystack',
+    });
+
+    console.log(`✅ Donation payment link created: ${sessionReference} for user ${userId}`);
+
+    res.json({
+      paymentLink: transaction.authorization_url,
+      paymentId: sessionReference,
+      sessionId: sessionReference,
+      reference: sessionReference,
+      accessCode: transaction.access_code,
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error creating donation payment link:', error);
+    
+    let errorMessage = 'Unknown error';
+    let errorDetails: any = {};
+
+    if (error && typeof error === 'object') {
+      errorMessage = error.message || 'Failed to create donation payment link';
+      errorDetails = {
+        message: error.message,
+        stack: env.NODE_ENV === 'development' ? error.stack : undefined
+      };
+    }
+
+    res.status(500).json({
+      error: 'Failed to create donation payment link',
+      message: errorMessage,
+      details: env.NODE_ENV === 'development' ? errorDetails : undefined
+    });
+  }
+});
+
+/**
  * Get payment status
  * GET /api/payment/status/:reference
  */
