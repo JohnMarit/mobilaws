@@ -46,7 +46,9 @@ import {
   Eye,
   Edit,
   Trash2,
-  Settings
+  Settings,
+  RotateCcw,
+  Trash
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ModuleManager from '@/components/admin/ModuleManager';
@@ -63,6 +65,7 @@ interface UploadedContent {
   uploadedAt: any;
   generatedModuleId?: string;
   published?: boolean;
+  deletedAt?: any;
 }
 
 interface TutorMessage {
@@ -94,6 +97,7 @@ export default function TutorAdminPortal() {
   const { isTutorAdmin, tutor, isLoading } = useTutorAdmin();
   
   const [uploadedContent, setUploadedContent] = useState<UploadedContent[]>([]);
+  const [deletedContent, setDeletedContent] = useState<UploadedContent[]>([]);
   const [messages, setMessages] = useState<TutorMessage[]>([]);
   const [quizRequests, setQuizRequests] = useState<QuizRequest[]>([]);
   const [activeTab, setActiveTab] = useState('upload');
@@ -120,6 +124,14 @@ export default function TutorAdminPortal() {
   const [deletingContent, setDeletingContent] = useState<UploadedContent | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Permanent delete confirmation state
+  const [permanentlyDeletingContent, setPermanentlyDeletingContent] = useState<UploadedContent | null>(null);
+  const [isPermanentDeleteDialogOpen, setIsPermanentDeleteDialogOpen] = useState(false);
+  const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
+  
+  // Restore state
+  const [isRestoring, setIsRestoring] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isTutorAdmin) {
@@ -150,6 +162,12 @@ export default function TutorAdminPortal() {
       loadTutorData();
     }
   }, [isTutorAdmin, tutor]);
+
+  useEffect(() => {
+    if (activeTab === 'trash' && tutor) {
+      loadDeletedContent();
+    }
+  }, [activeTab, tutor]);
 
   const loadTutorData = async () => {
     if (!tutor) {
@@ -230,6 +248,83 @@ export default function TutorAdminPortal() {
       setUploadedContent([]);
       setMessages([]);
       setQuizRequests([]);
+    }
+  };
+
+  const loadDeletedContent = async () => {
+    if (!tutor) return;
+
+    try {
+      const response = await fetch(getApiUrl(`tutor-admin/content/trash/${tutor.id}`));
+      const data = await response.json();
+
+      if (data.success && Array.isArray(data.content)) {
+        setDeletedContent(data.content);
+      } else {
+        console.error('❌ Deleted content data is not an array:', data);
+        setDeletedContent([]);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load deleted content:', error);
+      setDeletedContent([]);
+    }
+  };
+
+  const handleRestore = async (content: UploadedContent) => {
+    setIsRestoring(true);
+
+    try {
+      const response = await fetch(getApiUrl(`tutor-admin/content/${content.id}/restore`), {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Content restored successfully!');
+        loadTutorData();
+        loadDeletedContent();
+      } else {
+        toast.error('Failed to restore content: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Restore error:', error);
+      toast.error('Failed to restore content. Please try again.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handlePermanentDeleteClick = (content: UploadedContent) => {
+    setPermanentlyDeletingContent(content);
+    setIsPermanentDeleteDialogOpen(true);
+  };
+
+  const handlePermanentDeleteConfirm = async () => {
+    if (!permanentlyDeletingContent) return;
+
+    setIsPermanentlyDeleting(true);
+
+    try {
+      const response = await fetch(getApiUrl(`tutor-admin/content/${permanentlyDeletingContent.id}/permanent`), {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Content permanently deleted!');
+        setIsPermanentDeleteDialogOpen(false);
+        setPermanentlyDeletingContent(null);
+        loadDeletedContent();
+      } else {
+        toast.error('Failed to permanently delete content: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Permanent delete error:', error);
+      toast.error('Failed to permanently delete content. Please try again.');
+    } finally {
+      setIsPermanentlyDeleting(false);
     }
   };
 
@@ -419,12 +514,16 @@ export default function TutorAdminPortal() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Content and all associated course material deleted successfully!');
+        toast.success('✅ Content moved to trash successfully!');
         setIsDeleteDialogOpen(false);
         setDeletingContent(null);
         loadTutorData();
+        // Load trash if trash tab is active
+        if (activeTab === 'trash' && tutor) {
+          loadDeletedContent();
+        }
       } else {
-        toast.error('Failed to delete content: ' + (data.error || 'Unknown error'));
+        toast.error('Failed to move content to trash: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -569,7 +668,7 @@ export default function TutorAdminPortal() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6">
             <TabsTrigger value="upload">
               <Upload className="h-4 w-4 mr-2" />
               Upload Content
@@ -577,6 +676,10 @@ export default function TutorAdminPortal() {
             <TabsTrigger value="content">
               <BookOpen className="h-4 w-4 mr-2" />
               My Content
+            </TabsTrigger>
+            <TabsTrigger value="trash">
+              <Trash className="h-4 w-4 mr-2" />
+              Trash ({deletedContent.length})
             </TabsTrigger>
             <TabsTrigger value="modules">
               <Settings className="h-4 w-4 mr-2" />
@@ -831,6 +934,96 @@ export default function TutorAdminPortal() {
             </Card>
           </TabsContent>
 
+          {/* Trash Tab */}
+          <TabsContent value="trash">
+            <Card>
+              <CardHeader>
+                <CardTitle>Trash Bin</CardTitle>
+                <CardDescription>
+                  Deleted courses. You can restore them or delete permanently.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[600px]">
+                  <div className="space-y-4">
+                    {deletedContent.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Trash className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Trash bin is empty</p>
+                        <p className="text-sm">Deleted courses will appear here</p>
+                      </div>
+                    ) : (
+                      deletedContent.map((content) => (
+                        <Card key={content.id} className="p-4 border-destructive/20">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="font-semibold text-lg">{content.title}</h3>
+                                <Badge variant="secondary" className="bg-destructive/10 text-destructive">
+                                  Deleted
+                                </Badge>
+                                {content.status === 'ready' && (
+                                  <Badge variant="default" className="bg-green-500">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Ready
+                                  </Badge>
+                                )}
+                                {content.published && (
+                                  <Badge variant="default" className="bg-blue-500">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Published
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">{content.description}</p>
+                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                <span>📄 {content.fileName}</span>
+                                <span>• {formatFileSize(content.fileSize)}</span>
+                                <span>• 📂 {content.category}</span>
+                                <span>• 🗓️ {formatDate(content.uploadedAt)}</span>
+                                {content.deletedAt && (
+                                  <span className="text-destructive">
+                                    • 🗑️ Deleted: {formatDate(content.deletedAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-1 mt-2">
+                                {content.accessLevels.map((level) => (
+                                  <Badge key={level} variant="outline" className="text-xs capitalize">
+                                    {level}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRestore(content)}
+                                disabled={isRestoring}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Restore
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handlePermanentDeleteClick(content)}
+                                disabled={isPermanentlyDeleting}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Manage Modules Tab */}
           <TabsContent value="modules">
             {tutor && <ModuleManager tutorId={tutor.id} tutorName={tutor.name} />}
@@ -1034,16 +1227,9 @@ export default function TutorAdminPortal() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Move to Trash?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the content "{deletingContent?.title}" and all associated course material, including:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>The uploaded document</li>
-                <li>All generated lessons</li>
-                <li>All quizzes and assessments</li>
-                <li>All module data</li>
-              </ul>
-              This action cannot be undone.
+              This will move the content "{deletingContent?.title}" to the trash bin. You can restore it later or delete it permanently from the trash.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1053,7 +1239,35 @@ export default function TutorAdminPortal() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Deleting...' : 'Delete'}
+              {isDeleting ? 'Moving...' : 'Move to Trash'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isPermanentDeleteDialogOpen} onOpenChange={setIsPermanentDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Permanently Delete?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the content "{permanentlyDeletingContent?.title}" and all associated course material, including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>The uploaded document</li>
+                <li>All generated lessons</li>
+                <li>All quizzes and assessments</li>
+                <li>All module data</li>
+              </ul>
+              <strong className="text-destructive">This action cannot be undone.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPermanentlyDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDeleteConfirm}
+              disabled={isPermanentlyDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPermanentlyDeleting ? 'Deleting...' : 'Delete Permanently'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

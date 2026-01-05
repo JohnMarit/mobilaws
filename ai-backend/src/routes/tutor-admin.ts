@@ -14,7 +14,10 @@ import {
   getTutorAdminById,
   deleteUploadedContent,
   updateUploadedContent,
-  getUploadedContentById
+  getUploadedContentById,
+  permanentlyDeleteUploadedContent,
+  restoreUploadedContent,
+  getDeletedContentByTutor
 } from '../lib/tutor-admin-storage';
 import {
   generateLearningModule,
@@ -371,10 +374,68 @@ router.post('/tutor-admin/modules/:moduleId/publish', async (req: Request, res: 
 });
 
 /**
- * Delete uploaded content and associated module
+ * Soft delete uploaded content (move to trash)
  * DELETE /api/tutor-admin/content/:contentId
  */
 router.delete('/tutor-admin/content/:contentId', async (req: Request, res: Response) => {
+  try {
+    const { contentId } = req.params;
+    
+    // Get the content to verify it exists
+    const content = await getUploadedContentById(contentId);
+    if (!content) {
+      res.status(404).json({ error: 'Content not found' });
+      return;
+    }
+
+    // Soft delete the content (move to trash)
+    const success = await deleteUploadedContent(contentId);
+    
+    if (success) {
+      res.json({ success: true, message: 'Content moved to trash successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to move content to trash' });
+    }
+  } catch (error) {
+    console.error('❌ Error soft deleting content:', error);
+    res.status(500).json({ error: 'Failed to move content to trash' });
+  }
+});
+
+/**
+ * Restore content from trash
+ * POST /api/tutor-admin/content/:contentId/restore
+ */
+router.post('/tutor-admin/content/:contentId/restore', async (req: Request, res: Response) => {
+  try {
+    const { contentId } = req.params;
+    
+    // Get the content to verify it exists
+    const content = await getUploadedContentById(contentId);
+    if (!content) {
+      res.status(404).json({ error: 'Content not found' });
+      return;
+    }
+
+    // Restore the content from trash
+    const success = await restoreUploadedContent(contentId);
+    
+    if (success) {
+      res.json({ success: true, message: 'Content restored successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to restore content' });
+    }
+  } catch (error) {
+    console.error('❌ Error restoring content:', error);
+    res.status(500).json({ error: 'Failed to restore content' });
+  }
+});
+
+/**
+ * Permanently delete content from trash
+ * DELETE /api/tutor-admin/content/:contentId/permanent
+ */
+router.delete('/tutor-admin/content/:contentId/permanent', async (req: Request, res: Response) => {
   try {
     const { contentId } = req.params;
     
@@ -393,17 +454,34 @@ router.delete('/tutor-admin/content/:contentId', async (req: Request, res: Respo
       }
     }
 
-    // Delete the content
-    const success = await deleteUploadedContent(contentId);
+    // Permanently delete the content
+    const success = await permanentlyDeleteUploadedContent(contentId);
     
     if (success) {
-      res.json({ success: true, message: 'Content and module deleted successfully' });
+      res.json({ success: true, message: 'Content permanently deleted successfully' });
     } else {
-      res.status(500).json({ error: 'Failed to delete content' });
+      res.status(500).json({ error: 'Failed to permanently delete content' });
     }
   } catch (error) {
-    console.error('❌ Error deleting content:', error);
-    res.status(500).json({ error: 'Failed to delete content' });
+    console.error('❌ Error permanently deleting content:', error);
+    res.status(500).json({ error: 'Failed to permanently delete content' });
+  }
+});
+
+/**
+ * Get deleted content (trash bin) for a tutor
+ * GET /api/tutor-admin/content/trash/:tutorId
+ */
+router.get('/tutor-admin/content/trash/:tutorId', async (req: Request, res: Response) => {
+  try {
+    const { tutorId } = req.params;
+    
+    const deletedContent = await getDeletedContentByTutor(tutorId);
+    
+    res.json({ success: true, content: deletedContent });
+  } catch (error) {
+    console.error('❌ Error fetching deleted content:', error);
+    res.status(500).json({ error: 'Failed to fetch deleted content' });
   }
 });
 

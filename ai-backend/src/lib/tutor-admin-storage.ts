@@ -37,6 +37,7 @@ export interface UploadedContent {
   processedAt?: admin.firestore.Timestamp;
   generatedModuleId?: string; // Reference to generated learning module
   published?: boolean; // Whether the module has been published to users
+  deletedAt?: admin.firestore.Timestamp; // Timestamp when moved to trash (soft delete)
 }
 
 function getFirestore(): admin.firestore.Firestore | null {
@@ -278,7 +279,7 @@ export async function updateContentStatus(
 }
 
 /**
- * Get uploaded content by tutor
+ * Get uploaded content by tutor (excludes deleted items)
  */
 export async function getContentByTutor(tutorId: string): Promise<UploadedContent[]> {
   const db = getFirestore();
@@ -290,10 +291,13 @@ export async function getContentByTutor(tutorId: string): Promise<UploadedConten
       .orderBy('uploadedAt', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as UploadedContent[];
+    // Filter out deleted items (items with deletedAt field)
+    return snapshot.docs
+      .filter(doc => !doc.data().deletedAt)
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UploadedContent[];
   } catch (error) {
     console.error('❌ Error fetching tutor content:', error);
     return [];
@@ -301,7 +305,43 @@ export async function getContentByTutor(tutorId: string): Promise<UploadedConten
 }
 
 /**
- * Get all uploaded content
+ * Get deleted content by tutor (trash bin)
+ */
+export async function getDeletedContentByTutor(tutorId: string): Promise<UploadedContent[]> {
+  const db = getFirestore();
+  if (!db) return [];
+
+  try {
+    const snapshot = await db.collection(TUTOR_CONTENT_COLLECTION)
+      .where('tutorId', '==', tutorId)
+      .get();
+
+    // Filter to only include deleted items and sort by deletedAt
+    const deletedItems = snapshot.docs
+      .filter(doc => doc.data().deletedAt)
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UploadedContent[];
+
+    // Sort by deletedAt timestamp (most recent first)
+    deletedItems.sort((a, b) => {
+      if (!a.deletedAt) return 1;
+      if (!b.deletedAt) return -1;
+      const aTime = a.deletedAt.toMillis ? a.deletedAt.toMillis() : a.deletedAt;
+      const bTime = b.deletedAt.toMillis ? b.deletedAt.toMillis() : b.deletedAt;
+      return bTime - aTime;
+    });
+
+    return deletedItems;
+  } catch (error) {
+    console.error('❌ Error fetching deleted tutor content:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all uploaded content (excludes deleted items)
  */
 export async function getAllUploadedContent(): Promise<UploadedContent[]> {
   const db = getFirestore();
@@ -313,10 +353,13 @@ export async function getAllUploadedContent(): Promise<UploadedContent[]> {
       .limit(100)
       .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as UploadedContent[];
+    // Filter out deleted items (items with deletedAt field)
+    return snapshot.docs
+      .filter(doc => !doc.data().deletedAt)
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as UploadedContent[];
   } catch (error) {
     console.error('❌ Error fetching all content:', error);
     return [];
@@ -324,9 +367,39 @@ export async function getAllUploadedContent(): Promise<UploadedContent[]> {
 }
 
 /**
- * Delete uploaded content and associated files
+ * Soft delete uploaded content (move to trash)
  */
 export async function deleteUploadedContent(contentId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const docRef = db.collection(TUTOR_CONTENT_COLLECTION).doc(contentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      console.error(`❌ Content not found: ${contentId}`);
+      return false;
+    }
+
+    // Soft delete: set deletedAt timestamp instead of deleting
+    await docRef.update({
+      deletedAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Moved content to trash: ${contentId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error soft deleting content:', error);
+    return false;
+  }
+}
+
+/**
+ * Permanently delete uploaded content and associated files
+ */
+export async function permanentlyDeleteUploadedContent(contentId: string): Promise<boolean> {
   const db = getFirestore();
   if (!db) return false;
 
@@ -352,12 +425,42 @@ export async function deleteUploadedContent(contentId: string): Promise<boolean>
       }
     }
 
-    // Delete the document from Firestore
+    // Permanently delete the document from Firestore
     await docRef.delete();
-    console.log(`✅ Deleted content: ${contentId}`);
+    console.log(`✅ Permanently deleted content: ${contentId}`);
     return true;
   } catch (error) {
-    console.error('❌ Error deleting content:', error);
+    console.error('❌ Error permanently deleting content:', error);
+    return false;
+  }
+}
+
+/**
+ * Restore content from trash
+ */
+export async function restoreUploadedContent(contentId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const docRef = db.collection(TUTOR_CONTENT_COLLECTION).doc(contentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      console.error(`❌ Content not found: ${contentId}`);
+      return false;
+    }
+
+    // Remove deletedAt field to restore
+    await docRef.update({
+      deletedAt: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Restored content from trash: ${contentId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error restoring content:', error);
     return false;
   }
 }
