@@ -328,8 +328,9 @@ export async function getDeletedContentByTutor(tutorId: string): Promise<Uploade
     deletedItems.sort((a, b) => {
       if (!a.deletedAt) return 1;
       if (!b.deletedAt) return -1;
-      const aTime = a.deletedAt.toMillis ? a.deletedAt.toMillis() : a.deletedAt;
-      const bTime = b.deletedAt.toMillis ? b.deletedAt.toMillis() : b.deletedAt;
+      // Firestore Timestamps have toMillis() method
+      const aTime = (a.deletedAt as admin.firestore.Timestamp).toMillis();
+      const bTime = (b.deletedAt as admin.firestore.Timestamp).toMillis();
       return bTime - aTime;
     });
 
