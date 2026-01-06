@@ -141,7 +141,17 @@ router.delete('/user-lessons/:userId/:moduleId', async (req: Request, res: Respo
     }
 
     const userData = userLessonsDoc.data();
-    const moduleLessons = userData?.modules?.[moduleId]?.lessons || [];
+    
+    if (!userData) {
+      return res.json({ 
+        success: true, 
+        message: 'No user lessons found',
+        deletedCount: 0,
+        totalSets: 0
+      });
+    }
+    
+    const moduleLessons = userData.modules?.[moduleId]?.lessons || [];
 
     if (moduleLessons.length === 0) {
       return res.json({ 
