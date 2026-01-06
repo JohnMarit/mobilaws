@@ -183,15 +183,19 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
     const sortedXpLevels = Array.from(groupedByXp.keys()).sort((a, b) => b - a);
 
     // Flatten: for each XP level, sort users alphabetically
+    // Filter to only include users with XP > 0
     const sortedEntries: LeaderboardEntry[] = [];
     sortedXpLevels.forEach(xpLevel => {
-      const usersAtThisLevel = groupedByXp.get(xpLevel)!;
-      // Sort users at the same XP level alphabetically by userName
-      const sorted = usersAtThisLevel.sort((a, b) => a.userName.localeCompare(b.userName));
-      sortedEntries.push(...sorted);
+      // Only include users with XP > 0
+      if (xpLevel > 0) {
+        const usersAtThisLevel = groupedByXp.get(xpLevel)!;
+        // Sort users at the same XP level alphabetically by userName
+        const sorted = usersAtThisLevel.sort((a, b) => a.userName.localeCompare(b.userName));
+        sortedEntries.push(...sorted);
+      }
     });
 
-    console.log(`✅ Returning ${sortedEntries.length} sorted entries`);
+    console.log(`✅ Returning ${sortedEntries.length} sorted entries (users with XP > 0)`);
 
     // Always return at least an empty array, never null/undefined
     return res.json({ entries: sortedEntries || [] });

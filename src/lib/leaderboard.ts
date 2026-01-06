@@ -112,20 +112,25 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
 }
 
 /**
- * Get top N learners
+ * Get all learners with XP > 0, sorted by XP (descending)
+ * Returns all users with points, not just top N
  */
-export async function getTopLearners(limit: number = 10): Promise<LeaderboardEntry[]> {
+export async function getTopLearners(limit?: number): Promise<LeaderboardEntry[]> {
   const entries = await getLeaderboard();
 
+  // Filter to only include users with XP > 0
+  const usersWithXp = entries.filter(entry => entry.xp > 0);
+
   // Sort: 1) Highest XP first, 2) If same XP, alphabetically by userName
-  const sorted = [...entries].sort((a, b) => {
+  const sorted = [...usersWithXp].sort((a, b) => {
     if (b.xp !== a.xp) {
       return b.xp - a.xp;
     }
     return a.userName.localeCompare(b.userName);
   });
 
-  return sorted.slice(0, limit);
+  // If limit is provided, return top N; otherwise return all
+  return limit ? sorted.slice(0, limit) : sorted;
 }
 
 /**
@@ -138,7 +143,12 @@ export async function getUserRankInfo(userId: string): Promise<{
   completionRate: number;
 }> {
   const entries = await getLeaderboard();
-  const sorted = [...entries].sort((a, b) => {
+  
+  // Filter to only include users with XP > 0
+  const usersWithXp = entries.filter(entry => entry.xp > 0);
+  
+  // Sort: 1) Highest XP first, 2) If same XP, alphabetically by userName
+  const sorted = [...usersWithXp].sort((a, b) => {
     if (b.xp !== a.xp) {
       return b.xp - a.xp;
     }

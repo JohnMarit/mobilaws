@@ -43,12 +43,13 @@ export default function Leaderboard({ className }: LeaderboardProps) {
     setLoading(true);
     try {
       console.log('🔄 Loading leaderboard data...');
-      const top = await getTopLearners(10);
-      console.log(`📊 Retrieved ${top.length} top learners`);
+      // Get ALL users with XP (no limit)
+      const allLearners = await getTopLearners();
+      console.log(`📊 Retrieved ${allLearners.length} learners with XP`);
 
-      if (top.length > 0) {
-        console.log('✅ Leaderboard entries:', top.map(e => ({ name: e.userName, xp: e.xp })));
-        setTopLearners(top);
+      if (allLearners.length > 0) {
+        console.log('✅ Leaderboard entries:', allLearners.map(e => ({ name: e.userName, xp: e.xp })));
+        setTopLearners(allLearners);
       } else {
         console.warn('⚠️ No leaderboard entries found');
         setTopLearners([]);
@@ -111,10 +112,10 @@ export default function Leaderboard({ className }: LeaderboardProps) {
           <div>
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Trophy className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />
-              Top 10 Learners
+              Leaderboard
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Ranked by total XP earned
+              All learners ranked by total XP earned
             </CardDescription>
           </div>
           <Button
