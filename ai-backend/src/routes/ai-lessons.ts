@@ -196,6 +196,24 @@ Generate ${numberOfLessons} engaging lessons now!`;
       ? (userLessonsDoc.data()?.modules?.[moduleId]?.lessons || [])
       : [];
     
+    // Generate unique IDs for new lessons to avoid conflicts with completed lessons
+    // Use timestamp-based IDs to ensure uniqueness
+    // Also add generationBatchId to track which lessons belong to the same generation set
+    const timestamp = Date.now();
+    const generationBatchId = `batch-${timestamp}`;
+    newLessons.forEach((lesson: any, index: number) => {
+      // Generate unique ID: user-generated-{timestamp}-{index}
+      lesson.id = `user-generated-${timestamp}-${index}`;
+      // Add generation batch ID to track which set this lesson belongs to
+      lesson.generationBatchId = generationBatchId;
+      // Also ensure quiz IDs are unique
+      if (Array.isArray(lesson.quiz)) {
+        lesson.quiz.forEach((q: any, qIndex: number) => {
+          q.id = `q-${timestamp}-${index}-${qIndex}`;
+        });
+      }
+    });
+    
     const updatedUserLessons = [...existingUserLessons, ...newLessons];
     
     // Update user's lessons

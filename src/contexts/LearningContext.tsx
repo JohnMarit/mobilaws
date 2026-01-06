@@ -249,8 +249,10 @@ function convertGeneratedModuleToModule(
     const isLessonLocked = userTierIndex < lessonRequiredTierIndex;
 
     // Check if lesson is completed
+    // Only mark as completed if the lesson was actually completed (not just any lesson with this ID)
+    // This prevents newly generated lessons from being marked as completed due to ID conflicts
     const lessonProgress = moduleProgress?.lessonsCompleted[genLesson.id];
-    const isCompleted = lessonProgress?.completed || false;
+    const isCompleted = lessonProgress?.completed === true && lessonProgress?.completedAt ? true : false;
 
     // Convert quiz questions with access control - ensure quiz is an array
     const lessonQuiz = Array.isArray(genLesson.quiz) ? genLesson.quiz : [];
@@ -293,6 +295,8 @@ function convertGeneratedModuleToModule(
       tier: lessonRequiredTier === 'free' ? 'basic' : lessonRequiredTier,
       hasAudio: genLesson.hasAudio,
       userGenerated: (genLesson as any).userGenerated || false, // Preserve user-generated flag
+      generationBatchId: (genLesson as any).generationBatchId, // Preserve generation batch ID for grouping
+      createdAt: (genLesson as any).createdAt, // Preserve creation timestamp
     };
   });
 

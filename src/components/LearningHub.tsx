@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp } from 'lucide-react';
+import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp, Trash2, RotateCcw } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
@@ -31,6 +31,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
+  const [isDeletingLessons, setIsDeletingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
 
@@ -138,6 +139,84 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
     } finally {
       setIsRequestingLessons(null);
     }
+  };
+
+  const deleteGeneratedLessons = async (moduleId: string, moduleName: string, deleteAll: boolean = false) => {
+    if (!user) {
+      toast.error('Please login to delete lessons');
+      return;
+    }
+
+    // Confirm deletion
+    const confirmMessage = deleteAll
+      ? `Are you sure you want to delete ALL generated lessons for "${moduleName}"?\n\n` +
+        `This will:\n` +
+        `• Remove ALL your generated lessons\n` +
+        `• Reset your request count (allowing you to generate new lessons)\n` +
+        `• This action cannot be undone`
+      : `Are you sure you want to delete the most recent 5 sets of generated lessons for "${moduleName}"?\n\n` +
+        `This will:\n` +
+        `• Remove the most recent 5 sets (approximately 25 lessons)\n` +
+        `• Keep older generated lessons\n` +
+        `• This action cannot be undone`;
+
+    const confirmed = window.confirm(confirmMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingLessons(moduleId);
+    try {
+      const url = new URL(getApiUrl(`user-lessons/${user.id}/${moduleId}`));
+      if (deleteAll) {
+        url.searchParams.set('deleteAll', 'true');
+      }
+      
+      const response = await fetch(url.toString(), {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete lessons');
+      }
+
+      const data = await response.json();
+      toast.success(data.message || `Deleted ${data.deletedCount} generated lesson${data.deletedCount !== 1 ? 's' : ''}. You can now generate new lessons!`);
+      
+      // Reload modules to reflect changes
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting lessons:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete lessons. Please try again.';
+      toast.error(errorMessage);
+    } finally {
+      setIsDeletingLessons(null);
+    }
+  };
+
+  // Count how many generation sets a module has
+  const countGenerationSets = (module: Module) => {
+    const userGeneratedLessons = module.lessons.filter(lesson => lesson.userGenerated === true);
+    if (userGeneratedLessons.length === 0) return 0;
+    
+    // Group by generationBatchId or createdAt timestamp
+    const batchIds = new Set<string>();
+    userGeneratedLessons.forEach(lesson => {
+      // Prefer generationBatchId, fallback to createdAt if available
+      const batchId = lesson.generationBatchId || 
+                     (lesson.createdAt ? (typeof lesson.createdAt === 'string' ? lesson.createdAt : lesson.createdAt.toString()) : null) ||
+                     'unknown';
+      batchIds.add(batchId);
+    });
+    
+    return batchIds.size;
+  };
+
+  // Check if module has user-generated lessons
+  const hasUserGeneratedLessons = (module: Module) => {
+    return module.lessons.some(lesson => lesson.userGenerated === true);
   };
 
   // Load favorites from localStorage on mount
@@ -467,6 +546,56 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                   )}
                                 </Button>
                               )}
+                              
+                              {/* Delete/Regenerate Generated Lessons Buttons */}
+                              {hasUserGeneratedLessons(module) && (() => {
+                                const totalSets = countGenerationSets(module);
+                                const hasMoreThan5Sets = totalSets > 5;
+                                
+                                return (
+                                  <div className="w-full mt-2 space-y-2">
+                                    <Button
+                                      variant="outline"
+                                      className="w-full border-dashed border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 transition-all text-orange-700"
+                                      onClick={() => deleteGeneratedLessons(module.id, module.title, false)}
+                                      disabled={isDeletingLessons === module.id}
+                                    >
+                                      {isDeletingLessons === module.id ? (
+                                        <>
+                                          <div className="animate-spin mr-2">⏳</div>
+                                          Deleting...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Delete Recent 5 Sets
+                                        </>
+                                      )}
+                                    </Button>
+                                    
+                                    {hasMoreThan5Sets && (
+                                      <Button
+                                        variant="outline"
+                                        className="w-full border-dashed border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all text-red-700"
+                                        onClick={() => deleteGeneratedLessons(module.id, module.title, true)}
+                                        disabled={isDeletingLessons === module.id}
+                                      >
+                                        {isDeletingLessons === module.id ? (
+                                          <>
+                                            <div className="animate-spin mr-2">⏳</div>
+                                            Deleting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                            Delete All ({totalSets} sets)
+                                          </>
+                                        )}
+                                      </Button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               
                               {/* Request More Lessons Button */}
                               {done && (

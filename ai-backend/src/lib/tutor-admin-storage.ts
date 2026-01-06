@@ -295,9 +295,9 @@ export async function getContentByTutor(tutorId: string): Promise<UploadedConten
     return snapshot.docs
       .filter(doc => !doc.data().deletedAt)
       .map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as UploadedContent[];
+      id: doc.id,
+      ...doc.data()
+    })) as UploadedContent[];
   } catch (error) {
     console.error('❌ Error fetching tutor content:', error);
     return [];
@@ -358,9 +358,9 @@ export async function getAllUploadedContent(): Promise<UploadedContent[]> {
     return snapshot.docs
       .filter(doc => !doc.data().deletedAt)
       .map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as UploadedContent[];
+      id: doc.id,
+      ...doc.data()
+    })) as UploadedContent[];
   } catch (error) {
     console.error('❌ Error fetching all content:', error);
     return [];
