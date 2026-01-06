@@ -154,9 +154,9 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
         `• Remove ALL your generated lessons\n` +
         `• Reset your request count (allowing you to generate new lessons)\n` +
         `• This action cannot be undone`
-      : `Are you sure you want to delete the most recent 5 sets of generated lessons for "${moduleName}"?\n\n` +
+      : `Are you sure you want to delete the last 5 generated lessons for "${moduleName}"?\n\n` +
         `This will:\n` +
-        `• Remove the most recent 5 sets (approximately 25 lessons)\n` +
+        `• Remove the 5 most recently generated lessons\n` +
         `• Keep older generated lessons\n` +
         `• This action cannot be undone`;
 
@@ -568,7 +568,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                       ) : (
                                         <>
                                           <Trash2 className="h-4 w-4 mr-2" />
-                                          Delete Recent 5 Sets
+                                          Delete Last 5 Lessons
                                         </>
                                       )}
                                     </Button>
@@ -588,7 +588,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
                                         ) : (
                                           <>
                                             <RotateCcw className="h-4 w-4 mr-2" />
-                                            Delete All ({totalSets} sets)
+                                            Delete All Lessons
                                           </>
                                         )}
                                       </Button>

@@ -175,104 +175,52 @@ router.delete('/user-lessons/:userId/:moduleId', async (req: Request, res: Respo
       const batchIds = new Set(moduleLessons.map((l: any) => l.generationBatchId || l.createdAt?.toMillis?.() || 0));
       totalSets = batchIds.size;
     } else {
-      // Group lessons by generation batch
-      const lessonsByBatch = new Map<string, any[]>();
-      
-      moduleLessons.forEach((lesson: any) => {
-        let batchId: string;
+      // Delete the last 5 lessons (most recently generated)
+      // Sort all lessons by creation time (newest first)
+      const sortedLessons = [...moduleLessons].sort((a: any, b: any) => {
+        let timestampA = 0;
+        let timestampB = 0;
         
-        // Prefer generationBatchId if available
-        if (lesson.generationBatchId) {
-          batchId = lesson.generationBatchId;
-        } else {
-          // For older lessons without generationBatchId, group by createdAt
-          // Round to nearest minute to group lessons created close together
-          let timestamp = 0;
-          
-          if (lesson.createdAt?.toMillis) {
-            timestamp = lesson.createdAt.toMillis();
-          } else if (lesson.createdAt?.seconds) {
-            timestamp = lesson.createdAt.seconds * 1000 + (lesson.createdAt.nanoseconds || 0) / 1000000;
-          } else if (lesson.createdAt) {
-            const date = typeof lesson.createdAt === 'string' ? new Date(lesson.createdAt) : lesson.createdAt;
-            timestamp = date instanceof Date ? date.getTime() : 0;
-          }
-          
-          // Round to nearest minute (60000 ms) to group lessons created within the same minute
-          if (timestamp > 0) {
-            const roundedTimestamp = Math.floor(timestamp / 60000) * 60000;
-            batchId = `legacy-batch-${roundedTimestamp}`;
-          } else {
-            batchId = 'unknown-batch';
-          }
+        // Extract timestamp from lesson A
+        if (a.createdAt?.toMillis) {
+          timestampA = a.createdAt.toMillis();
+        } else if (a.createdAt?.seconds) {
+          timestampA = a.createdAt.seconds * 1000 + (a.createdAt.nanoseconds || 0) / 1000000;
+        } else if (a.createdAt) {
+          const dateA = typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt;
+          timestampA = dateA instanceof Date ? dateA.getTime() : 0;
+        } else if (a.generationBatchId && a.generationBatchId.startsWith('batch-')) {
+          const timestampStr = a.generationBatchId.replace('batch-', '');
+          timestampA = parseInt(timestampStr, 10) || 0;
         }
         
-        if (!lessonsByBatch.has(batchId)) {
-          lessonsByBatch.set(batchId, []);
+        // Extract timestamp from lesson B
+        if (b.createdAt?.toMillis) {
+          timestampB = b.createdAt.toMillis();
+        } else if (b.createdAt?.seconds) {
+          timestampB = b.createdAt.seconds * 1000 + (b.createdAt.nanoseconds || 0) / 1000000;
+        } else if (b.createdAt) {
+          const dateB = typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt;
+          timestampB = dateB instanceof Date ? dateB.getTime() : 0;
+        } else if (b.generationBatchId && b.generationBatchId.startsWith('batch-')) {
+          const timestampStr = b.generationBatchId.replace('batch-', '');
+          timestampB = parseInt(timestampStr, 10) || 0;
         }
-        lessonsByBatch.get(batchId)!.push(lesson);
+        
+        // Sort descending (newest first)
+        return timestampB - timestampA;
       });
       
-      console.log(`📊 Grouped ${moduleLessons.length} lessons into ${lessonsByBatch.size} batches`);
-
-      totalSets = lessonsByBatch.size;
-
-      // Sort batches by creation time (newest first)
-      // Get the most recent timestamp from each batch
-      const batches = Array.from(lessonsByBatch.entries()).map(([batchId, lessons]) => {
-        const timestamps = lessons
-          .map((l: any) => {
-            // Handle Firestore Timestamp
-            if (l.createdAt?.toMillis) {
-              return l.createdAt.toMillis();
-            }
-            // Handle Firestore Timestamp with seconds/nanoseconds
-            if (l.createdAt?.seconds) {
-              return l.createdAt.seconds * 1000 + (l.createdAt.nanoseconds || 0) / 1000000;
-            }
-            // Handle ISO string or Date
-            if (l.createdAt) {
-              const date = typeof l.createdAt === 'string' ? new Date(l.createdAt) : l.createdAt;
-              return date instanceof Date ? date.getTime() : 0;
-            }
-            // Fallback: use batchId if it contains timestamp
-            if (batchId.startsWith('batch-')) {
-              const timestampStr = batchId.replace('batch-', '');
-              const timestamp = parseInt(timestampStr, 10);
-              return isNaN(timestamp) ? 0 : timestamp;
-            }
-            return 0;
-          })
-          .filter((t: number) => t > 0);
-        const maxTimestamp = timestamps.length > 0 ? Math.max(...timestamps) : 0;
-        return { batchId, lessons, maxTimestamp };
-      });
-
-      // Sort by maxTimestamp descending (newest first)
-      // If timestamps are equal or 0, use batchId as fallback (newer batches have larger timestamps in ID)
-      batches.sort((a, b) => {
-        if (b.maxTimestamp !== a.maxTimestamp) {
-          return b.maxTimestamp - a.maxTimestamp;
-        }
-        // Fallback: compare batch IDs (newer ones have larger timestamps)
-        return b.batchId.localeCompare(a.batchId);
-      });
-
-      // Delete only the most recent 5 sets
-      const setsToDelete = batches.slice(0, 5);
-      const setsToKeep = batches.slice(5);
-
-      console.log(`🗑️ Will delete ${setsToDelete.length} batch(es) (most recent), keep ${setsToKeep.length} batch(es)`);
+      // Count total sets for response
+      const batchIds = new Set(sortedLessons.map((l: any) => l.generationBatchId || 'unknown'));
+      totalSets = batchIds.size;
       
-      setsToDelete.forEach((batch, index) => {
-        console.log(`  Batch ${index + 1} to delete: ${batch.batchId} (${batch.lessons.length} lessons, timestamp: ${batch.maxTimestamp})`);
-        lessonsToDelete.push(...batch.lessons);
-      });
-
-      setsToKeep.forEach((batch, index) => {
-        console.log(`  Batch ${index + 1} to keep: ${batch.batchId} (${batch.lessons.length} lessons, timestamp: ${batch.maxTimestamp})`);
-        lessonsToKeep.push(...batch.lessons);
-      });
+      // Delete the last 5 lessons (most recent)
+      lessonsToDelete = sortedLessons.slice(0, 5);
+      lessonsToKeep = sortedLessons.slice(5);
+      
+      console.log(`🗑️ Will delete ${lessonsToDelete.length} most recent lesson(s), keep ${lessonsToKeep.length} lesson(s)`);
+      console.log(`📊 Total sets: ${totalSets}`);
     }
 
     const deletedCount = lessonsToDelete.length;
@@ -330,11 +278,11 @@ router.delete('/user-lessons/:userId/:moduleId', async (req: Request, res: Respo
       success: true,
       message: deleteAll 
         ? `Deleted all ${deletedCount} generated lesson${deletedCount !== 1 ? 's' : ''}`
-        : `Deleted ${deletedCount} lesson${deletedCount !== 1 ? 's' : ''} from the most recent 5 sets (${keptCount} lesson${keptCount !== 1 ? 's' : ''} kept)`,
+        : `Deleted ${deletedCount} most recent lesson${deletedCount !== 1 ? 's' : ''} (${keptCount} lesson${keptCount !== 1 ? 's' : ''} kept)`,
       deletedCount,
       keptCount,
       totalSets,
-      deletedSets: deleteAll ? totalSets : Math.min(5, totalSets),
+      deletedSets: deleteAll ? totalSets : (deletedCount > 0 ? 1 : 0),
       requestCountReset: resetRequestCount && deleteAll
     });
   } catch (error) {
