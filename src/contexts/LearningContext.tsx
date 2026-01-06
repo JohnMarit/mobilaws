@@ -155,12 +155,12 @@ function getDailyLessonsRemaining(state: LearningState, tier: Tier): number {
 
   // Reset if it's a new day
   if (state.dailyLimit.date !== today) {
-    return tier === 'free' ? 2 : Infinity;
+    return tier === 'free' ? 15 : Infinity;
   }
 
-  // Free tier has 2 lessons per day limit
+  // Free tier has 15 lessons per day limit
   if (tier === 'free') {
-    return Math.max(0, 2 - state.dailyLimit.lessonsCompleted);
+    return Math.max(0, 15 - state.dailyLimit.lessonsCompleted);
   }
 
   // Paid tiers have unlimited lessons

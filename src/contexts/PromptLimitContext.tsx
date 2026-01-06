@@ -41,7 +41,7 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { userSubscription, useToken, canUseToken, isLoading: subscriptionLoading } = useSubscription();
   const maxPrompts = 3; // Anonymous user limit
-  const maxDailyTokens = 5; // Authenticated user limit (free plan)
+  const maxDailyTokens = 15; // Authenticated user limit (free plan)
 
   // Load token count from Firestore
   useEffect(() => {

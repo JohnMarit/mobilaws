@@ -10,7 +10,7 @@ const subscriptions = adminStorage.subscriptions;
 
 /**
  * Initialize free plan for authenticated users
- * This gives users 5 tokens per day with daily reset
+ * This gives users 15 tokens per day with daily reset
  */
 const initializeFreePlan = async (userId: string): Promise<Subscription | null> => {
   const today = new Date().toDateString();
@@ -36,7 +36,7 @@ const initializeFreePlan = async (userId: string): Promise<Subscription | null> 
       // Reset tokens for new day
       const updatedSub = {
         ...existingSub,
-        tokensRemaining: 5,
+        tokensRemaining: 15,
         tokensUsed: 0,
         lastResetDate: new Date().toISOString(),
       };
@@ -49,7 +49,7 @@ const initializeFreePlan = async (userId: string): Promise<Subscription | null> 
       if (refreshedSub) {
         // Also update in-memory with the Firestore version
         subscriptions.set(userId, refreshedSub);
-        console.log(`✅ Daily tokens reset for user ${userId}: 5 tokens`);
+        console.log(`✅ Daily tokens reset for user ${userId}: 15 tokens`);
         return refreshedSub;
       }
     }
@@ -61,9 +61,9 @@ const initializeFreePlan = async (userId: string): Promise<Subscription | null> 
   const freePlanData = {
     userId,
     planId: 'free',
-    tokensRemaining: 5,
+    tokensRemaining: 15,
     tokensUsed: 0,
-    totalTokens: 5,
+    totalTokens: 15,
     purchaseDate: new Date().toISOString(),
     lastResetDate: new Date().toISOString(),
     isActive: true,
@@ -73,7 +73,7 @@ const initializeFreePlan = async (userId: string): Promise<Subscription | null> 
   
   // Save to Firestore (this adds createdAt/updatedAt)
   await saveSubscription(freePlanData);
-  console.log(`✅ Free plan initialized for user ${userId}: 5 daily tokens`);
+  console.log(`✅ Free plan initialized for user ${userId}: 15 daily tokens`);
   
   // Get the saved version with timestamps from Firestore
   const savedFreePlan = await getSubscription(userId);
