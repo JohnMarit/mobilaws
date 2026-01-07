@@ -44,14 +44,17 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<n
       existingEntries.set(doc.id, data);
     });
 
-    const usersWithXp = Array.from(existingEntries.values()).filter(e => e.xp > 0);
-    console.log(`📊 Found ${existingEntries.size} existing leaderboard entries (${usersWithXp.length} with XP > 0)`);
+    console.log(`📊 Found ${existingEntries.size} existing leaderboard entries`);
 
     // Get Firebase Auth users (up to 1000 to ensure we get all users)
     const authUsers = await getAllFirebaseAuthUsers(1000);
-    const authUserIds = new Set(authUsers.map(u => u.uid));
 
     console.log(`📊 Found ${authUsers.length} users in Firebase Auth`);
+
+    if (authUsers.length === 0) {
+      console.warn('⚠️ No users found in Firebase Auth');
+      return existingEntries.size;
+    }
 
     // Use batched writes for efficiency (max 500 per batch)
     let batch = db.batch();
@@ -59,30 +62,26 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<n
     let addedCount = 0;
     let updatedCount = 0;
     let preservedCount = 0;
-    let skippedCount = 0; // Entries with XP > 0 not in Auth (preserve as-is)
 
-    // Process Firebase Auth users
     for (const authUser of authUsers) {
       const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(authUser.uid);
       const existingEntry = existingEntries.get(authUser.uid);
 
-      // If entry exists with XP > 0, preserve ALL data including XP
+      // If entry exists with XP > 0, preserve all data (don't overwrite with 0 XP)
       if (existingEntry && existingEntry.xp > 0) {
-        // CRITICAL: Use merge: false to ensure we don't accidentally lose fields
-        // Only update userName and userPicture, preserve everything else
+        // Only update userName and userPicture if they've changed, preserve XP and other stats
         const entryData: LeaderboardEntry = {
           userId: authUser.uid,
           userName: authUser.displayName || authUser.email?.split('@')[0] || existingEntry.userName || 'User',
           userPicture: authUser.photoURL || existingEntry.userPicture,
-          xp: existingEntry.xp, // CRITICAL: Preserve existing XP
+          xp: existingEntry.xp, // Preserve existing XP
           level: existingEntry.level || 1,
           streak: existingEntry.streak || 0,
           lessonsCompleted: existingEntry.lessonsCompleted || 0,
           lastUpdated: existingEntry.lastUpdated || new Date().toISOString(), // Preserve original lastUpdated
         };
-        batch.set(entryRef, entryData); // Use set (not merge) to ensure complete data
+        batch.set(entryRef, entryData, { merge: true });
         preservedCount++;
-        console.log(`💾 Preserving user ${authUser.uid} with ${existingEntry.xp} XP`);
       } else if (existingEntry) {
         // Entry exists but with 0 XP, update user info but keep XP at 0
         const entryData: LeaderboardEntry = {
@@ -95,7 +94,7 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<n
           lessonsCompleted: existingEntry.lessonsCompleted || 0,
           lastUpdated: existingEntry.lastUpdated || new Date().toISOString(),
         };
-        batch.set(entryRef, entryData);
+        batch.set(entryRef, entryData, { merge: true });
         updatedCount++;
       } else {
         // New user, create entry with 0 XP
@@ -123,31 +122,12 @@ async function autoPopulateLeaderboard(db: admin.firestore.Firestore): Promise<n
       }
     }
 
-    // CRITICAL: Preserve entries with XP > 0 that are NOT in Firebase Auth
-    // These might be users who were deleted from Auth but should still appear in leaderboard
-    for (const [userId, entry] of existingEntries.entries()) {
-      if (entry.xp > 0 && !authUserIds.has(userId)) {
-        // User has XP > 0 but not in Auth - preserve their entry as-is
-        const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(userId);
-        batch.set(entryRef, entry); // Preserve exactly as-is
-        skippedCount++;
-        console.log(`🔒 Preserving orphaned entry for ${userId} with ${entry.xp} XP (not in Auth)`);
-        
-        batchCount++;
-        if (batchCount >= 500) {
-          await batch.commit();
-          batch = db.batch();
-          batchCount = 0;
-        }
-      }
-    }
-
     // Commit remaining operations
     if (batchCount > 0) {
       await batch.commit();
     }
 
-    console.log(`✅ Leaderboard synced: ${addedCount} added, ${updatedCount} updated, ${preservedCount} preserved (with XP > 0), ${skippedCount} orphaned entries preserved`);
+    console.log(`✅ Leaderboard synced: ${addedCount} added, ${updatedCount} updated, ${preservedCount} preserved (with XP > 0)`);
     return existingEntries.size + addedCount;
   } catch (error) {
     console.error('❌ Failed to auto-populate leaderboard:', error);
@@ -189,30 +169,19 @@ router.get('/leaderboard', async (req: Request, res: Response) => {
 
     const entries: LeaderboardEntry[] = snapshot.docs.map(doc => {
       const data = doc.data();
-      const entry: LeaderboardEntry = {
+      return {
         userId: doc.id,
         userName: data.userName || 'Unknown',
         userPicture: data.userPicture,
-        xp: typeof data.xp === 'number' ? data.xp : 0, // Ensure XP is a number
+        xp: data.xp || 0,
         level: data.level || 1,
         streak: data.streak || 0,
         lessonsCompleted: data.lessonsCompleted || 0,
         lastUpdated: data.lastUpdated || new Date().toISOString(),
       };
-      return entry;
     });
 
-    // Log entries with XP > 0 for debugging
-    const entriesWithXp = entries.filter(e => e.xp > 0);
-    console.log(`📊 Retrieved ${entries.length} total entries from leaderboard (${entriesWithXp.length} with XP > 0)`);
-    
-    if (entriesWithXp.length > 0) {
-      const top5 = entriesWithXp
-        .sort((a, b) => b.xp - a.xp)
-        .slice(0, 5)
-        .map(e => `${e.userName}: ${e.xp} XP`);
-      console.log(`🏆 Top 5 by XP: ${top5.join(', ')}`);
-    }
+    console.log(`📊 Retrieved ${entries.length} entries from leaderboard`);
 
     // If no entries, try to get users from Firebase Auth directly as fallback
     if (entries.length === 0) {
@@ -294,26 +263,14 @@ router.post('/leaderboard/update', async (req: Request, res: Response) => {
 
     const entryRef = db.collection(LEADERBOARD_COLLECTION).doc(userId);
     const existingDoc = await entryRef.get();
-    const existingData = existingDoc.exists ? (existingDoc.data() as LeaderboardEntry) : null;
-    
-    // CRITICAL: If update tries to set XP to 0 but user has XP > 0, preserve the existing XP
-    // This prevents accidental loss of points during syncs or errors
-    const existingXp = existingData?.xp || 0;
-    let finalXp = xp || 0;
-    
-    // Only preserve if update would reset XP to 0 and user had XP > 0
-    if (finalXp === 0 && existingXp > 0) {
-      finalXp = existingXp;
-      console.log(`⚠️ XP preservation: User ${userId} had ${existingXp} XP, update tried to set 0, preserved ${finalXp}`);
-    }
 
     const entryData: LeaderboardEntry = {
       userId,
       userName,
-      userPicture: userPicture || existingData?.userPicture,
-      xp: finalXp,
+      userPicture: userPicture || existingDoc.data()?.userPicture,
+      xp: xp || 0,
       level: level || 1,
-      streak: streak !== undefined ? streak : (existingData?.streak || 0),
+      streak: streak !== undefined ? streak : (existingDoc.data()?.streak || 0),
       lessonsCompleted: lessonsCompleted || 0,
       lastUpdated: new Date().toISOString(),
     };
