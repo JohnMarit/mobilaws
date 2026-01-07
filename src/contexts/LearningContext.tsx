@@ -352,14 +352,19 @@ async function fetchModulesFromBackend(
 ): Promise<Module[]> {
   try {
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
+    console.log(`📚 Fetching modules for tier: ${accessLevel} from ${apiUrl}`);
+    
     const response = await fetch(apiUrl);
     
     if (!response.ok) {
-      console.warn(`Failed to fetch modules for tier ${accessLevel}:`, response.statusText);
+      const errorText = await response.text();
+      console.error(`❌ Failed to fetch modules for tier ${accessLevel}:`, response.status, response.statusText);
+      console.error(`Error details:`, errorText);
       return [];
     }
 
     const generatedModules: GeneratedModule[] = await response.json();
+    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier`);
     
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);

@@ -6,12 +6,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, Loader2, Gift } from 'lucide-react';
+import { useAdmin } from '@/contexts/AdminContext';
+import { getApiUrl } from '@/lib/api';
 
 interface AdminPlanGrantProps {
   onGrantSuccess?: () => void;
 }
 
 export default function AdminPlanGrant({ onGrantSuccess }: AdminPlanGrantProps) {
+  const { getHeaders } = useAdmin();
   const [userEmail, setUserEmail] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<'basic' | 'standard' | 'premium'>('basic');
   const [duration, setDuration] = useState('30'); // days
@@ -28,17 +31,10 @@ export default function AdminPlanGrant({ onGrantSuccess }: AdminPlanGrantProps) 
     setResult(null);
 
     try {
-      // VITE_API_URL should already include /api prefix (e.g., https://mobilaws-ympe.vercel.app/api)
-      // So we just append /admin/grant-plan, not /api/admin/grant-plan
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const url = baseUrl.endsWith('/api') 
-        ? `${baseUrl}/admin/grant-plan` 
-        : `${baseUrl}/api/admin/grant-plan`;
+      const url = getApiUrl('admin/grant-plan');
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify({
           userEmail: userEmail.trim(),
           planId: selectedPlan,

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { adminStorage } from './admin';
 import { getSubscription, saveSubscription, updateSubscriptionTokens, Subscription } from '../lib/subscription-storage';
 import { getFirebaseAuth } from '../lib/firebase-admin';
+import { requireAdmin } from '../middleware/security';
 
 const router = Router();
 
@@ -350,7 +351,7 @@ router.get('/subscription/plans', async (req: Request, res: Response) => {
  * POST /api/admin/grant-plan
  * Body: { userEmail, planId, durationDays }
  */
-router.post('/admin/grant-plan', async (req: Request, res: Response) => {
+router.post('/admin/grant-plan', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { userEmail, planId, durationDays } = req.body;
 

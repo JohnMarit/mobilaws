@@ -413,21 +413,45 @@ export async function getModulesByAccessLevel(
   accessLevel: 'free' | 'basic' | 'standard' | 'premium'
 ): Promise<GeneratedModule[]> {
   const db = getFirestore();
-  if (!db) return [];
+  if (!db) {
+    console.error('❌ Firestore not initialized');
+    return [];
+  }
 
   try {
+    console.log(`🔍 Fetching modules for access level: ${accessLevel}`);
+    console.log(`📋 Query: published == true AND accessLevels array-contains ${accessLevel} ORDER BY createdAt DESC`);
+    
     const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
       .where('published', '==', true)
       .where('accessLevels', 'array-contains', accessLevel)
       .orderBy('createdAt', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as GeneratedModule[];
-  } catch (error) {
+    console.log(`✅ Found ${snapshot.size} published module(s) for ${accessLevel} tier`);
+    
+    const modules = snapshot.docs.map(doc => {
+      const data = doc.data();
+      console.log(`  - Module: ${data.title} (ID: ${doc.id}, Published: ${data.published}, AccessLevels: ${JSON.stringify(data.accessLevels)})`);
+      return {
+        id: doc.id,
+        ...data
+      };
+    }) as GeneratedModule[];
+
+    return modules;
+  } catch (error: any) {
     console.error('❌ Error fetching modules by access level:', error);
+    
+    // Check if it's an index error
+    if (error.code === 9 || error.message?.includes('index')) {
+      console.error('⚠️ Firestore index missing!');
+      console.error('💡 You need to create a composite index for:');
+      console.error('   Collection: generatedModules');
+      console.error('   Fields: published (ASC) + accessLevels (ARRAY_CONTAINS) + createdAt (DESC)');
+      console.error('💡 Run: firebase deploy --only firestore:indexes');
+    }
+    
     return [];
   }
 }

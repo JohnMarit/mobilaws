@@ -86,21 +86,24 @@ const upload = multer({
  */
 router.get('/tutor-admin/check/:email', async (req: Request, res: Response) => {
   try {
+    // Decode the email parameter (it's URL encoded from frontend)
     const { email } = req.params;
+    const decodedEmail = decodeURIComponent(email);
     
     console.log('═══════════════════════════════════════════════');
     console.log('🔍 TUTOR ADMIN CHECK REQUEST');
     console.log('═══════════════════════════════════════════════');
-    console.log('📧 Email parameter:', email);
-    console.log('📧 Email length:', email.length);
-    console.log('📧 Email trimmed:', email.trim());
+    console.log('📧 Email parameter (raw):', email);
+    console.log('📧 Email parameter (decoded):', decodedEmail);
+    console.log('📧 Email length:', decodedEmail.length);
+    console.log('📧 Email trimmed:', decodedEmail.trim());
     
-    const isTutor = await isTutorAdmin(email);
+    const isTutor = await isTutorAdmin(decodedEmail);
     
     console.log('✅ Is tutor admin:', isTutor);
     
     if (isTutor) {
-      const tutor = await getTutorAdmin(email);
+      const tutor = await getTutorAdmin(decodedEmail);
       console.log('✅ Tutor admin found:', tutor?.email);
       console.log('═══════════════════════════════════════════════');
       res.json({ isTutorAdmin: true, tutor });
@@ -108,7 +111,7 @@ router.get('/tutor-admin/check/:email', async (req: Request, res: Response) => {
       console.log('❌ No tutor admin found for this email');
       console.log('💡 Make sure:');
       console.log('   1. Account exists in Firestore tutorAdmins collection');
-      console.log('   2. Email matches exactly (case-sensitive)');
+      console.log('   2. Email matches exactly (case-insensitive, normalized to lowercase)');
       console.log('   3. active field is set to true');
       console.log('═══════════════════════════════════════════════');
       res.json({ isTutorAdmin: false });
@@ -334,11 +337,28 @@ router.get('/tutor-admin/modules', async (req: Request, res: Response) => {
 router.get('/tutor-admin/modules/level/:accessLevel', async (req: Request, res: Response) => {
   try {
     const { accessLevel } = req.params;
+    
+    // Validate access level
+    const validLevels = ['free', 'basic', 'standard', 'premium'];
+    if (!validLevels.includes(accessLevel)) {
+      return res.status(400).json({ 
+        error: 'Invalid access level', 
+        message: `Access level must be one of: ${validLevels.join(', ')}` 
+      });
+    }
+    
+    console.log(`📚 Fetching modules for access level: ${accessLevel}`);
     const modules = await getModulesByAccessLevel(accessLevel as any);
+    
+    console.log(`✅ Returning ${modules.length} module(s) for ${accessLevel} tier`);
     res.json(modules);
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error fetching modules by access level:', error);
-    res.status(500).json({ error: 'Failed to fetch modules' });
+    console.error('Error details:', error.message, error.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch modules',
+      message: error.message || 'Unknown error occurred'
+    });
   }
 });
 
