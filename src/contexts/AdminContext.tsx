@@ -95,6 +95,7 @@ interface AdminContextType {
   login: (email: string, password: string) => Promise<boolean>;
   setAdminFromToken: (token: string, admin: AdminUser) => void;
   logout: () => void;
+  getHeaders: () => { 'Content-Type': string; 'x-admin-email': string; 'x-admin-token': string };
   getUsers: (page?: number, search?: string) => Promise<any>;
   getUserDetails: (userId: string) => Promise<any>;
   updateUserStatus: (userId: string, status: string) => Promise<boolean>;
@@ -518,6 +519,7 @@ export function AdminProvider({ children }: AdminProviderProps) {
     login,
     setAdminFromToken,
     logout,
+    getHeaders,
     getUsers,
     getUserDetails,
     updateUserStatus,
