@@ -33,7 +33,7 @@ const envSchema = z.object({
   QDRANT_COLLECTION: z.string().default('mobilaws_legal'),
 
   // CORS
-  CORS_ORIGINS: z.string().default('http://localhost:3000'),
+  CORS_ORIGINS: z.string().default('http://localhost:3000,https://www.mobilaws.com,https://mobilaws.com'),
 
   // API Security
   API_KEY_REQUIRED: z.string().default('false').transform(val => val === 'true'),

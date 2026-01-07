@@ -34,17 +34,35 @@ import counselChatRouter from '../src/routes/counsel-chat';
 const app = express();
 
 // Parse CORS origins from environment
-const corsOriginsString = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173';
+const corsOriginsString = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173,https://www.mobilaws.com,https://mobilaws.com';
 const corsOrigins = corsOriginsString.split(',').map(origin => origin.trim());
 
 console.log('🌐 CORS Origins:', corsOrigins);
 
 // CORS configuration
 app.use(cors({
-  origin: corsOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in whitelist
+    if (corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In development, allow localhost with any port
+    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    console.warn(`⚠️  CORS blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Admin-Email', 'X-Admin-Token'],
+  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+  maxAge: 86400, // 24 hours
 }));
 
 // Body parsing middleware
