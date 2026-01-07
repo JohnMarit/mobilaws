@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { admin } from '../lib/firebase-admin';
+import { admin, getFirestore } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -15,9 +15,9 @@ router.get('/user-lessons/:userId/:moduleId', async (req: Request, res: Response
       return res.status(400).json({ error: 'Missing userId or moduleId' });
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' });
+      return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
     }
 
     const userLessonsRef = db.collection('userLessons').doc(userId);
@@ -63,9 +63,9 @@ router.get('/user-lessons/:userId', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing userId' });
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' });
+      return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
     }
 
     const userLessonsRef = db.collection('userLessons').doc(userId);
@@ -123,9 +123,9 @@ router.delete('/user-lessons/:userId/:moduleId', async (req: Request, res: Respo
       return res.status(400).json({ error: 'Missing userId or moduleId' });
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' });
+      return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
     }
 
     const userLessonsRef = db.collection('userLessons').doc(userId);

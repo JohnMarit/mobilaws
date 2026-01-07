@@ -40,7 +40,7 @@ import {
   bulkUpdateModuleAccessLevels
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
-import { admin } from '../lib/firebase-admin';
+import { admin, getFirestore } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -376,11 +376,13 @@ router.post('/tutor-admin/modules/:moduleId/publish', async (req: Request, res: 
     if (success) {
       // Update the content's published status
       if (contentId) {
-        const db = admin.firestore();
-        await db.collection('tutorContent').doc(contentId).update({
-          published: true,
-          publishedAt: admin.firestore.Timestamp.now(),
-        });
+        const db = getFirestore();
+        if (db) {
+          await db.collection('tutorContent').doc(contentId).update({
+            published: true,
+            publishedAt: admin.firestore.Timestamp.now(),
+          });
+        }
       }
       
       res.json({ success: true, message: 'Module published successfully' });
@@ -572,8 +574,11 @@ router.put('/tutor-admin/content/:contentId', upload.single('file'), async (req:
         }
         } else {
           // No new file, just update module metadata if it exists
-          // Use admin.firestore() directly
-          const db = admin.firestore();
+          // Use getFirestore() for safe access
+          const db = getFirestore();
+          if (!db) {
+            return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
+          }
           try {
             await db.collection('generatedModules').doc(existingContent.generatedModuleId).update({
               title: title || existingContent.title,

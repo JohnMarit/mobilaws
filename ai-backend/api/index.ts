@@ -6,6 +6,10 @@ import { z } from 'zod';
 // Load environment variables
 config();
 
+// Initialize Firebase Admin early
+import { initializeFirebaseAdmin } from '../src/lib/firebase-admin';
+initializeFirebaseAdmin();
+
 // Import routes
 import healthRouter from '../src/routes/health';
 import uploadRouter from '../src/routes/upload';

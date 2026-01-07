@@ -55,6 +55,18 @@ export function getFirebaseAuth(): admin.auth.Auth | null {
 }
 
 /**
+ * Get Firestore instance safely
+ */
+export function getFirestore(): admin.firestore.Firestore | null {
+  const app = initializeFirebaseAdmin();
+  if (!app) {
+    console.error('❌ Firebase Admin not initialized - cannot access Firestore');
+    return null;
+  }
+  return admin.firestore(app);
+}
+
+/**
  * Fetch all users from Firebase Authentication
  * @param maxResults Maximum number of users to fetch (default: 1000)
  */

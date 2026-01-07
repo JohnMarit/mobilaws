@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 import { env } from '../env';
-import { admin } from '../lib/firebase-admin';
+import { admin, getFirestore } from '../lib/firebase-admin';
 import { getRetriever } from '../rag/vectorstore';
 import { Document } from '@langchain/core/documents';
 
@@ -32,9 +32,9 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
 
     console.log(`🤖 Generating ${numberOfLessons} lessons for module: ${moduleName} (tier: ${tier})`);
 
-    const db = admin.firestore();
+    const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' });
+      return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
     }
 
     // Check request limits based on tier
@@ -272,9 +272,9 @@ router.post('/ai-lessons/request-more', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     if (!db) {
-      return res.status(500).json({ error: 'Database not available' });
+      return res.status(500).json({ error: 'Database not available', message: 'Firebase Admin not initialized' });
     }
 
     // Save request to Firestore for tracking
