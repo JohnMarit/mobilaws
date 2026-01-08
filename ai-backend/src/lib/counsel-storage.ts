@@ -90,6 +90,13 @@ export interface Counselor {
   // Financial
   bookingFee: number; // Fee per booking in USD
   totalEarnings: number; // Total earnings from bookings
+  // Pending changes (awaiting admin approval)
+  pendingChanges?: {
+    bookingFee?: number;
+    specializations?: string[];
+    requestedAt: admin.firestore.Timestamp;
+    requestedBy: string; // counselor userId
+  };
   lastSeenAt: admin.firestore.Timestamp;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
@@ -1242,6 +1249,162 @@ export async function cancelCounselRequest(requestId: string, reason?: string): 
   } catch (error) {
     console.error('❌ Error cancelling counsel request:', error);
     return false;
+  }
+}
+
+/**
+ * Request counselor profile changes (booking fee and specializations)
+ * Changes require admin approval
+ */
+export async function requestCounselorChanges(
+  counselorId: string,
+  changes: {
+    bookingFee?: number;
+    specializations?: string[];
+  }
+): Promise<{ success: boolean; message: string }> {
+  const db = getFirestore();
+  if (!db) {
+    return { success: false, message: 'Database not available' };
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      return { success: false, message: 'Counselor not found' };
+    }
+
+    const counselor = counselorDoc.data() as Counselor;
+    if (counselor.applicationStatus !== 'approved') {
+      return { success: false, message: 'Only approved counselors can request changes' };
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    
+    await counselorRef.update({
+      pendingChanges: {
+        bookingFee: changes.bookingFee !== undefined ? changes.bookingFee : counselor.bookingFee,
+        specializations: changes.specializations || counselor.specializations,
+        requestedAt: now,
+        requestedBy: counselorId,
+      },
+      updatedAt: now,
+    });
+
+    console.log(`✅ Change request submitted by counselor ${counselorId}`);
+    return { success: true, message: 'Change request submitted. Waiting for admin approval.' };
+  } catch (error) {
+    console.error('❌ Error requesting counselor changes:', error);
+    return { success: false, message: 'Failed to submit change request' };
+  }
+}
+
+/**
+ * Approve counselor changes
+ */
+export async function approveCounselorChanges(
+  counselorId: string,
+  approvedBy: string
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      return false;
+    }
+
+    const counselor = counselorDoc.data() as Counselor;
+    if (!counselor.pendingChanges) {
+      return false;
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    
+    // Apply the pending changes
+    await counselorRef.update({
+      bookingFee: counselor.pendingChanges.bookingFee,
+      specializations: counselor.pendingChanges.specializations,
+      pendingChanges: admin.firestore.FieldValue.delete(),
+      updatedAt: now,
+    });
+
+    console.log(`✅ Counselor changes approved for ${counselorId} by ${approvedBy}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error approving counselor changes:', error);
+    return false;
+  }
+}
+
+/**
+ * Reject counselor changes
+ */
+export async function rejectCounselorChanges(
+  counselorId: string,
+  rejectedBy: string,
+  reason?: string
+): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) {
+    return false;
+  }
+
+  try {
+    const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+    const counselorDoc = await counselorRef.get();
+
+    if (!counselorDoc.exists) {
+      return false;
+    }
+
+    const counselor = counselorDoc.data() as Counselor;
+    if (!counselor.pendingChanges) {
+      return false;
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    
+    // Remove pending changes
+    await counselorRef.update({
+      pendingChanges: admin.firestore.FieldValue.delete(),
+      updatedAt: now,
+    });
+
+    console.log(`✅ Counselor changes rejected for ${counselorId} by ${rejectedBy}${reason ? `: ${reason}` : ''}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error rejecting counselor changes:', error);
+    return false;
+  }
+}
+
+/**
+ * Get counselors with pending changes
+ */
+export async function getCounselorsWithPendingChanges(): Promise<Counselor[]> {
+  const db = getFirestore();
+  if (!db) {
+    return [];
+  }
+
+  try {
+    const snapshot = await db
+      .collection(COUNSELORS_COLLECTION)
+      .where('pendingChanges', '!=', null)
+      .get();
+
+    return snapshot.docs.map(doc => doc.data() as Counselor);
+  } catch (error) {
+    console.error('❌ Error fetching counselors with pending changes:', error);
+    return [];
   }
 }
 

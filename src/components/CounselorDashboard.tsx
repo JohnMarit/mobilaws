@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, Volume2, DollarSign } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, Volume2, DollarSign, Edit, Save, X } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -25,6 +25,7 @@ import {
   getCounselorProfile,
   getCounselConfig,
   getCounselorApplicationStatus,
+  requestCounselorChanges,
   type CounselRequest,
   type Appointment,
   type Counselor,
@@ -61,6 +62,12 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const [approvalStatus, setApprovalStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  
+  // Edit profile
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editBookingFee, setEditBookingFee] = useState('');
+  const [editSpecializations, setEditSpecializations] = useState<string[]>([]);
+  const [isSubmittingChanges, setIsSubmittingChanges] = useState(false);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -113,7 +120,88 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         setIsOnline(profile.isOnline);
         setSelectedState(profile.state);
         setPhone(profile.phone || '');
+        setEditBookingFee((profile.bookingFee || 10).toString());
+        setEditSpecializations(profile.specializations || []);
       }
+    }
+  };
+
+  const handleStartEdit = () => {
+    if (counselorProfile) {
+      setEditBookingFee((counselorProfile.bookingFee || 10).toString());
+      setEditSpecializations([...counselorProfile.specializations]);
+      setIsEditingProfile(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (counselorProfile) {
+      setEditBookingFee((counselorProfile.bookingFee || 10).toString());
+      setEditSpecializations([...counselorProfile.specializations]);
+    }
+    setIsEditingProfile(false);
+  };
+
+  const handleSubmitChanges = async () => {
+    if (!user || !counselorProfile) return;
+
+    const fee = parseFloat(editBookingFee);
+    if (isNaN(fee) || fee <= 0) {
+      toast({
+        title: 'Invalid Fee',
+        description: 'Booking fee must be a positive number.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (editSpecializations.length === 0) {
+      toast({
+        title: 'Specializations Required',
+        description: 'Please select at least one specialization.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmittingChanges(true);
+    try {
+      const result = await requestCounselorChanges(counselorProfile.id, {
+        bookingFee: fee,
+        specializations: editSpecializations,
+      });
+
+      if (result.success) {
+        toast({
+          title: 'Change Request Submitted',
+          description: result.message || 'Your changes are pending admin approval.',
+        });
+        setIsEditingProfile(false);
+        // Reload profile to show pending changes
+        await loadConfigAndProfile();
+      } else {
+        toast({
+          title: 'Request Failed',
+          description: result.error || 'Failed to submit change request.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit change request.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmittingChanges(false);
+    }
+  };
+
+  const toggleSpecialization = (categoryId: string) => {
+    if (editSpecializations.includes(categoryId)) {
+      setEditSpecializations(editSpecializations.filter(id => id !== categoryId));
+    } else {
+      setEditSpecializations([...editSpecializations, categoryId]);
     }
   };
 
@@ -499,6 +587,137 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Pending Changes Notice */}
+            {counselorProfile?.pendingChanges && (
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-yellow-800">Pending Changes Awaiting Approval</p>
+                    <div className="mt-2 space-y-1 text-sm text-yellow-700">
+                      {counselorProfile.pendingChanges.bookingFee !== undefined && (
+                        <p>• Booking Fee: ${counselorProfile.pendingChanges.bookingFee.toFixed(2)}</p>
+                      )}
+                      {counselorProfile.pendingChanges.specializations && (
+                        <p>• Specializations: {counselorProfile.pendingChanges.specializations.join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Profile Section */}
+            {counselorProfile && (
+              <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Profile Settings
+                  </h3>
+                  {!isEditingProfile && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartEdit}
+                      disabled={!!counselorProfile.pendingChanges}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+
+                {isEditingProfile ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        Booking Fee (USD)
+                      </Label>
+                      <Input
+                        type="number"
+                        value={editBookingFee}
+                        onChange={(e) => setEditBookingFee(e.target.value)}
+                        min="1"
+                        step="0.01"
+                        placeholder="10.00"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1">
+                        <Scale className="h-4 w-4" />
+                        Specializations
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                        {categories.map((cat) => (
+                          <div
+                            key={cat.id}
+                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
+                              editSpecializations.includes(cat.id)
+                                ? 'bg-primary/10 border-primary'
+                                : 'bg-white border-gray-200 hover:border-gray-300'
+                            }`}
+                            onClick={() => toggleSpecialization(cat.id)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={editSpecializations.includes(cat.id)}
+                              onChange={() => toggleSpecialization(cat.id)}
+                              className="rounded"
+                            />
+                            <span className="text-sm">{cat.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                        className="flex-1"
+                        disabled={isSubmittingChanges}
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSubmitChanges}
+                        className="flex-1"
+                        disabled={isSubmittingChanges}
+                      >
+                        {isSubmittingChanges ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-1" />
+                        )}
+                        Submit for Approval
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Booking Fee:</span>
+                      <span className="font-semibold">${(counselorProfile.bookingFee || 10).toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Specializations:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {counselorProfile.specializations?.map((spec) => (
+                          <Badge key={spec} variant="secondary" className="text-xs">
+                            {spec}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -33,6 +33,9 @@ import {
   getAllCounselors,
   approveCounselorApplication,
   rejectCounselorApplication,
+  getCounselorsWithPendingChanges,
+  approveCounselorChanges,
+  rejectCounselorChanges,
   getCounselConfig,
   type Counselor,
   type SouthSudanState,
@@ -46,8 +49,11 @@ interface AdminCounselorApprovalsProps {
 export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorApprovalsProps) {
   const [pendingApplications, setPendingApplications] = useState<Counselor[]>([]);
   const [allCounselors, setAllCounselors] = useState<Counselor[]>([]);
+  const [counselorsWithPendingChanges, setCounselorsWithPendingChanges] = useState<Counselor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCounselor, setSelectedCounselor] = useState<Counselor | null>(null);
+  const [isApprovingChanges, setIsApprovingChanges] = useState(false);
+  const [isRejectingChanges, setIsRejectingChanges] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -68,22 +74,31 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
     setIsLoading(true);
     console.log('📥 Loading counselor applications...');
     try {
-      const [pending, all] = await Promise.all([
+      const [pending, all, pendingChanges] = await Promise.all([
         getPendingCounselorApplications(),
         getAllCounselors(),
+        getCounselorsWithPendingChanges(),
       ]);
       console.log('📊 Counselor data loaded:', {
         pending: pending.length,
         all: all.length,
+        pendingChanges: pendingChanges.length,
         pendingDetails: pending
       });
       setPendingApplications(pending);
       setAllCounselors(all);
+      setCounselorsWithPendingChanges(pendingChanges);
       
       if (pending.length > 0) {
         toast({
           title: `${pending.length} Pending Application${pending.length > 1 ? 's' : ''}`,
           description: 'Waiting for your review',
+        });
+      }
+      if (pendingChanges.length > 0) {
+        toast({
+          title: `${pendingChanges.length} Pending Change${pendingChanges.length > 1 ? 's' : ''}`,
+          description: 'Counselor profile changes awaiting approval',
         });
       }
     } catch (error) {
@@ -95,6 +110,81 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleApproveChanges = async (counselor: Counselor) => {
+    if (!user?.id) {
+      toast({
+        title: 'Error',
+        description: 'User ID not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsApprovingChanges(true);
+    try {
+      const result = await approveCounselorChanges(counselor.id, user.id);
+      if (result.success) {
+        toast({
+          title: 'Changes Approved',
+          description: result.message || 'Counselor changes have been approved.',
+        });
+        await loadData();
+      } else {
+        toast({
+          title: 'Approval Failed',
+          description: result.error || 'Failed to approve changes.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to approve changes.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsApprovingChanges(false);
+    }
+  };
+
+  const handleRejectChanges = async (counselor: Counselor, reason?: string) => {
+    if (!user?.id) {
+      toast({
+        title: 'Error',
+        description: 'User ID not found',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsRejectingChanges(true);
+    try {
+      const result = await rejectCounselorChanges(counselor.id, user.id, reason);
+      if (result.success) {
+        toast({
+          title: 'Changes Rejected',
+          description: result.message || 'Counselor changes have been rejected.',
+        });
+        await loadData();
+        setShowRejectDialog(false);
+      } else {
+        toast({
+          title: 'Rejection Failed',
+          description: result.error || 'Failed to reject changes.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to reject changes.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRejectingChanges(false);
     }
   };
 
@@ -253,6 +343,9 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
               <TabsTrigger value="pending" className="flex-1">
                 Pending ({pendingApplications.length})
               </TabsTrigger>
+              <TabsTrigger value="changes" className="flex-1">
+                Changes ({counselorsWithPendingChanges.length})
+              </TabsTrigger>
               <TabsTrigger value="approved" className="flex-1">
                 Approved ({approvedCounselors.length})
               </TabsTrigger>
@@ -342,6 +435,102 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
                             </Button>
                             <Button
                               onClick={() => handleRejectClick(counselor)}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+
+            {/* Pending Changes */}
+            <TabsContent value="changes" className="flex-1 mt-2 min-h-0">
+              <ScrollArea className="h-[400px] border rounded-lg">
+                {counselorsWithPendingChanges.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No pending changes</p>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-3">
+                    {counselorsWithPendingChanges.map((counselor) => (
+                      <div
+                        key={counselor.id}
+                        className="p-4 border rounded-lg bg-yellow-50"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <User className="h-5 w-5 text-gray-500" />
+                              <span className="font-semibold text-lg">{counselor.name}</span>
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                                <Clock className="h-3 w-3 mr-1" />
+                                Pending
+                              </Badge>
+                            </div>
+                            
+                            {counselor.pendingChanges && (
+                              <div className="space-y-2 text-sm">
+                                <div className="bg-white rounded p-3 space-y-2">
+                                  <p className="font-semibold text-gray-700">Requested Changes:</p>
+                                  {counselor.pendingChanges.bookingFee !== undefined && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-gray-600">Booking Fee:</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-400 line-through">
+                                          ${(counselor.bookingFee || 10).toFixed(2)}
+                                        </span>
+                                        <span className="font-semibold text-green-600">
+                                          → ${counselor.pendingChanges.bookingFee.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {counselor.pendingChanges.specializations && (
+                                    <div>
+                                      <span className="text-gray-600">Specializations:</span>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {counselor.pendingChanges.specializations.map((spec) => (
+                                          <Badge key={spec} variant="secondary" className="text-xs">
+                                            {spec}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              onClick={() => handleApproveChanges(counselor)}
+                              disabled={isApprovingChanges}
+                              className="bg-green-600 hover:bg-green-700"
+                              size="sm"
+                            >
+                              {isApprovingChanges ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                  Approve
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setSelectedCounselor(counselor);
+                                setShowRejectDialog(true);
+                              }}
                               variant="destructive"
                               size="sm"
                             >

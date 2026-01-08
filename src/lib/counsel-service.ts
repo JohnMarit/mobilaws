@@ -751,3 +751,115 @@ export async function completeCounselRequest(requestId: string): Promise<{ succe
     return { success: false, error: 'Network error' };
   }
 }
+
+/**
+ * Request counselor profile changes (booking fee and specializations)
+ */
+export async function requestCounselorChanges(
+  counselorId: string,
+  changes: {
+    bookingFee?: number;
+    specializations?: string[];
+  }
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const apiUrl = getApiUrl('counsel/counselor/request-changes');
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        counselorId,
+        bookingFee: changes.bookingFee,
+        specializations: changes.specializations,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true, message: data.message };
+  } catch (error) {
+    console.error('❌ Error requesting counselor changes:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Get counselors with pending changes (admin only)
+ */
+export async function getCounselorsWithPendingChanges(): Promise<Counselor[]> {
+  try {
+    const apiUrl = getApiUrl('counsel/admin/pending-changes');
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.counselors || [];
+  } catch (error) {
+    console.error('❌ Error fetching pending changes:', error);
+    return [];
+  }
+}
+
+/**
+ * Approve counselor changes (admin only)
+ */
+export async function approveCounselorChanges(
+  counselorId: string,
+  approvedBy: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const apiUrl = getApiUrl(`counsel/admin/approve-changes/${counselorId}`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvedBy }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true, message: data.message };
+  } catch (error) {
+    console.error('❌ Error approving changes:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+/**
+ * Reject counselor changes (admin only)
+ */
+export async function rejectCounselorChanges(
+  counselorId: string,
+  rejectedBy: string,
+  reason?: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const apiUrl = getApiUrl(`counsel/admin/reject-changes/${counselorId}`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rejectedBy, reason }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error };
+    }
+
+    return { success: true, message: data.message };
+  } catch (error) {
+    console.error('❌ Error rejecting changes:', error);
+    return { success: false, error: 'Network error' };
+  }
+}

@@ -28,6 +28,10 @@ import {
   rejectCounselor,
   isApprovedCounselor,
   getCounselorApplicationStatus,
+  requestCounselorChanges,
+  approveCounselorChanges,
+  rejectCounselorChanges,
+  getCounselorsWithPendingChanges,
   SOUTH_SUDAN_STATES,
   LEGAL_CATEGORIES,
   type StateCode,
@@ -608,6 +612,100 @@ router.get('/counselor/:userId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('❌ Error fetching counselor:', error);
     res.status(500).json({ error: 'Failed to fetch counselor' });
+  }
+});
+
+/**
+ * Request counselor profile changes (booking fee and specializations)
+ * POST /api/counsel/counselor/request-changes
+ */
+router.post('/counselor/request-changes', async (req: Request, res: Response) => {
+  try {
+    const { counselorId, bookingFee, specializations } = req.body;
+
+    if (!counselorId) {
+      return res.status(400).json({ error: 'Counselor ID is required' });
+    }
+
+    const result = await requestCounselorChanges(counselorId, {
+      bookingFee: bookingFee ? parseFloat(bookingFee) : undefined,
+      specializations: specializations || undefined,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.json({ success: true, message: result.message });
+  } catch (error) {
+    console.error('❌ Error requesting counselor changes:', error);
+    res.status(500).json({ error: 'Failed to request changes' });
+  }
+});
+
+/**
+ * Get counselors with pending changes (admin only)
+ * GET /api/counsel/admin/pending-changes
+ */
+router.get('/admin/pending-changes', async (_req: Request, res: Response) => {
+  try {
+    const counselors = await getCounselorsWithPendingChanges();
+    res.json({ success: true, counselors });
+  } catch (error) {
+    console.error('❌ Error fetching pending changes:', error);
+    res.status(500).json({ error: 'Failed to fetch pending changes' });
+  }
+});
+
+/**
+ * Approve counselor changes (admin only)
+ * POST /api/counsel/admin/approve-changes/:counselorId
+ */
+router.post('/admin/approve-changes/:counselorId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId } = req.params;
+    const { approvedBy } = req.body;
+
+    if (!approvedBy) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    const success = await approveCounselorChanges(counselorId, approvedBy);
+
+    if (!success) {
+      return res.status(400).json({ error: 'Failed to approve changes' });
+    }
+
+    res.json({ success: true, message: 'Changes approved successfully' });
+  } catch (error) {
+    console.error('❌ Error approving changes:', error);
+    res.status(500).json({ error: 'Failed to approve changes' });
+  }
+});
+
+/**
+ * Reject counselor changes (admin only)
+ * POST /api/counsel/admin/reject-changes/:counselorId
+ */
+router.post('/admin/reject-changes/:counselorId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId } = req.params;
+    const { rejectedBy, reason } = req.body;
+
+    if (!rejectedBy) {
+      return res.status(400).json({ error: 'Admin ID is required' });
+    }
+
+    const success = await rejectCounselorChanges(counselorId, rejectedBy, reason);
+
+    if (!success) {
+      return res.status(400).json({ error: 'Failed to reject changes' });
+    }
+
+    res.json({ success: true, message: 'Changes rejected successfully' });
+  } catch (error) {
+    console.error('❌ Error rejecting changes:', error);
+    res.status(500).json({ error: 'Failed to reject changes' });
   }
 });
 
