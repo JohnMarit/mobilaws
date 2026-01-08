@@ -625,6 +625,13 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
     // Use session data to create subscription
     const { planId, userId, price, tokens, planName } = session;
 
+    // Validate required fields for subscription payments
+    if (!planId || !planName || tokens === undefined) {
+      return res.status(400).json({ 
+        error: 'Payment session missing required subscription fields' 
+      });
+    }
+
     // Double-check idempotency
     const processed = await isPaymentProcessed(ref);
     if (processed) {
@@ -1013,6 +1020,16 @@ router.post('/payment/webhook', async (req: Request, res: Response) => {
 
         // Process with session data
         const { planId, userId, price, tokens, planName } = session;
+        
+        // Validate required fields for subscription payments
+        if (!planId || !planName || tokens === undefined) {
+          console.error(`❌ Payment session missing required subscription fields for ${reference}`);
+          return res.status(400).json({ 
+            received: true, 
+            processed: false,
+            error: 'Payment session missing required subscription fields'
+          });
+        }
         
         const success = await createSubscriptionFromPayment(
           reference,

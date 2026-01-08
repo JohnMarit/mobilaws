@@ -362,20 +362,6 @@ export async function getUserAdminOperations(userId: string, limit: number = 50)
   }
 }
 
-export interface PaymentSession {
-  paymentId: string;
-  userId: string;
-  planId: string;
-  planName: string;
-  price: number;
-  tokens: number;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
-  createdAt: admin.firestore.Timestamp;
-  updatedAt: admin.firestore.Timestamp;
-  expiresAt: admin.firestore.Timestamp;
-  metadata?: Record<string, any>;
-}
-
 /**
  * Save payment session to Firestore (replaces in-memory storage)
  */
