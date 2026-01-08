@@ -152,10 +152,13 @@ export async function createCounselRequest(
   userPhone: string,
   note: string,
   legalCategory: string,
-  state: string
+  state: string,
+  counselorId?: string,
+  counselorName?: string
 ): Promise<{ 
   success: boolean; 
   requestId?: string; 
+  chatId?: string;
   broadcastCount?: number;
   hasAvailableCounselors?: boolean; 
   message?: string; 
@@ -174,6 +177,8 @@ export async function createCounselRequest(
         note,
         legalCategory,
         state,
+        counselorId: counselorId || undefined,
+        counselorName: counselorName || undefined,
       }),
     });
 

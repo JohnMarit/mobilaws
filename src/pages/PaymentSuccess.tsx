@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Check, Loader2, AlertCircle, Clock } from 'lucide-react';
 import { createCounselRequest } from '@/lib/counsel-service';
-import { getChatByRequestId } from '@/lib/counsel-chat-service';
 import { useToast } from '@/hooks/use-toast';
 
 export default function PaymentSuccess() {
@@ -73,37 +72,30 @@ export default function PaymentSuccess() {
                   bookingDetails.phone || user.email || '',
                   bookingDetails.note,
                   bookingDetails.category,
-                  bookingDetails.counselorState
+                  bookingDetails.counselorState,
+                  bookingDetails.counselorId,
+                  bookingDetails.counselorName
                 );
                 
                 if (result.success && result.requestId) {
                   // Clear pending booking
                   sessionStorage.removeItem('pendingBooking');
                   
-                  // Wait a moment for chat to be created, then get it
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  
-                  // Get chat session - try multiple times as it may take a moment to create
-                  let chatSession = await getChatByRequestId(result.requestId);
-                  let attempts = 0;
-                  while (!chatSession && attempts < 5) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    chatSession = await getChatByRequestId(result.requestId);
-                    attempts++;
-                  }
-                  
-                  if (chatSession) {
-                    // Navigate to home with chat open directly
-                    navigate(`/?openChat=${chatSession.id}`);
+                  // If chatId is returned, chat was created immediately - open it directly
+                  if (result.chatId) {
+                    navigate(`/?openChat=${result.chatId}`);
+                    toast({
+                      title: 'Chat Ready',
+                      description: 'Your consultation chat is ready. You can start chatting now.',
+                    });
                   } else {
-                    // Navigate to home, chat will be created when counselor accepts
+                    // Fallback: navigate to home, chat will be created when counselor accepts
                     navigate(`/?openChat=${result.requestId}`);
+                    toast({
+                      title: 'Booking Created',
+                      description: 'Your consultation request has been created. A counselor will contact you soon.',
+                    });
                   }
-                  
-                  toast({
-                    title: 'Booking Created',
-                    description: 'Your consultation request has been created. A counselor will contact you soon.',
-                  });
                 } else {
                   toast({
                     title: 'Payment Successful',

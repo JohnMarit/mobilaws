@@ -76,7 +76,7 @@ router.get('/stats', async (_req: Request, res: Response) => {
  */
 router.post('/request', async (req: Request, res: Response) => {
   try {
-    const { userId, userName, userEmail, userPhone, note, legalCategory, state } = req.body;
+    const { userId, userName, userEmail, userPhone, note, legalCategory, state, counselorId, counselorName } = req.body;
 
     if (!userId || !userName || !note || !legalCategory || !state) {
       return res.status(400).json({ 
@@ -98,13 +98,28 @@ router.post('/request', async (req: Request, res: Response) => {
       note: note.trim(),
       legalCategory,
       state: state as StateCode,
+      counselorId: counselorId || undefined,
+      counselorName: counselorName || undefined,
     });
 
     if (!result.requestId) {
       return res.status(500).json({ error: 'Failed to create counsel request' });
     }
 
-    console.log(`📊 Request result: ${result.broadcastCount} counselors, ${result.onlineCounselors.length} online`);
+    console.log(`📊 Request result: ${result.broadcastCount} counselors, ${result.onlineCounselors.length} online, chatId: ${result.chatId || 'none'}`);
+
+    // If chatId exists, it means direct booking was successful
+    if (result.chatId) {
+      return res.json({
+        success: true,
+        requestId: result.requestId,
+        chatId: result.chatId,
+        broadcastCount: result.broadcastCount,
+        hasAvailableCounselors: true,
+        onlineCounselorsCount: result.onlineCounselors.length,
+        message: `Direct booking created. Chat is ready.`,
+      });
+    }
 
     res.json({
       success: true,

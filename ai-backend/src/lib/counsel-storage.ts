@@ -427,27 +427,96 @@ export async function registerCounselor(
 
 /**
  * Create a new counsel request and broadcast to available counselors
+ * If counselorId is provided, immediately create chat and mark as accepted
  */
 export async function createCounselRequest(
-  request: Omit<CounselRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'broadcastedTo' | 'broadcastCount' | 'expiresAt'>
-): Promise<{ requestId: string | null; broadcastCount: number; onlineCounselors: Counselor[] }> {
+  request: Omit<CounselRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'broadcastedTo' | 'broadcastCount' | 'expiresAt'> & { counselorId?: string; counselorName?: string }
+): Promise<{ requestId: string | null; broadcastCount: number; onlineCounselors: Counselor[]; chatId?: string | null }> {
   const db = getFirestore();
   if (!db) {
     console.warn('⚠️ Firebase Admin not initialized');
-    return { requestId: null, broadcastCount: 0, onlineCounselors: [] };
+    return { requestId: null, broadcastCount: 0, onlineCounselors: [], chatId: null };
   }
 
   try {
-    // Find available counselors in the user's state or serving that state
-    const availableCounselors = await getAvailableCounselorsForState(request.state);
+    const { counselorId, counselorName, ...requestData } = request;
+    let chatId: string | null = null;
+    
+    // If a specific counselor is selected, create chat immediately
+    if (counselorId && counselorName) {
+      console.log(`🎯 Direct booking to counselor: ${counselorId} (${counselorName})`);
+      
+      // Get counselor details
+      const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(counselorId);
+      const counselorDoc = await counselorRef.get();
+      
+      if (!counselorDoc.exists) {
+        console.error('❌ Counselor not found:', counselorId);
+        return { requestId: null, broadcastCount: 0, onlineCounselors: [], chatId: null };
+      }
+      
+      const counselorData = counselorDoc.data() as Counselor;
+      
+      // Create request as accepted immediately
+      const requestRef = db.collection(COUNSEL_REQUESTS_COLLECTION).doc();
+      const now = admin.firestore.Timestamp.now();
+      
+      const requestDoc: CounselRequest = {
+        ...requestData,
+        id: requestRef.id,
+        status: 'accepted',
+        counselorId,
+        counselorName: counselorName || counselorData.name,
+        counselorPhone: counselorData.phone,
+        broadcastedTo: [counselorId],
+        broadcastCount: 1,
+        acceptedAt: now,
+        expiresAt: admin.firestore.Timestamp.fromMillis(now.toMillis() + 5 * 60 * 1000),
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await requestRef.set(requestDoc);
+      
+      // Create chat session immediately
+      const { createChatSession } = await import('./counsel-chat-storage');
+      try {
+        chatId = await createChatSession(
+          requestRef.id,
+          null,
+          requestData.userId,
+          requestData.userName,
+          counselorId,
+          counselorName || counselorData.name
+        );
+        console.log(`✅ Chat session created immediately: ${chatId}`);
+      } catch (chatError) {
+        console.error('❌ Failed to create chat session:', chatError);
+      }
+      
+      // Update counselor stats
+      await incrementCounselorActiveRequests(counselorId, 1);
+      
+      console.log(`✅ Direct booking created: ${requestRef.id}, chat: ${chatId}`);
+      
+      return {
+        requestId: requestRef.id,
+        broadcastCount: 1,
+        onlineCounselors: [counselorData],
+        chatId,
+      };
+    }
+    
+    // Otherwise, broadcast to available counselors (original flow)
+    const availableCounselors = await getAvailableCounselorsForState(requestData.state);
     
     const requestRef = db.collection(COUNSEL_REQUESTS_COLLECTION).doc();
     const now = admin.firestore.Timestamp.now();
     // Request expires in 5 minutes if no one accepts
     const expiresAt = admin.firestore.Timestamp.fromMillis(now.toMillis() + 5 * 60 * 1000);
     
-    const requestData: CounselRequest = {
-      ...request,
+    const requestDoc: CounselRequest = {
+      ...requestData,
       id: requestRef.id,
       status: availableCounselors.length > 0 ? 'broadcasting' : 'pending',
       broadcastedTo: availableCounselors.map(c => c.id),
@@ -457,11 +526,11 @@ export async function createCounselRequest(
       updatedAt: now,
     };
 
-    await requestRef.set(requestData);
+    await requestRef.set(requestDoc);
     console.log(`✅ Counsel request created: ${requestRef.id}, broadcast to ${availableCounselors.length} counselors`);
     
     // Fire-and-forget push notifications to available counselors
-    sendPushNotificationsToCounselors(availableCounselors, requestData).catch(err => {
+    sendPushNotificationsToCounselors(availableCounselors, requestDoc).catch(err => {
       console.error('❌ Error sending push notifications:', err);
     });
     
@@ -469,10 +538,11 @@ export async function createCounselRequest(
       requestId: requestRef.id,
       broadcastCount: availableCounselors.length,
       onlineCounselors: availableCounselors,
+      chatId: null,
     };
   } catch (error) {
     console.error('❌ Error creating counsel request:', error);
-    return { requestId: null, broadcastCount: 0, onlineCounselors: [] };
+    return { requestId: null, broadcastCount: 0, onlineCounselors: [], chatId: null };
   }
 }
 
