@@ -254,8 +254,14 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
   // Helper function to get fee display for a counselor
   const getFeeDisplay = (counselor: Counselor): string => {
     const fee = counselor.bookingFee || 10; // Default $10
-    if (userSubscription && userSubscription.isActive && !userSubscription.isFree) {
-      return `$${fee.toFixed(2)} (Included in ${userSubscription.planId === 'basic' ? 'Basic' : userSubscription.planId === 'standard' ? 'Standard' : 'Premium'} Plan)`;
+    const hasPremiumPlan =
+      userSubscription &&
+      userSubscription.isActive &&
+      !userSubscription.isFree &&
+      userSubscription.planId === 'premium';
+    
+    if (hasPremiumPlan) {
+      return `Free (Included in Premium Plan)`;
     }
     return `$${fee.toFixed(2)} per booking`;
   };
@@ -270,17 +276,112 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
       return;
     }
 
-    const hasActivePaidPlan =
+    // Only Premium plan users get free chat access
+    const hasPremiumPlan =
       userSubscription &&
       userSubscription.isActive &&
       !userSubscription.isFree &&
-      userSubscription.planId !== 'free';
+      userSubscription.planId === 'premium';
 
     const bookingFee = counselor.bookingFee || 10;
 
-    // Always require payment for booking (even if user has subscription)
-    setSelectedCounselorForPayment(counselor);
-    setShowPaymentDialog(true);
+    // If user has Premium plan, create chat directly without payment
+    if (hasPremiumPlan) {
+      setIsSubmitting(true);
+      
+      // Use counselor's state or default to first state
+      const counselorState = counselor.state || (states.length > 0 ? states[0].code : 'CES');
+      const finalCategory = category || (categories.length > 0 ? categories[0].id : 'general');
+      const defaultNote = `I would like to consult with ${counselor.name} about a legal matter.`;
+
+      try {
+        const result = await createCounselRequest(
+          user.id,
+          user.name || 'User',
+          user.email || '',
+          phone || user.email || '',
+          defaultNote,
+          finalCategory,
+          counselorState,
+          counselor.id,
+          counselor.name
+        );
+
+        if (!result.success) {
+          toast({
+            title: 'Request Failed',
+            description: result.error || 'Failed to create request.',
+            variant: 'destructive',
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        // If chatId is returned, chat was created immediately - open it
+        if (result.chatId) {
+          const chat = await getChatById(result.chatId);
+          if (chat) {
+            setChatSession(chat);
+            setStep('accepted');
+            setRequestId(result.requestId || null);
+            
+            // Open chat automatically after a brief delay
+            setTimeout(() => {
+              setShowChat(true);
+            }, 300);
+            
+            toast({
+              title: '💬 Chat Ready!',
+              description: `You can now chat with ${counselor.name}.`,
+            });
+          }
+        } else if (result.requestId) {
+          // Poll for chat creation
+          setRequestId(result.requestId);
+          let attempts = 0;
+          const maxAttempts = 10;
+          const pollForChat = async () => {
+            attempts++;
+            const chat = await getChatByRequestId(result.requestId!);
+            if (chat) {
+              setChatSession(chat);
+              setStep('accepted');
+              
+              // Open chat automatically after a brief delay
+              setTimeout(() => {
+                setShowChat(true);
+              }, 300);
+              
+              toast({
+                title: '💬 Chat Ready!',
+                description: `You can now chat with ${counselor.name}.`,
+              });
+            } else if (attempts < maxAttempts) {
+              setTimeout(pollForChat, 1000);
+            } else {
+              toast({
+                title: 'Chat Created',
+                description: 'Your chat is being set up. Please wait a moment.',
+              });
+            }
+          };
+          setTimeout(pollForChat, 500);
+        }
+      } catch (error) {
+        console.error('Error creating counsel request:', error);
+        toast({
+          title: 'Error',
+          description: 'Something went wrong. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      // Free tier users need to pay booking fee
+      setSelectedCounselorForPayment(counselor);
+      setShowPaymentDialog(true);
+    }
   };
 
   // Removed handleSchedule, handleCancel, formatCountdown, getMinDate - no longer needed
@@ -377,7 +478,18 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
                                 <div className="flex items-center gap-2 text-gray-600">
                                   <DollarSign className="h-4 w-4 text-green-600" />
                                   <span className="font-medium">Fee:</span>
-                                  <span className="text-green-700 font-semibold">{getFeeDisplay(counselor)}</span>
+                                  <span className={`font-semibold ${
+                                    userSubscription && userSubscription.isActive && !userSubscription.isFree && userSubscription.planId === 'premium'
+                                      ? 'text-blue-600'
+                                      : 'text-green-700'
+                                  }`}>
+                                    {getFeeDisplay(counselor)}
+                                  </span>
+                                  {userSubscription && userSubscription.isActive && !userSubscription.isFree && userSubscription.planId === 'premium' && (
+                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                      Free for you
+                                    </Badge>
+                                  )}
                                 </div>
                                 {counselor.state && (
                                   <div className="flex items-center gap-2 text-gray-600">
