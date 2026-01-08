@@ -17,22 +17,16 @@ import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calen
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
-  getPendingCounselRequests,
-  getQueuedAppointments,
-  acceptCounselRequest,
-  acceptQueuedAppointment,
   setCounselorOnlineStatus,
   getCounselorProfile,
   getCounselConfig,
   getCounselorApplicationStatus,
   requestCounselorChanges,
-  type CounselRequest,
-  type Appointment,
   type Counselor,
   type SouthSudanState,
   type LegalCategory,
 } from '@/lib/counsel-service';
-import { getChatByRequestId, getChatByAppointmentId, getCounselorChats, dismissChatSession, type CounselChatSession } from '@/lib/counsel-chat-service';
+import { getCounselorChats, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
 import { notificationSound } from '@/lib/notification-sound';
@@ -45,9 +39,6 @@ interface CounselorDashboardProps {
 export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardProps) {
   const [isOnline, setIsOnline] = useState(false);
   const [counselorProfile, setCounselorProfile] = useState<Counselor | null>(null);
-  const [pendingRequests, setPendingRequests] = useState<CounselRequest[]>([]);
-  const [queuedAppointments, setQueuedAppointments] = useState<Appointment[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [selectedState, setSelectedState] = useState('');
   const [phone, setPhone] = useState('');
@@ -56,6 +47,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   
   const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [counselorChats, setCounselorChats] = useState<CounselChatSession[]>([]);
   
   // Approval status
   const [isCheckingApproval, setIsCheckingApproval] = useState(true);
@@ -205,13 +197,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     }
   };
 
-  // Poll for requests when online
+  // Load chats when online
   useEffect(() => {
     if (open && isOnline) {
-      loadRequests();
       loadChats();
       pollingRef.current = setInterval(() => {
-        loadRequests();
         loadChats();
       }, 5000);
     }
@@ -224,45 +214,17 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     };
   }, [open, isOnline]);
 
-  const loadRequests = async () => {
-    setIsLoading(true);
+  const loadChats = async () => {
+    if (!user) return;
     try {
-      const [requests, appointments] = await Promise.all([
-        getPendingCounselRequests(),
-        getQueuedAppointments(selectedState),
-      ]);
-      
-      // Play notification sound if there are new requests (including first one)
-      if (requests.length > pendingRequests.length) {
-        const newCount = requests.length - pendingRequests.length;
-        console.log(`🔔 ${newCount} NEW REQUEST(S) in dashboard! Playing sound...`);
-        
-        notificationSound.playRequestNotification();
-        if (navigator?.vibrate) {
-          navigator.vibrate([200, 100, 200, 100, 200]); // short vibration pattern
-        }
-        
-        toast({
-          title: '🔔 Incoming Counsel Request!',
-          description: `${newCount} new request(s) need attention.`,
-          duration: 10000,
-        });
-      }
-      
-      // Stop ringing if no more pending requests
-      if (requests.length === 0 && pendingRequests.length > 0) {
-        console.log('🔕 No more pending requests, stopping sound');
-        notificationSound.stopRinging();
-      }
-      
-      setPendingRequests(requests);
-      setQueuedAppointments(appointments);
+      const chats = await getCounselorChats(user.id);
+      setCounselorChats(chats);
     } catch (error) {
-      console.error('Error loading requests:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading chats:', error);
     }
   };
+
+  // Removed loadRequests - no longer needed since chats are created automatically after payment
 
   const handleTestSound = async () => {
     toast({
@@ -346,125 +308,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     }
   };
 
-  const handleAcceptRequest = async (request: CounselRequest) => {
-    if (!user) return;
+  // Removed handleAcceptRequest and handleAcceptAppointment - chats are created automatically after payment
 
-    // Stop the ringing sound
-    notificationSound.stopRinging();
-
-    try {
-      const result = await acceptCounselRequest(
-        request.id,
-        user.id,
-        user.displayName || 'Counselor',
-        phone
-      );
-
-      console.log('✅ Accept result:', result);
-
-      if (result.success) {
-        toast({
-          title: '✅ Request Accepted',
-          description: `You accepted ${request.userName}'s request. Opening chat...`,
-        });
-        
-        // Wait a moment for chat to be created, then fetch it
-        setTimeout(async () => {
-          const chat = await getChatByRequestId(request.id);
-          console.log('💬 Chat fetched:', chat);
-          if (chat) {
-            setChatSession(chat);
-            setShowChat(true);
-            toast({
-              title: '💬 Chat Ready',
-              description: `You can now chat with ${request.userName}.`,
-            });
-          } else {
-            console.error('❌ Chat not found for request:', request.id);
-          }
-        }, 1000);
-        
-        loadRequests();
-      } else {
-        toast({
-          title: 'Failed',
-          description: result.error || 'Request may have been accepted by someone else.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error accepting request:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to accept request.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleAcceptAppointment = async (appointment: Appointment) => {
-    if (!user) return;
-
-    // Stop the ringing sound
-    notificationSound.stopRinging();
-
-    try {
-      const result = await acceptQueuedAppointment(
-        appointment.id,
-        user.id,
-        user.displayName || 'Counselor',
-        phone
-      );
-
-      console.log('✅ Accept appointment result:', result);
-
-      if (result.success) {
-        toast({
-          title: '✅ Appointment Accepted',
-          description: `You accepted ${appointment.userName}'s scheduled appointment. Opening chat...`,
-        });
-        
-        // Wait a moment for chat to be created, then fetch it
-        setTimeout(async () => {
-          const chat = await getChatByAppointmentId(appointment.id);
-          console.log('💬 Chat fetched:', chat);
-          if (chat) {
-            setChatSession(chat);
-            setShowChat(true);
-            toast({
-              title: '💬 Chat Ready',
-              description: `You can now chat with ${appointment.userName}.`,
-            });
-          } else {
-            console.error('❌ Chat not found for appointment:', appointment.id);
-          }
-        }, 1000);
-        
-        loadRequests();
-      } else {
-        toast({
-          title: 'Failed',
-          description: result.error || 'Appointment may have been accepted by someone else.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error accepting appointment:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to accept appointment.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const getCategoryInfo = (categoryId: string) => {
-    return categories.find(c => c.id === categoryId) || { name: categoryId, icon: '⚖️' };
-  };
-
-  const getStateName = (stateCode: string) => {
-    return states.find(s => s.code === stateCode)?.name || stateCode;
-  };
+  // Removed getCategoryInfo and getStateName - no longer needed
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'Unknown';
@@ -503,7 +349,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </DialogTitle>
           <DialogDescription>
             {approvalStatus === 'approved' 
-              ? 'Go online to receive and accept counsel requests'
+              ? 'Go online to chat with your clients'
               : 'Apply to become an approved counselor'}
           </DialogDescription>
         </DialogHeader>
@@ -767,7 +613,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
               <div className="flex items-center gap-3">
                 <div className={`h-4 w-4 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                 <div>
-                  <p className="font-medium">{isOnline ? 'Online - Receiving Requests' : 'Offline'}</p>
+                  <p className="font-medium">{isOnline ? 'Online - Available for Chats' : 'Offline'}</p>
                   {counselorProfile && (
                     <p className="text-xs text-muted-foreground">
                       {counselorProfile.totalCases} total cases • {counselorProfile.completedCases} completed
@@ -807,215 +653,87 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             </div>
           </div>
 
-          {/* Requests Tabs */}
+          {/* Chats Section - Chats are created automatically after payment */}
           {isOnline && (
-            <Tabs defaultValue="live" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="w-full">
-                <TabsTrigger value="live" className="flex-1">
-                  <Bell className="h-4 w-4 mr-2" />
-                  Live Requests ({pendingRequests.length})
-                </TabsTrigger>
-                <TabsTrigger value="scheduled" className="flex-1">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Scheduled ({queuedAppointments.length})
-                </TabsTrigger>
-                <TabsTrigger value="chats" className="flex-1">
-                  <FileText className="h-4 w-4 mr-2" />
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="mb-2">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
                   My Chats ({counselorChats.length})
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Live Requests */}
-              <TabsContent value="live" className="flex-1 mt-2 min-h-0">
-                <ScrollArea className="h-[300px] border rounded-lg">
-                  {isLoading && pendingRequests.length === 0 ? (
-                    <div className="flex items-center justify-center p-8">
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : pendingRequests.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-8 text-center">
-                      <Bell className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No live requests</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Requests will appear here when users need help
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 space-y-3">
-                      {pendingRequests.map((request) => {
-                        const catInfo = getCategoryInfo(request.legalCategory);
-                        return (
-                          <div
-                            key={request.id}
-                            className="p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium">{request.userName}</span>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {catInfo.icon} {catInfo.name}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    <MapPin className="h-3 w-3 mr-1" />
-                                    {getStateName(request.state)}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-gray-700 line-clamp-2">{request.note}</p>
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {formatDate(request.createdAt)}
-                                  </span>
-                                  {request.userPhone && (
-                                    <span className="flex items-center gap-1">
-                                      <Phone className="h-3 w-3" />
-                                      {request.userPhone}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <Button
-                                onClick={() => handleAcceptRequest(request)}
-                                size="sm"
-                                className="flex-shrink-0 bg-green-600 hover:bg-green-700"
-                              >
-                                <CheckCircle2 className="h-4 w-4 mr-1" />
-                                Accept
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              {/* Scheduled Appointments */}
-              <TabsContent value="scheduled" className="flex-1 mt-2 min-h-0">
-                <ScrollArea className="h-[300px] border rounded-lg">
-                  {queuedAppointments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-8 text-center">
-                      <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No scheduled appointments</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Appointments from users who scheduled will appear here
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 space-y-3">
-                      {queuedAppointments.map((appointment) => (
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Chat sessions are created automatically when clients pay. Click to open a chat.
+                </p>
+              </div>
+              <ScrollArea className="h-[400px] border rounded-lg">
+                {counselorChats.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No active chats</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your chat sessions will appear here once clients make payments
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-3">
+                    {counselorChats.map((chat) => {
+                      const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
+                      return (
                         <div
-                          key={appointment.id}
-                          className="p-4 border rounded-lg bg-white hover:shadow-md transition-shadow"
+                          key={chat.id}
+                          className={`p-4 border rounded-lg ${
+                            isDismissed
+                              ? 'bg-gray-50 border-gray-200 opacity-60'
+                              : 'bg-white hover:shadow-md transition-shadow cursor-pointer'
+                          }`}
+                          onClick={() => {
+                            if (!isDismissed) {
+                              setChatSession(chat);
+                              setShowChat(true);
+                            }
+                          }}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium">{appointment.userName}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  <MapPin className="h-3 w-3 mr-1" />
-                                  {getStateName(appointment.state)}
-                                </Badge>
+                                <span className="font-medium">{chat.userName}</span>
+                                {isDismissed ? (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Dismissed
+                                  </Badge>
+                                ) : chat.status === 'active' ? (
+                                  <Badge variant="default" className="text-xs bg-green-500">
+                                    Active
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Ended
+                                  </Badge>
+                                )}
                               </div>
-                              <p className="text-sm text-gray-700 line-clamp-2">{appointment.note}</p>
-                              <div className="flex items-center gap-2 text-sm">
-                                <Calendar className="h-4 w-4 text-blue-500" />
-                                <span className="font-medium text-blue-600">
-                                  {appointment.scheduledDate} at {appointment.scheduledTime}
-                                </span>
+                              {chat.lastMessage && (
+                                <p className="text-sm text-gray-600 line-clamp-2">
+                                  {chat.lastMessage}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <Clock className="h-3 w-3" />
+                                {chat.updatedAt?.toDate?.().toLocaleDateString() || 'Recently'}
+                                {chat.unreadCountCounselor > 0 && (
+                                  <Badge variant="default" className="ml-auto text-xs">
+                                    {chat.unreadCountCounselor} new
+                                  </Badge>
+                                )}
                               </div>
                             </div>
-                            <Button
-                              onClick={() => handleAcceptAppointment(appointment)}
-                              size="sm"
-                              variant="outline"
-                              className="flex-shrink-0"
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
-                              Accept
-                            </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-
-              {/* My Chats */}
-              <TabsContent value="chats" className="flex-1 mt-2 min-h-0">
-                <ScrollArea className="h-[300px] border rounded-lg">
-                  {counselorChats.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-8 text-center">
-                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No active chats</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Your chat sessions will appear here
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 space-y-3">
-                      {counselorChats.map((chat) => {
-                        const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
-                        return (
-                          <div
-                            key={chat.id}
-                            className={`p-4 border rounded-lg ${
-                              isDismissed
-                                ? 'bg-gray-50 border-gray-200 opacity-60'
-                                : 'bg-white hover:shadow-md transition-shadow cursor-pointer'
-                            }`}
-                            onClick={() => {
-                              if (!isDismissed) {
-                                setChatSession(chat);
-                                setShowChat(true);
-                              }
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{chat.userName}</span>
-                                  {isDismissed ? (
-                                    <Badge variant="destructive" className="text-xs">
-                                      Dismissed
-                                    </Badge>
-                                  ) : chat.status === 'active' ? (
-                                    <Badge variant="default" className="text-xs bg-green-500">
-                                      Active
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="text-xs">
-                                      Ended
-                                    </Badge>
-                                  )}
-                                </div>
-                                {chat.lastMessage && (
-                                  <p className="text-sm text-gray-600 line-clamp-2">
-                                    {chat.lastMessage}
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                  <Clock className="h-3 w-3" />
-                                  {chat.updatedAt?.toDate?.().toLocaleDateString() || 'Recently'}
-                                  {chat.unreadCountCounselor > 0 && (
-                                    <Badge variant="default" className="ml-auto text-xs">
-                                      {chat.unreadCountCounselor} new
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           )}
 
             {/* Offline Message */}
@@ -1025,7 +743,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   <Circle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                   <p className="text-lg font-medium text-gray-600">You are offline</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Go online to start receiving counsel requests
+                    Go online to start receiving chat requests from clients
                   </p>
                 </div>
               </div>

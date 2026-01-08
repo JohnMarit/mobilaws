@@ -81,20 +81,53 @@ export default function PaymentSuccess() {
                   // Clear pending booking
                   sessionStorage.removeItem('pendingBooking');
                   
+                  // Chat should be created automatically after payment
                   // If chatId is returned, chat was created immediately - open it directly
                   if (result.chatId) {
-                    navigate(`/?openChat=${result.chatId}`);
+                    // Open BookCounsel with the chatId to automatically open chat
+                    navigate(`/?openBookCounsel=true&chatId=${result.chatId}`);
                     toast({
-                      title: 'Chat Ready',
-                      description: 'Your consultation chat is ready. You can start chatting now.',
+                      title: '💬 Chat Ready!',
+                      description: 'Your consultation chat is ready. Opening chat now...',
                     });
                   } else {
-                    // Fallback: navigate to home, chat will be created when counselor accepts
-                    navigate(`/?openChat=${result.requestId}`);
-                    toast({
-                      title: 'Booking Created',
-                      description: 'Your consultation request has been created. A counselor will contact you soon.',
-                    });
+                    // Poll for chat creation (should happen automatically)
+                    let attempts = 0;
+                    const maxAttempts = 10;
+                    const pollForChat = async () => {
+                      attempts++;
+                      try {
+                        const { getChatByRequestId } = await import('@/lib/counsel-chat-service');
+                        const chat = await getChatByRequestId(result.requestId!);
+                        
+                        if (chat) {
+                          navigate(`/?openBookCounsel=true&chatId=${chat.id}`);
+                          toast({
+                            title: '💬 Chat Ready!',
+                            description: 'Your consultation chat is ready. Opening chat now...',
+                          });
+                        } else if (attempts < maxAttempts) {
+                          setTimeout(pollForChat, 1000);
+                        } else {
+                          // Fallback: navigate to home with requestId
+                          navigate(`/?openBookCounsel=true&requestId=${result.requestId}`);
+                          toast({
+                            title: 'Payment Successful',
+                            description: 'Your payment was verified. Chat will open shortly.',
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error polling for chat:', error);
+                        if (attempts < maxAttempts) {
+                          setTimeout(pollForChat, 1000);
+                        } else {
+                          navigate(`/?openBookCounsel=true&requestId=${result.requestId}`);
+                        }
+                      }
+                    };
+                    
+                    // Start polling after a brief delay
+                    setTimeout(pollForChat, 500);
                   }
                 } else {
                   toast({

@@ -22,14 +22,27 @@ const Index = () => {
   const [showDonationDialog, setShowDonationDialog] = useState(false);
   const { toast } = useToast();
   
-  // Check for openChat query parameter (from payment success)
+  // Check for openChat/chatId/requestId query parameters (from payment success)
   const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | undefined>();
   
   useEffect(() => {
     const openChat = searchParams.get('openChat');
+    const openBookCounsel = searchParams.get('openBookCounsel');
+    const chatId = searchParams.get('chatId');
+    const requestId = searchParams.get('requestId');
     const bookingCreated = searchParams.get('bookingCreated');
     
-    if (openChat) {
+    if (openBookCounsel === 'true') {
+      // Open BookCounsel dialog with chatId or requestId
+      if (chatId) {
+        setAutoOpenRequestId(chatId);
+      } else if (requestId) {
+        setAutoOpenRequestId(requestId);
+      }
+      setShowBookCounsel(true);
+      // Clear the query params
+      setSearchParams({});
+    } else if (openChat) {
       setAutoOpenRequestId(openChat);
       setShowBookCounsel(true);
       // Clear the query params
