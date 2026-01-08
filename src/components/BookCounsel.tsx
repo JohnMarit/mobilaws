@@ -10,10 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Phone, MapPin, Scale, Calendar, Clock, CheckCircle2, XCircle, Users, ShieldCheck } from 'lucide-react';
+import { Loader2, Phone, MapPin, Scale, Calendar, Clock, CheckCircle2, XCircle, Users, ShieldCheck, DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   getCounselConfig,
   createCounselRequest,
@@ -24,7 +27,9 @@ import {
   type SouthSudanState,
   type LegalCategory,
   type CounselRequest,
+  type Counselor,
 } from '@/lib/counsel-service';
+import { getApiUrl } from '@/lib/api';
 import { getChatByRequestId, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselChatInterface } from './CounselChatInterface';
 
@@ -50,7 +55,8 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [request, setRequest] = useState<CounselRequest | null>(null);
   const [availableCount, setAvailableCount] = useState(0);
-  const [availableCounselors, setAvailableCounselors] = useState<import('@/lib/counsel-service').Counselor[]>([]);
+  const [availableCounselors, setAvailableCounselors] = useState<Counselor[]>([]);
+  const [isLoadingCounselors, setIsLoadingCounselors] = useState(false);
   const [broadcastCount, setBroadcastCount] = useState(0);
   const [countdown, setCountdown] = useState(300); // 5 minutes default
   const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
@@ -66,7 +72,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load config on mount
+  // Load config and counselors on mount
   useEffect(() => {
     getCounselConfig().then(config => {
       setStates(config.states);
@@ -74,14 +80,49 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
     });
   }, []);
 
-  // Reset when dialog opens/closes
+  // Load all online counselors when dialog opens
   useEffect(() => {
     if (open) {
       resetForm();
+      loadAllCounselors();
     } else {
       stopPolling();
     }
   }, [open]);
+
+  // Function to load all online counselors
+  const loadAllCounselors = async () => {
+    setIsLoadingCounselors(true);
+    try {
+      // Try to get all online counselors directly from API
+      const apiUrl = getApiUrl('counsel/counselors/online');
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.counselors && Array.isArray(data.counselors)) {
+          setAvailableCounselors(data.counselors);
+          setAvailableCount(data.counselors.length);
+          setIsLoadingCounselors(false);
+          return;
+        }
+      }
+      
+      // Fallback: Get counselors from all states if API doesn't work
+      const allCounselors: Counselor[] = [];
+      if (states.length > 0) {
+        for (const stateObj of states) {
+          const counselors = await getAvailableCounselors(stateObj.code);
+          allCounselors.push(...counselors);
+        }
+      }
+      setAvailableCounselors(allCounselors);
+      setAvailableCount(allCounselors.length);
+    } catch (error) {
+      console.error('Error loading counselors:', error);
+    } finally {
+      setIsLoadingCounselors(false);
+    }
+  };
 
   // Poll for request status when waiting
   useEffect(() => {
@@ -195,23 +236,39 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   // Check available counselors when state changes
   useEffect(() => {
     if (state) {
+      setIsLoadingCounselors(true);
       getAvailableCounselors(state).then(counselors => {
         setAvailableCount(counselors.length);
         setAvailableCounselors(counselors);
+        setIsLoadingCounselors(false);
+      }).catch(() => {
+        setIsLoadingCounselors(false);
       });
+    } else {
+      setAvailableCounselors([]);
+      setAvailableCount(0);
     }
   }, [state]);
 
-  const handleSubmit = async () => {
-    if (!note.trim() || !state) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please enter your location and describe your problem.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  // Helper function to get initials from name
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
+  // Helper function to get fee display
+  const getFeeDisplay = (): string => {
+    if (userSubscription && userSubscription.isActive && !userSubscription.isFree) {
+      return `Included in ${userSubscription.planId === 'basic' ? 'Basic' : userSubscription.planId === 'standard' ? 'Standard' : 'Premium'} Plan`;
+    }
+    return 'Requires paid subscription';
+  };
+
+  const handleSelectCounselor = async (counselor: Counselor) => {
     if (!user) {
       toast({
         title: 'Please Sign In',
@@ -236,21 +293,25 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       return;
     }
 
-    // Auto-set category to first available if not selected
+    // Use counselor's state or default to first state
+    const counselorState = counselor.state || (states.length > 0 ? states[0].code : 'CES');
     const finalCategory = category || (categories.length > 0 ? categories[0].id : 'general');
+    const defaultNote = `I would like to consult with ${counselor.name} about a legal matter.`;
 
     setIsSubmitting(true);
     setStep('broadcasting');
+    setState(counselorState);
+    setNote(defaultNote);
 
     try {
       const result = await createCounselRequest(
         user.id,
-        user.displayName || 'User',
+        user.name || 'User',
         user.email || '',
-        phone || user.email || '', // Use email if no phone
-        note.trim(),
+        phone || user.email || '',
+        defaultNote,
         finalCategory,
-        state
+        counselorState
       );
 
       if (!result.success) {
@@ -266,9 +327,8 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       setRequestId(result.requestId || null);
       setBroadcastCount(result.broadcastCount || 0);
 
-      // Always wait/search for 3 minutes before scheduling, even if none online
       setStep('waiting');
-      setCountdown(180); // 3 minutes
+      setCountdown(180);
       toast({
         title: result.broadcastCount > 0 ? '📡 Broadcasting Request' : 'Searching for Counselors',
         description: result.broadcastCount > 0
@@ -309,7 +369,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
     try {
       const result = await scheduleBooking(
         user.id,
-        user.displayName || 'User',
+        user.name || 'User',
         user.email || '',
         finalPhone,
         note.trim(),
@@ -383,127 +443,147 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step 1: Form */}
+        {/* Step 1: Show Counselors List Directly */}
         {step === 'form' && (
           <div className="space-y-4">
-            {/* State Selection */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Your State <span className="text-red-500">*</span>
-              </Label>
-              <Select value={state} onValueChange={setState}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select your state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {states.map((s) => (
-                    <SelectItem key={s.code} value={s.code}>
-                      {s.name} ({s.capital})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {state && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {availableCount > 0 
-                    ? `${availableCount} counsel(s) available in ${selectedState?.name}`
-                    : `No counsels online in ${selectedState?.name}`
-                  }
-                </p>
-              )}
-            </div>
-
-            {/* Available Counselors Preview */}
-            {state && availableCounselors.length > 0 && (
-              <div className="mt-2 rounded-md border bg-muted/40 p-3 space-y-2">
-                <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  <ShieldCheck className="h-3 w-3" />
+            {/* Available Counselors List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <ShieldCheck className="h-4 w-4" />
                   Available Counselors
                 </div>
-                <div className="space-y-1">
-                  {availableCounselors.slice(0, 5).map((counselor) => {
+                {availableCount > 0 && (
+                  <Badge variant="outline" className="text-xs">
+                    {availableCount} {availableCount === 1 ? 'counselor' : 'counselors'} available
+                  </Badge>
+                )}
+              </div>
+              
+              {isLoadingCounselors ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : availableCounselors.length > 0 ? (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {availableCounselors.map((counselor) => {
                     const primarySpecialization = counselor.specializations?.[0] || 'General Practice';
                     const statusLabel = counselor.isOnline ? 'Online' : 'Offline';
+                    const initials = getInitials(counselor.name);
 
                     return (
-                      <div
-                        key={counselor.id}
-                        className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-2 py-1.5 text-[11px] border"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="font-medium text-gray-900 text-xs">{counselor.name}</div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                            <span>
-                              <span className="font-semibold">Status:</span> {statusLabel}
-                            </span>
-                            <span>
-                              <span className="font-semibold">Type of law:</span> {primarySpecialization}
-                            </span>
-                            <span>
-                              <span className="font-semibold">Fee:</span> Based on your Mobilaws subscription
-                            </span>
+                      <Card key={counselor.id} className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectCounselor(counselor)}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            {/* Avatar */}
+                            <Avatar className="h-16 w-16 border-2 border-gray-200">
+                              <AvatarImage src={undefined} alt={counselor.name} />
+                              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold text-lg">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            {/* Counselor Info */}
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <h3 className="font-semibold text-base text-gray-900">{counselor.name}</h3>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge 
+                                      variant={counselor.isOnline ? "default" : "secondary"}
+                                      className={counselor.isOnline ? "bg-green-500 hover:bg-green-600" : ""}
+                                    >
+                                      <span className={`h-2 w-2 rounded-full mr-1.5 ${counselor.isOnline ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+                                      {statusLabel}
+                                    </Badge>
+                                    {typeof counselor.rating === 'number' && counselor.rating > 0 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        ⭐ {counselor.rating.toFixed(1)}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5 text-sm">
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <Scale className="h-4 w-4 text-primary" />
+                                  <span className="font-medium">Type of Law:</span>
+                                  <span>{primarySpecialization}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-gray-600">
+                                  <DollarSign className="h-4 w-4 text-green-600" />
+                                  <span className="font-medium">Fee:</span>
+                                  <span className="text-green-700">{getFeeDisplay()}</span>
+                                </div>
+                                {counselor.state && (
+                                  <div className="flex items-center gap-2 text-gray-600">
+                                    <MapPin className="h-4 w-4 text-blue-600" />
+                                    <span className="font-medium">Location:</span>
+                                    <span>{states.find(s => s.code === counselor.state)?.name || counselor.state}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        {counselor.isOnline && (
-                          <div className="flex flex-col items-end gap-1 text-[11px] text-green-700">
-                            <span className="flex items-center gap-1">
-                              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                              Online
-                            </span>
-                            {typeof counselor.rating === 'number' && counselor.rating > 0 && (
-                              <span>{counselor.rating.toFixed(1)}★</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
-                  {availableCounselors.length > 5 && (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      And {availableCounselors.length - 5} more counsel(s) in {selectedState?.name}.
-                    </p>
-                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Description - Simplified */}
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">
-                Describe Your Problem <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                placeholder="Please describe your legal problem or question in detail..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={8}
-                className="resize-none text-base"
-              />
-              <p className="text-xs text-muted-foreground">
-                Provide as much detail as possible to help the counsel understand your situation
-              </p>
-            </div>
-
-            {/* Submit Button */}
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !note.trim() || !state}
-              className="w-full h-12 text-lg"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Finding Counsel...
-                </>
               ) : (
-                <>
-                  <Scale className="h-5 w-5 mr-2" />
-                  Find a Counsel Now
-                </>
+                <div className="space-y-3">
+                  <div className="text-center py-4">
+                    <p className="text-sm font-medium text-gray-600 mb-4">
+                      There are no counselors available yet
+                    </p>
+                  </div>
+                  {/* Placeholder Cards */}
+                  {[1, 2, 3].map((idx) => (
+                    <Card key={`placeholder-${idx}`} className="border-2 border-dashed border-gray-300 opacity-60">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          {/* Placeholder Avatar */}
+                          <Avatar className="h-16 w-16 border-2 border-gray-300 bg-gray-100">
+                            <AvatarFallback className="bg-gray-200 text-gray-400 font-semibold text-lg">
+                              ?
+                            </AvatarFallback>
+                          </Avatar>
+
+                          {/* Placeholder Info */}
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mb-2" />
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary" className="bg-gray-200 text-gray-500">
+                                    <span className="h-2 w-2 rounded-full mr-1.5 bg-gray-400" />
+                                    Offline
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 text-sm">
+                              <div className="flex items-center gap-2 text-gray-400">
+                                <Scale className="h-4 w-4" />
+                                <span className="font-medium">Type of Law:</span>
+                                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-400">
+                                <DollarSign className="h-4 w-4" />
+                                <span className="font-medium">Fee:</span>
+                                <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
-            </Button>
+            </div>
           </div>
         )}
 
