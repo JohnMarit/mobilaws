@@ -345,7 +345,7 @@ router.post('/appointment/:appointmentId/accept', async (req: Request, res: Resp
  */
 router.post('/counselor/apply', async (req: Request, res: Response) => {
   try {
-    const { userId, name, email, phone, nationalIdNumber, idDocumentUrl, state, servingStates, specializations } = req.body;
+    const { userId, name, email, phone, nationalIdNumber, idDocumentUrl, state, servingStates, specializations, bookingFee } = req.body;
 
     console.log('📝 Counselor application received:', {
       userId: userId ? '✓' : '✗',
@@ -383,6 +383,7 @@ router.post('/counselor/apply', async (req: Request, res: Response) => {
       state: state as StateCode,
       servingStates: servingStates || [state],
       specializations: specializations || [],
+      bookingFee: bookingFee ? parseFloat(bookingFee) : undefined,
     });
 
     if (!result.success) {

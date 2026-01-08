@@ -222,8 +222,61 @@ router.post('/payment/create-link', async (req: Request, res: Response) => {
   };
 
   try {
-    const { planId, userId, planName, price, tokens, userEmail, userName } = req.body;
+    const { planId, userId, planName, price, tokens, userEmail, userName, type, amount, counselorId, counselorName } = req.body;
     
+    // Handle booking payment (one-time payment)
+    if (type === 'booking') {
+      if (!amount || !userId || !counselorId) {
+        return res.status(400).json({ 
+          error: 'Missing required fields for booking: amount, userId, counselorId' 
+        });
+      }
+
+      if (!userEmail) {
+        return res.status(400).json({ 
+          error: 'Email is required for Paystack payments' 
+        });
+      }
+
+      if (!paystackClient) {
+        return res.status(500).json({ 
+          error: 'Paystack API key not configured' 
+        });
+      }
+
+      // Convert USD to KES (using ~120 KES per USD)
+      const priceInKes = Math.round(amount * 120);
+      const amountInSubunits = priceInKes * 100;
+      const reference = `booking_${userId}_${counselorId}_${Date.now()}`;
+
+      const response = await paystackClient.transaction.initialize({
+        email: userEmail,
+        amount: amountInSubunits,
+        currency: env.PAYSTACK_CURRENCY || 'KES',
+        reference: reference,
+        callback_url: `${env.FRONTEND_URL}/payment/success?reference=${reference}&type=booking`,
+        metadata: {
+          type: 'booking',
+          userId,
+          counselorId,
+          counselorName,
+          amount,
+        },
+      });
+
+      if (response.status && response.data) {
+        return res.json({
+          success: true,
+          paymentLink: response.data.authorization_url,
+          reference: reference,
+          paymentId: reference,
+        });
+      } else {
+        return res.status(500).json({ error: 'Failed to create payment link' });
+      }
+    }
+    
+    // Original subscription payment logic
     // Input validation
     if (!planId || !userId || !price) {
       return res.status(400).json({ 
@@ -488,12 +541,44 @@ router.post('/payment/verify', async (req: Request, res: Response) => {
       });
     }
 
+    // Check if this is a booking payment
+    const metadata = transaction.metadata || {};
+    if (metadata.type === 'booking') {
+      // Handle booking payment
+      const userId = metadata.userId as string;
+      const counselorId = metadata.counselorId as string;
+      const amount = parseFloat(metadata.amount as string) || 0;
+      
+      // Mark payment as processed
+      await updatePaymentSessionStatus(ref, 'completed');
+      await savePaymentSession({
+        paymentId: ref,
+        userId,
+        type: 'booking',
+        price: amount,
+        amount,
+        counselorId,
+        status: 'completed',
+      });
+      
+      // Note: Earnings will be added when the booking is completed
+      // For now, just return success so user can proceed with booking
+      
+      return res.json({
+        success: true,
+        type: 'booking',
+        message: 'Booking payment verified successfully',
+        userId,
+        counselorId,
+        amount,
+      });
+    }
+
     // Get payment session data from Firestore
     let session = await getPaymentSession(ref);
     
     // If session not found, try to extract from transaction metadata
     if (!session) {
-      const metadata = transaction.metadata || {};
       if (!metadata.userId || !metadata.planId) {
         console.error(`❌ Payment session not found and metadata incomplete for ${ref}`);
         return res.status(400).json({ 

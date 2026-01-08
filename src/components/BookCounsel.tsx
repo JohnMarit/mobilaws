@@ -32,6 +32,7 @@ import {
 import { getApiUrl } from '@/lib/api';
 import { getChatByRequestId, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselChatInterface } from './CounselChatInterface';
+import { getGravatarUrl } from '@/lib/gravatar';
 
 interface BookCounselProps {
   open: boolean;
@@ -68,7 +69,9 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   
   const { user } = useAuth();
   const { toast } = useToast();
-  const { userSubscription } = useSubscription();
+  const { userSubscription, initiatePayment } = useSubscription();
+  const [selectedCounselorForPayment, setSelectedCounselorForPayment] = useState<Counselor | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -260,12 +263,13 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       .slice(0, 2);
   };
 
-  // Helper function to get fee display
-  const getFeeDisplay = (): string => {
+  // Helper function to get fee display for a counselor
+  const getFeeDisplay = (counselor: Counselor): string => {
+    const fee = counselor.bookingFee || 10; // Default $10
     if (userSubscription && userSubscription.isActive && !userSubscription.isFree) {
-      return `Included in ${userSubscription.planId === 'basic' ? 'Basic' : userSubscription.planId === 'standard' ? 'Standard' : 'Premium'} Plan`;
+      return `$${fee.toFixed(2)} (Included in ${userSubscription.planId === 'basic' ? 'Basic' : userSubscription.planId === 'standard' ? 'Standard' : 'Premium'} Plan)`;
     }
-    return 'Requires paid subscription';
+    return `$${fee.toFixed(2)} per booking`;
   };
 
   const handleSelectCounselor = async (counselor: Counselor) => {
@@ -284,12 +288,12 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       !userSubscription.isFree &&
       userSubscription.planId !== 'free';
 
+    const bookingFee = counselor.bookingFee || 10;
+
+    // If free tier, require payment for booking
     if (!hasActivePaidPlan) {
-      toast({
-        title: 'Payment Required',
-        description: 'You need an active paid Mobilaws plan before you can chat or call a counsel. Please purchase a plan from your profile.',
-        variant: 'destructive',
-      });
+      setSelectedCounselorForPayment(counselor);
+      setShowPaymentDialog(true);
       return;
     }
 
@@ -457,9 +461,9 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                   <Badge variant="outline" className="text-xs">
                     {availableCount} {availableCount === 1 ? 'counselor' : 'counselors'} available
                   </Badge>
-                )}
-              </div>
-              
+              )}
+            </div>
+
               {isLoadingCounselors ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -470,6 +474,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                     const primarySpecialization = counselor.specializations?.[0] || 'General Practice';
                     const statusLabel = counselor.isOnline ? 'Online' : 'Offline';
                     const initials = getInitials(counselor.name);
+                    const avatarUrl = getGravatarUrl(counselor.email, 128);
 
                     return (
                       <Card key={counselor.id} className="border-2 hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectCounselor(counselor)}>
@@ -477,7 +482,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                           <div className="flex items-start gap-4">
                             {/* Avatar */}
                             <Avatar className="h-16 w-16 border-2 border-gray-200">
-                              <AvatarImage src={undefined} alt={counselor.name} />
+                              <AvatarImage src={avatarUrl} alt={counselor.name} />
                               <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold text-lg">
                                 {initials}
                               </AvatarFallback>
@@ -503,7 +508,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                                     )}
                                   </div>
                                 </div>
-                              </div>
+            </div>
 
                               <div className="space-y-1.5 text-sm">
                                 <div className="flex items-center gap-2 text-gray-600">
@@ -514,7 +519,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                                 <div className="flex items-center gap-2 text-gray-600">
                                   <DollarSign className="h-4 w-4 text-green-600" />
                                   <span className="font-medium">Fee:</span>
-                                  <span className="text-green-700">{getFeeDisplay()}</span>
+                                  <span className="text-green-700 font-semibold">{getFeeDisplay(counselor)}</span>
                                 </div>
                                 {counselor.state && (
                                   <div className="flex items-center gap-2 text-gray-600">
@@ -777,6 +782,88 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
           chatSession={chatSession}
           userRole="user"
         />
+      )}
+
+      {/* Payment Dialog for Free Tier Users */}
+      {showPaymentDialog && selectedCounselorForPayment && (
+        <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                Pay Booking Fee
+              </DialogTitle>
+              <DialogDescription>
+                Pay the booking fee to consult with {selectedCounselorForPayment.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Booking Fee:</span>
+                  <span className="text-lg font-bold text-green-700">
+                    ${(selectedCounselorForPayment.bookingFee || 10).toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  This is a one-time payment for this consultation booking.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPaymentDialog(false);
+                    setSelectedCounselorForPayment(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    const fee = selectedCounselorForPayment.bookingFee || 10;
+                    // Create payment link for booking fee
+                    try {
+                      const response = await fetch(getApiUrl('payment/create-link'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          type: 'booking',
+                          amount: fee,
+                          userId: user?.id,
+                          counselorId: selectedCounselorForPayment.id,
+                          counselorName: selectedCounselorForPayment.name,
+                          userEmail: user?.email,
+                          userName: user?.name,
+                        }),
+                      });
+                      const data = await response.json();
+                      if (data.paymentLink) {
+                        window.location.href = data.paymentLink;
+                      } else {
+                        toast({
+                          title: 'Payment Error',
+                          description: data.error || 'Failed to create payment link',
+                          variant: 'destructive',
+                        });
+                      }
+                    } catch (error) {
+                      toast({
+                        title: 'Payment Error',
+                        description: 'Failed to process payment. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  Pay ${(selectedCounselorForPayment.bookingFee || 10).toFixed(2)}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </Dialog>
   );

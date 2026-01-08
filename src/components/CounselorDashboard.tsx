@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, Volume2 } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, Volume2, DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -477,6 +477,31 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         ) : (
           // Approved - show full dashboard
           <div className="flex-1 flex flex-col space-y-4 min-h-0">
+            {/* Earnings Display */}
+            {counselorProfile && typeof counselorProfile.totalEarnings === 'number' && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <DollarSign className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Total Earnings</p>
+                      <p className="text-2xl font-bold text-green-700">
+                        ${counselorProfile.totalEarnings.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Booking Fee</p>
+                    <p className="text-sm font-semibold text-gray-700">
+                      ${(counselorProfile.bookingFee || 10).toFixed(2)} per booking
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Setup Section */}
             <div className="bg-gray-50 rounded-lg p-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -522,6 +547,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   {counselorProfile && (
                     <p className="text-xs text-muted-foreground">
                       {counselorProfile.totalCases} total cases • {counselorProfile.completedCases} completed
+                      {typeof counselorProfile.totalEarnings === 'number' && (
+                        <span className="ml-2 text-green-600 font-semibold">
+                          • ${counselorProfile.totalEarnings.toFixed(2)} earned
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

@@ -19,6 +19,7 @@ export default function PaymentSuccess() {
   useEffect(() => {
     // Get payment reference from URL (Paystack uses 'reference' parameter)
     const reference = searchParams.get('reference') || searchParams.get('payment_id') || searchParams.get('session_id');
+    const paymentType = searchParams.get('type'); // 'booking' or subscription
     
     if (!reference) {
       setVerificationError('No payment reference found in URL');
@@ -26,7 +27,7 @@ export default function PaymentSuccess() {
       return;
     }
 
-    console.log(`🔍 Processing payment success for reference: ${reference}`);
+    console.log(`🔍 Processing payment success for reference: ${reference}, type: ${paymentType || 'subscription'}`);
 
     // Polling function to check if webhook has processed the payment
     const pollForSubscription = async () => {
@@ -40,9 +41,20 @@ export default function PaymentSuccess() {
         const success = await verifyPayment(reference);
         
         if (success) {
-          console.log('✅ Subscription activated successfully');
-          setIsVerified(true);
-          setIsVerifying(false);
+          if (paymentType === 'booking') {
+            console.log('✅ Booking payment verified successfully');
+            setIsVerified(true);
+            setIsVerifying(false);
+            
+            // Redirect back to home after a short delay
+            setTimeout(() => {
+              navigate('/');
+            }, 2000);
+          } else {
+            console.log('✅ Subscription activated successfully');
+            setIsVerified(true);
+            setIsVerifying(false);
+          }
           
           // Stop polling
           if (pollingIntervalRef.current) {
@@ -119,9 +131,13 @@ export default function PaymentSuccess() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Check className="h-8 w-8 text-green-600" />
               </div>
-              <CardTitle className="text-green-800">Subscription Activated!</CardTitle>
+              <CardTitle className="text-green-800">
+                {searchParams.get('type') === 'booking' ? 'Payment Successful!' : 'Subscription Activated!'}
+              </CardTitle>
               <CardDescription>
-                Your monthly subscription has been successfully activated. Your tokens are ready to use!
+                {searchParams.get('type') === 'booking' 
+                  ? 'Your booking payment has been verified. You can now proceed with your consultation.'
+                  : 'Your monthly subscription has been successfully activated. Your tokens are ready to use!'}
               </CardDescription>
             </>
           ) : (

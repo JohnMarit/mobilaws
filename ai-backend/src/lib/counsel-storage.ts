@@ -87,6 +87,9 @@ export interface Counselor {
   completedCases: number;
   activeRequests: number;
   maxActiveRequests: number; // Max concurrent cases
+  // Financial
+  bookingFee: number; // Fee per booking in USD
+  totalEarnings: number; // Total earnings from bookings
   lastSeenAt: admin.firestore.Timestamp;
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
@@ -138,6 +141,7 @@ export async function applyCounselor(application: {
   state: StateCode;
   servingStates?: StateCode[];
   specializations?: string[];
+  bookingFee?: number; // Fee per booking in USD
 }): Promise<{ success: boolean; message: string }> {
   const db = getFirestore();
   if (!db) {
@@ -184,6 +188,8 @@ export async function applyCounselor(application: {
       completedCases: 0,
       activeRequests: 0,
       maxActiveRequests: 5,
+      bookingFee: application.bookingFee || 10, // Default $10 if not specified
+      totalEarnings: 0,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: now,
@@ -1184,8 +1190,13 @@ export async function completeCounselRequest(requestId: string): Promise<boolean
     if (requestData.counselorId) {
       await incrementCounselorActiveRequests(requestData.counselorId, -1);
       const counselorRef = db.collection(COUNSELORS_COLLECTION).doc(requestData.counselorId);
+      const counselorDoc = await counselorRef.get();
+      const counselorData = counselorDoc.data() as Counselor;
+      const bookingFee = counselorData?.bookingFee || 0;
+      
       await counselorRef.update({
         completedCases: admin.firestore.FieldValue.increment(1),
+        totalEarnings: admin.firestore.FieldValue.increment(bookingFee),
       });
     }
 

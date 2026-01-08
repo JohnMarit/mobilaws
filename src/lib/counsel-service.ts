@@ -67,6 +67,9 @@ export interface Counselor {
   totalCases: number;
   completedCases: number;
   activeRequests: number;
+  // Financial
+  bookingFee?: number; // Fee per booking in USD
+  totalEarnings?: number; // Total earnings from bookings
 }
 
 export interface Appointment {
@@ -371,7 +374,8 @@ export async function applyCounselor(
   idDocumentUrl: string,
   state: string,
   servingStates?: string[],
-  specializations?: string[]
+  specializations?: string[],
+  bookingFee?: number
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const apiUrl = getApiUrl('counsel/counselor/apply');
@@ -388,6 +392,7 @@ export async function applyCounselor(
         state,
         servingStates: servingStates || [state],
         specializations: specializations || [],
+        bookingFee,
       }),
     });
 

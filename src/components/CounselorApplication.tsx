@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Scale, MapPin, Phone, CreditCard, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Loader2, Scale, MapPin, Phone, CreditCard, CheckCircle2, Clock, XCircle, DollarSign } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -31,6 +31,7 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
   const [phone, setPhone] = useState('');
   const [nationalIdNumber, setNationalIdNumber] = useState('');
   const [state, setState] = useState('');
+  const [bookingFee, setBookingFee] = useState('10');
   
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,10 +104,20 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
       return;
     }
 
-    if (!name.trim() || !phone.trim() || !nationalIdNumber.trim() || !state) {
+    if (!name.trim() || !phone.trim() || !nationalIdNumber.trim() || !state || !bookingFee) {
       toast({
         title: 'Missing Information',
-        description: 'Please fill in all required fields.',
+        description: 'Please fill in all required fields including booking fee.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const fee = parseFloat(bookingFee);
+    if (isNaN(fee) || fee <= 0) {
+      toast({
+        title: 'Invalid Fee',
+        description: 'Booking fee must be a positive number.',
         variant: 'destructive',
       });
       return;
@@ -131,7 +142,10 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
         phone.trim(),
         nationalIdNumber.trim(),
         '', // ID document URL (can be added later with file upload)
-        state
+        state,
+        undefined, // servingStates
+        undefined, // specializations
+        fee // bookingFee
       );
 
       if (result.success) {
@@ -305,10 +319,29 @@ export function CounselorApplication({ open, onOpenChange, onApproved }: Counsel
               </Select>
             </div>
 
+            {/* Booking Fee */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4" />
+                Booking Fee (USD) <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="number"
+                placeholder="10.00"
+                value={bookingFee}
+                onChange={(e) => setBookingFee(e.target.value)}
+                min="1"
+                step="0.01"
+              />
+              <p className="text-xs text-muted-foreground">
+                Set your consultation fee per booking. This is what clients will pay to book you.
+              </p>
+            </div>
+
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || !name || !phone || !nationalIdNumber || !state}
+              disabled={isSubmitting || !name || !phone || !nationalIdNumber || !state || !bookingFee}
               className="w-full"
             >
               {isSubmitting ? (

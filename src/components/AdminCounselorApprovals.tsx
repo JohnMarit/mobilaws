@@ -23,7 +23,8 @@ import {
   Phone, 
   CreditCard,
   Shield,
-  RefreshCcw
+  RefreshCcw,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -304,6 +305,18 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
                                 <Clock className="h-4 w-4" />
                                 Applied: {formatDate(counselor.appliedAt)}
                               </div>
+                              {typeof counselor.bookingFee === 'number' && (
+                                <div className="flex items-center gap-2 text-blue-600">
+                                  <DollarSign className="h-4 w-4" />
+                                  Fee: ${counselor.bookingFee.toFixed(2)}/booking
+                                </div>
+                              )}
+                              {typeof counselor.totalEarnings === 'number' && (
+                                <div className="flex items-center gap-2 text-green-600 font-semibold">
+                                  <DollarSign className="h-4 w-4" />
+                                  Earnings: ${counselor.totalEarnings.toFixed(2)}
+                                </div>
+                              )}
                             </div>
 
                             <div className="text-xs text-gray-500">
@@ -367,10 +380,21 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                               )}
                             </div>
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
                               <span>{counselor.phone}</span>
                               <span>{getStateName(counselor.state)}</span>
                               <span>{counselor.totalCases} cases</span>
+                              {typeof counselor.bookingFee === 'number' && (
+                                <span className="text-blue-600">
+                                  Fee: ${counselor.bookingFee.toFixed(2)}
+                                </span>
+                              )}
+                              {typeof counselor.totalEarnings === 'number' && (
+                                <span className="text-green-600 font-semibold">
+                                  <DollarSign className="h-3 w-3 inline" />
+                                  ${counselor.totalEarnings.toFixed(2)} earned
+                                </span>
+                              )}
                             </div>
                           </div>
                           {getStatusBadge(counselor.applicationStatus)}

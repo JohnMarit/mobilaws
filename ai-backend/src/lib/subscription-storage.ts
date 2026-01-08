@@ -71,10 +71,13 @@ export interface AdminOperation {
 export interface PaymentSession {
   paymentId: string;
   userId: string;
-  planId: string;
-  planName: string;
+  planId?: string; // Optional for booking payments
+  planName?: string; // Optional for booking payments
   price: number;
-  tokens: number;
+  tokens?: number; // Optional for booking payments
+  type?: 'subscription' | 'booking'; // Payment type
+  counselorId?: string; // For booking payments
+  amount?: number; // For booking payments (same as price)
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   createdAt: admin.firestore.Timestamp;
   updatedAt: admin.firestore.Timestamp;
