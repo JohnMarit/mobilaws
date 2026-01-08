@@ -37,11 +37,12 @@ import { getGravatarUrl } from '@/lib/gravatar';
 interface BookCounselProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  autoOpenRequestId?: string; // Optional request ID to automatically open chat
 }
 
 type BookingStep = 'form' | 'broadcasting' | 'waiting' | 'schedule' | 'accepted' | 'scheduled';
 
-export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
+export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCounselProps) {
   // Form state
   const [note, setNote] = useState('');
   const [phone, setPhone] = useState('');
@@ -92,6 +93,64 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       stopPolling();
     }
   }, [open]);
+
+  // Auto-open chat if requestId is provided (from payment success)
+  useEffect(() => {
+    if (open && autoOpenRequestId) {
+      const loadChat = async () => {
+        try {
+          const chat = await getChatByRequestId(autoOpenRequestId);
+          if (chat) {
+            setChatSession(chat);
+            setShowChat(true);
+            setStep('accepted');
+            setRequestId(autoOpenRequestId);
+            
+            // Load request details
+            const req = await getCounselRequest(autoOpenRequestId);
+            if (req) {
+              setRequest(req);
+            }
+          } else {
+            // Chat not created yet, wait for counselor to accept
+            setRequestId(autoOpenRequestId);
+            setStep('waiting');
+            setCountdown(180);
+            
+            // Start polling for chat
+            if (!pollingRef.current) {
+              pollingRef.current = setInterval(async () => {
+                if (!autoOpenRequestId) return;
+                
+                const req = await getCounselRequest(autoOpenRequestId);
+                if (req) {
+                  setRequest(req);
+                  
+                  if (req.status === 'accepted') {
+                    console.log('🎉 Request accepted! Counselor:', req.counselorName);
+                    setStep('accepted');
+                    
+                    // Load chat session
+                    const chatSession = await getChatByRequestId(autoOpenRequestId);
+                    if (chatSession) {
+                      setChatSession(chatSession);
+                      setShowChat(true);
+                    }
+                    
+                    stopPolling();
+                  }
+                }
+              }, 2000);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading chat:', error);
+        }
+      };
+      loadChat();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoOpenRequestId]);
 
   // Function to load all online counselors
   const loadAllCounselors = async () => {
@@ -823,6 +882,21 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                 <Button
                   onClick={async () => {
                     const fee = selectedCounselorForPayment.bookingFee || 10;
+                    
+                    // Store booking details in sessionStorage for after payment
+                    const bookingDetails = {
+                      counselorId: selectedCounselorForPayment.id,
+                      counselorName: selectedCounselorForPayment.name,
+                      counselorState: selectedCounselorForPayment.state || (states.length > 0 ? states[0].code : 'CES'),
+                      category: category || (categories.length > 0 ? categories[0].id : 'general'),
+                      note: note || `I would like to consult with ${selectedCounselorForPayment.name} about a legal matter.`,
+                      phone: phone || user?.email || '',
+                      userId: user?.id || '',
+                      userName: user?.name || 'User',
+                      userEmail: user?.email || '',
+                    };
+                    sessionStorage.setItem('pendingBooking', JSON.stringify(bookingDetails));
+                    
                     // Create payment link for booking fee
                     try {
                       const response = await fetch(getApiUrl('payment/create-link'), {
@@ -842,6 +916,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                       if (data.paymentLink) {
                         window.location.href = data.paymentLink;
                       } else {
+                        sessionStorage.removeItem('pendingBooking');
                         toast({
                           title: 'Payment Error',
                           description: data.error || 'Failed to create payment link',
@@ -849,6 +924,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                         });
                       }
                     } catch (error) {
+                      sessionStorage.removeItem('pendingBooking');
                       toast({
                         title: 'Payment Error',
                         description: 'Failed to process payment. Please try again.',

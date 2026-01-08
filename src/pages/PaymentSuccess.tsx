@@ -1,17 +1,24 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Check, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { createCounselRequest } from '@/lib/counsel-service';
+import { getChatByRequestId } from '@/lib/counsel-chat-service';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { verifyPayment, refreshSubscription } = useSubscription();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(true);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
+  const [isCreatingRequest, setIsCreatingRequest] = useState(false);
   const [pollingCount, setPollingCount] = useState(0);
   const maxPolls = 30; // 30 attempts = 60 seconds
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -46,10 +53,71 @@ export default function PaymentSuccess() {
             setIsVerified(true);
             setIsVerifying(false);
             
-            // Redirect back to home after a short delay
-            setTimeout(() => {
+            // Stop polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            
+            // Create counsel request automatically
+            const pendingBooking = sessionStorage.getItem('pendingBooking');
+            if (pendingBooking && user) {
+              try {
+                setIsCreatingRequest(true);
+                const bookingDetails = JSON.parse(pendingBooking);
+                
+                const result = await createCounselRequest(
+                  bookingDetails.userId || user.id,
+                  bookingDetails.userName || user.name || 'User',
+                  bookingDetails.userEmail || user.email || '',
+                  bookingDetails.phone || user.email || '',
+                  bookingDetails.note,
+                  bookingDetails.category,
+                  bookingDetails.counselorState
+                );
+                
+                if (result.success && result.requestId) {
+                  // Clear pending booking
+                  sessionStorage.removeItem('pendingBooking');
+                  
+                  // Get chat session
+                  const chatSession = await getChatByRequestId(result.requestId);
+                  
+                  if (chatSession) {
+                    // Navigate to home with chat open
+                    navigate(`/?openChat=${result.requestId}`);
+                  } else {
+                    // Navigate to home, chat will be created when counselor accepts
+                    navigate('/?bookingCreated=true');
+                  }
+                  
+                  toast({
+                    title: 'Booking Created',
+                    description: 'Your consultation request has been created. A counselor will contact you soon.',
+                  });
+                } else {
+                  toast({
+                    title: 'Payment Successful',
+                    description: 'Your payment was verified. You can now book a counselor from the home page.',
+                    variant: 'default',
+                  });
+                  navigate('/');
+                }
+              } catch (error) {
+                console.error('Error creating counsel request:', error);
+                toast({
+                  title: 'Payment Successful',
+                  description: 'Your payment was verified. You can now book a counselor from the home page.',
+                  variant: 'default',
+                });
+                navigate('/');
+              } finally {
+                setIsCreatingRequest(false);
+              }
+            } else {
+              // No pending booking, just redirect
               navigate('/');
-            }, 2000);
+            }
           } else {
             console.log('✅ Subscription activated successfully');
             setIsVerified(true);
@@ -115,10 +183,20 @@ export default function PaymentSuccess() {
           {isVerifying ? (
             <>
               <Loader2 className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-              <CardTitle>Processing Your Subscription...</CardTitle>
+              <CardTitle>
+                {searchParams.get('type') === 'booking' ? 'Processing Your Payment...' : 'Processing Your Subscription...'}
+              </CardTitle>
               <CardDescription>
-                Please wait while we activate your subscription. This usually takes a few seconds.
+                {searchParams.get('type') === 'booking' 
+                  ? 'Please wait while we verify your payment and create your booking. This usually takes a few seconds.'
+                  : 'Please wait while we activate your subscription. This usually takes a few seconds.'}
               </CardDescription>
+              {isCreatingRequest && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Creating your consultation request...</span>
+                </div>
+              )}
               {pollingCount > 5 && (
                 <div className="mt-4 flex items-center justify-center gap-2 text-sm text-gray-600">
                   <Clock className="h-4 w-4" />

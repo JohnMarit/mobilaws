@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2, Menu, Heart, GraduationCap, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
@@ -13,12 +14,32 @@ import { BookCounsel } from '@/components/BookCounsel';
 import { DonationDialog } from '@/components/DonationDialog';
 
 const Index = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showBookCounsel, setShowBookCounsel] = useState(false);
   const [showDonationDialog, setShowDonationDialog] = useState(false);
   const { toast } = useToast();
+  
+  // Check for openChat query parameter (from payment success)
+  const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | undefined>();
+  
+  useEffect(() => {
+    const openChat = searchParams.get('openChat');
+    const bookingCreated = searchParams.get('bookingCreated');
+    
+    if (openChat) {
+      setAutoOpenRequestId(openChat);
+      setShowBookCounsel(true);
+      // Clear the query params
+      setSearchParams({});
+    } else if (bookingCreated) {
+      setShowBookCounsel(true);
+      // Clear the query params
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
   const {
     chatHistory,
     currentChatId,
@@ -162,7 +183,16 @@ const Index = () => {
       </div>
 
       {/* Book Counsel Dialog */}
-      <BookCounsel open={showBookCounsel} onOpenChange={setShowBookCounsel} />
+      <BookCounsel 
+        open={showBookCounsel} 
+        onOpenChange={(open) => {
+          setShowBookCounsel(open);
+          if (!open) {
+            setAutoOpenRequestId(undefined);
+          }
+        }}
+        autoOpenRequestId={autoOpenRequestId}
+      />
       
       {/* Donation Dialog */}
       <DonationDialog open={showDonationDialog} onOpenChange={setShowDonationDialog} />
