@@ -106,7 +106,13 @@ export default function Leaderboard({ className }: LeaderboardProps) {
     }
   };
 
-  // Group learners by league
+  // Determine current user's league
+  const userLeague = useMemo((): League => {
+    if (!user || !progress.xp) return 'amateur';
+    return getLeague(progress.xp);
+  }, [user, progress.xp]);
+
+  // Group learners by league and filter to show only user's league
   const leagueGroups = useMemo((): LeagueGroup[] => {
     const groups: Record<League, LeaderboardEntry[]> = {
       amateur: [],
@@ -131,38 +137,17 @@ export default function Leaderboard({ className }: LeaderboardProps) {
       });
     });
 
-    // Return in order: Diamond, Gold, Silver, Amateur
-    return [
-      {
-        league: 'diamond',
-        name: getLeagueName('diamond'),
-        color: getLeagueColor('diamond'),
-        ringColor: getLeagueRingColor('diamond'),
-        entries: groups.diamond,
-      },
-      {
-        league: 'gold',
-        name: getLeagueName('gold'),
-        color: getLeagueColor('gold'),
-        ringColor: getLeagueRingColor('gold'),
-        entries: groups.gold,
-      },
-      {
-        league: 'silver',
-        name: getLeagueName('silver'),
-        color: getLeagueColor('silver'),
-        ringColor: getLeagueRingColor('silver'),
-        entries: groups.silver,
-      },
-      {
-        league: 'amateur',
-        name: getLeagueName('amateur'),
-        color: getLeagueColor('amateur'),
-        ringColor: getLeagueRingColor('amateur'),
-        entries: groups.amateur,
-      },
-    ];
-  }, [allLearners]);
+    // Only return the user's league
+    const currentLeagueGroup: LeagueGroup = {
+      league: userLeague,
+      name: getLeagueName(userLeague),
+      color: getLeagueColor(userLeague),
+      ringColor: getLeagueRingColor(userLeague),
+      entries: groups[userLeague],
+    };
+
+    return [currentLeagueGroup];
+  }, [allLearners, userLeague]);
 
   useEffect(() => {
     // Load immediately - try to populate first time
@@ -194,7 +179,11 @@ export default function Leaderboard({ className }: LeaderboardProps) {
               Leaderboard
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Compete across four leagues: Amateur's Bronze, Silver, Gold, and Diamond
+              {user ? (
+                <>Your league: <span className="font-semibold">{getLeagueName(userLeague)}</span></>
+              ) : (
+                "View your league's leaderboard"
+              )}
             </CardDescription>
           </div>
           <Button
@@ -232,7 +221,13 @@ export default function Leaderboard({ className }: LeaderboardProps) {
           </div>
         ) : (
           leagueGroups.map((leagueGroup) => {
-            if (leagueGroup.entries.length === 0) return null;
+            if (leagueGroup.entries.length === 0) {
+              return (
+                <div key={leagueGroup.league} className="text-center py-8 text-sm text-muted-foreground">
+                  No players in {leagueGroup.name} league yet.
+                </div>
+              );
+            }
 
             return (
               <div key={leagueGroup.league} className="space-y-3">

@@ -42,6 +42,7 @@ interface LearningContextValue {
   canTakeLesson: boolean;
   startLesson: (moduleId: string, lessonId: string) => void;
   completeLesson: (moduleId: string, lessonId: string, score: number) => void;
+  deductXp: (amount: number) => void;
   getModuleProgress: (moduleId: string) => ModuleProgress | undefined;
   getLessonProgress: (moduleId: string, lessonId: string) => LessonProgress | undefined;
 }
@@ -543,8 +544,31 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const awardXp = useCallback((amount: number) => {
-    setState((prev) => ({ ...prev, xp: prev.xp + amount }));
+    setState((prev) => ({ ...prev, xp: Math.max(0, prev.xp + amount) }));
   }, []);
+
+  const deductXp = useCallback((amount: number) => {
+    setState((prev) => {
+      const newXp = Math.max(0, prev.xp - amount);
+      const newLevel = computeLevel(newXp);
+      
+      // Update leaderboard with new XP
+      if (user) {
+        const lessonsCompleted = calculateLessonsCompleted(prev.modulesProgress);
+        updateLeaderboardEntry(
+          user.id,
+          user.name || user.email?.split('@')[0] || 'User',
+          newXp,
+          newLevel,
+          prev.streak,
+          lessonsCompleted,
+          user.picture
+        ).catch(err => console.warn('Failed to update leaderboard', err));
+      }
+      
+      return { ...prev, xp: newXp, level: newLevel };
+    });
+  }, [user]);
 
   const updateModuleProgress = useCallback(
     (moduleId: string, updater: (prev: ModuleProgress) => ModuleProgress) => {
@@ -576,10 +600,10 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   const completeLesson = useCallback(
     (moduleId: string, lessonId: string, score: number) => {
-      // Only complete lesson if score is 70% or higher
-      if (score < 70) {
-        console.log(`Lesson not completed: Score ${score}% is below minimum requirement of 70%`);
-        return; // Don't mark as complete if score is below 70%
+      // Only complete lesson if score is 75% or higher
+      if (score < 75) {
+        console.log(`Lesson not completed: Score ${score}% is below minimum requirement of 75%`);
+        return; // Don't mark as complete if score is below 75%
       }
 
       touchActivity();
@@ -679,6 +703,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     canTakeLesson,
     startLesson,
     completeLesson,
+    deductXp,
     getModuleProgress,
     getLessonProgress,
   };

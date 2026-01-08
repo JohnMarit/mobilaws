@@ -22,7 +22,7 @@ interface LessonRunnerProps {
 }
 
 export default function LessonRunner({ open, onClose, module, lesson }: LessonRunnerProps) {
-  const { startLesson, completeLesson, tier } = useLearning();
+  const { startLesson, completeLesson, deductXp, tier } = useLearning();
   const { userSubscription } = useSubscription();
   const [currentPhase, setCurrentPhase] = useState<'content' | 'quiz'>('content');
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
@@ -94,13 +94,14 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       const score = Math.round((correctAnswers / lesson.quiz.length) * 100);
       setFinalScore(score);
       
-      // Check if score meets minimum requirement (70%)
-      if (score >= 70) {
+      // Check if score meets minimum requirement (75%)
+      if (score >= 75) {
         // Score is sufficient - complete lesson
         completeLesson(module.id, lesson.id, score);
         onClose();
       } else {
-        // Score is below 70% - show retake message
+        // Score is below 75% - deduct 20 points and show retake message
+        deductXp(20);
         setShowRetakeMessage(true);
       }
     }
@@ -268,7 +269,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
                     Score: {finalScore}% - Retake Required
                   </div>
                   <AlertDescription className="text-sm sm:text-base leading-relaxed break-words">
-                    You scored {finalScore}%, but you need at least 70% to complete this lesson. Please review the content and retake the quiz.
+                    You scored {finalScore}%, but you need at least 75% to complete this lesson. 20 points have been deducted from your total. Please review the content and retake the quiz.
                   </AlertDescription>
                 </div>
               </div>
