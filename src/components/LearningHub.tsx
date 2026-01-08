@@ -15,8 +15,10 @@ import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
 import ExamPage from './ExamPage';
+import LoginModal from './LoginModal';
 import { Lesson, Module } from '@/lib/learningContent';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
+import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { getApiUrl } from '@/lib/api';
 
 interface LearningHubProps {
@@ -27,6 +29,7 @@ interface LearningHubProps {
 export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson } = useLearning();
+  const { showLoginModal, setShowLoginModal } = usePromptLimit();
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -45,7 +48,7 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const handleStartLesson = (module: Module, lesson: Lesson) => {
     // Require authentication to take lessons
     if (!user) {
-      toast.error('Please sign up to take lessons. Create an account to get started!');
+      setShowLoginModal(true);
       return;
     }
     
@@ -653,6 +656,12 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
           open={Boolean(activeLesson)}
         />
       )}
+
+      {/* Login Modal for unauthenticated users */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </Dialog>
   );
 }
