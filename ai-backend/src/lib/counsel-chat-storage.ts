@@ -16,7 +16,10 @@ export interface CounselChatSession {
   userName: string;
   counselorId: string;
   counselorName: string;
-  status: 'active' | 'ended' | 'scheduled';
+  status: 'active' | 'ended' | 'scheduled' | 'dismissed';
+  paymentPaid: boolean; // Whether user has paid for this chat
+  dismissedAt?: admin.firestore.Timestamp; // When counselor dismissed the chat
+  dismissedBy?: string; // Counselor ID who dismissed
   lastMessage?: string;
   lastMessageAt?: admin.firestore.Timestamp;
   unreadCountUser: number;
@@ -89,6 +92,7 @@ export async function createChatSession(
       counselorId,
       counselorName,
       status: 'active',
+      paymentPaid: true, // Chat is created after payment/acceptance
       unreadCountUser: 0,
       unreadCountCounselor: 0,
       createdAt: now,
@@ -422,6 +426,65 @@ export async function endChatSession(chatId: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('❌ Error ending chat:', error);
+    return false;
+  }
+}
+
+/**
+ * Dismiss chat session (counselor can dismiss, making it inactive until user pays again)
+ */
+export async function dismissChatSession(chatId: string, counselorId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const chatRef = db.collection(COUNSEL_CHATS_COLLECTION).doc(chatId);
+    const chatDoc = await chatRef.get();
+    
+    if (!chatDoc.exists) {
+      return false;
+    }
+
+    const chat = chatDoc.data() as CounselChatSession;
+    if (chat.counselorId !== counselorId) {
+      return false; // Only the counselor can dismiss
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    await chatRef.update({
+      status: 'dismissed',
+      paymentPaid: false, // Mark as unpaid so user needs to pay again
+      dismissedAt: now,
+      dismissedBy: counselorId,
+      updatedAt: now,
+    });
+
+    await sendSystemMessage(chatId, 'Chat session dismissed by counselor. Payment required to continue.');
+    return true;
+  } catch (error) {
+    console.error('❌ Error dismissing chat:', error);
+    return false;
+  }
+}
+
+/**
+ * Reactivate chat after payment
+ */
+export async function reactivateChatSession(chatId: string): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    await db.collection(COUNSEL_CHATS_COLLECTION).doc(chatId).update({
+      status: 'active',
+      paymentPaid: true,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    await sendSystemMessage(chatId, 'Chat session reactivated. You can continue your conversation.');
+    return true;
+  } catch (error) {
+    console.error('❌ Error reactivating chat:', error);
     return false;
   }
 }

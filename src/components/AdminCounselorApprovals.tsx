@@ -404,12 +404,10 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
                                   Fee: ${counselor.bookingFee.toFixed(2)}/booking
                                 </div>
                               )}
-                              {typeof counselor.totalEarnings === 'number' && (
-                                <div className="flex items-center gap-2 text-green-600 font-semibold">
-                                  <DollarSign className="h-4 w-4" />
-                                  Earnings: ${counselor.totalEarnings.toFixed(2)}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2 text-green-600 font-semibold">
+                                <DollarSign className="h-4 w-4" />
+                                Gross Earnings: ${(counselor.totalEarnings || 0).toFixed(2)}
+                              </div>
                             </div>
 
                             <div className="text-xs text-gray-500">
@@ -578,12 +576,10 @@ export function AdminCounselorApprovals({ open, onOpenChange }: AdminCounselorAp
                                   Fee: ${counselor.bookingFee.toFixed(2)}
                                 </span>
                               )}
-                              {typeof counselor.totalEarnings === 'number' && (
-                                <span className="text-green-600 font-semibold">
-                                  <DollarSign className="h-3 w-3 inline" />
-                                  ${counselor.totalEarnings.toFixed(2)} earned
-                                </span>
-                              )}
+                              <span className="text-green-600 font-semibold">
+                                <DollarSign className="h-3 w-3 inline" />
+                                Gross: ${(counselor.totalEarnings || 0).toFixed(2)}
+                              </span>
                             </div>
                           </div>
                           {getStatusBadge(counselor.applicationStatus)}

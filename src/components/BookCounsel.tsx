@@ -30,7 +30,7 @@ import {
   type Counselor,
 } from '@/lib/counsel-service';
 import { getApiUrl } from '@/lib/api';
-import { getChatByRequestId, type CounselChatSession } from '@/lib/counsel-chat-service';
+import { getChatByRequestId, getChatById, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselChatInterface } from './CounselChatInterface';
 import { getGravatarUrl } from '@/lib/gravatar';
 
@@ -94,22 +94,31 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
     }
   }, [open]);
 
-  // Auto-open chat if requestId is provided (from payment success)
+  // Auto-open chat if requestId or chatId is provided (from payment success)
   useEffect(() => {
     if (open && autoOpenRequestId) {
       const loadChat = async () => {
         try {
-          const chat = await getChatByRequestId(autoOpenRequestId);
+          // First try to get chat by ID (if it's a chatId)
+          let chat = await getChatById(autoOpenRequestId);
+          
+          // If not found, try as requestId
+          if (!chat) {
+            chat = await getChatByRequestId(autoOpenRequestId);
+          }
+          
           if (chat) {
             setChatSession(chat);
             setShowChat(true);
             setStep('accepted');
-            setRequestId(autoOpenRequestId);
+            setRequestId(chat.requestId || autoOpenRequestId);
             
-            // Load request details
-            const req = await getCounselRequest(autoOpenRequestId);
-            if (req) {
-              setRequest(req);
+            // Load request details if we have requestId
+            if (chat.requestId) {
+              const req = await getCounselRequest(chat.requestId);
+              if (req) {
+                setRequest(req);
+              }
             }
           } else {
             // Chat not created yet, wait for counselor to accept
@@ -560,9 +569,13 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
                                       <span className={`h-2 w-2 rounded-full mr-1.5 ${counselor.isOnline ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
                                       {statusLabel}
                                     </Badge>
-                                    {typeof counselor.rating === 'number' && counselor.rating > 0 && (
-                                      <Badge variant="outline" className="text-xs">
-                                        ⭐ {counselor.rating.toFixed(1)}
+                                    {typeof counselor.rating === 'number' && counselor.rating > 0 ? (
+                                      <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                                        ⭐ {counselor.rating.toFixed(1)} ({counselor.completedCases || 0} reviews)
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs text-gray-500">
+                                        No ratings yet
                                       </Badge>
                                     )}
                                   </div>

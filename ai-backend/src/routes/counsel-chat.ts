@@ -13,7 +13,10 @@ import {
   getUserChats,
   getCounselorChats,
   endChatSession,
+  dismissChatSession,
+  reactivateChatSession,
 } from '../lib/counsel-chat-storage';
+import { getFirebaseAuth, admin } from '../lib/firebase-admin';
 
 const router = Router();
 
@@ -138,6 +141,32 @@ router.get('/chat/by-appointment/:appointmentId', async (req: Request, res: Resp
 });
 
 /**
+ * Get chat by chat ID
+ * GET /api/counsel/chat/:chatId
+ */
+router.get('/chat/:chatId', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.params;
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      return res.status(500).json({ error: 'Database not available' });
+    }
+
+    const db = admin.firestore();
+    const chatDoc = await db.collection('counselChats').doc(chatId).get();
+    if (!chatDoc.exists) {
+      return res.status(404).json({ error: 'Chat not found' });
+    }
+
+    const chat = chatDoc.data() as any;
+    res.json({ success: true, chat });
+  } catch (error) {
+    console.error('❌ Error getting chat:', error);
+    res.status(500).json({ error: 'Failed to get chat' });
+  }
+});
+
+/**
  * Get user's chats
  * GET /api/counsel/chat/user/:userId
  */
@@ -186,6 +215,52 @@ router.post('/chat/:chatId/end', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('❌ Error ending chat:', error);
     res.status(500).json({ error: 'Failed to end chat' });
+  }
+});
+
+/**
+ * Dismiss chat session (counselor only)
+ * POST /api/counsel/chat/:chatId/dismiss
+ */
+router.post('/chat/:chatId/dismiss', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.params;
+    const { counselorId } = req.body;
+
+    if (!counselorId) {
+      return res.status(400).json({ error: 'Counselor ID is required' });
+    }
+
+    const success = await dismissChatSession(chatId, counselorId);
+
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to dismiss chat' });
+    }
+
+    res.json({ success: true, message: 'Chat dismissed. User needs to pay again to continue.' });
+  } catch (error) {
+    console.error('❌ Error dismissing chat:', error);
+    res.status(500).json({ error: 'Failed to dismiss chat' });
+  }
+});
+
+/**
+ * Reactivate chat after payment
+ * POST /api/counsel/chat/:chatId/reactivate
+ */
+router.post('/chat/:chatId/reactivate', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.params;
+    const success = await reactivateChatSession(chatId);
+
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to reactivate chat' });
+    }
+
+    res.json({ success: true, message: 'Chat reactivated' });
+  } catch (error) {
+    console.error('❌ Error reactivating chat:', error);
+    res.status(500).json({ error: 'Failed to reactivate chat' });
   }
 });
 

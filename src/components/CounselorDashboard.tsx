@@ -32,7 +32,7 @@ import {
   type SouthSudanState,
   type LegalCategory,
 } from '@/lib/counsel-service';
-import { getChatByRequestId, getChatByAppointmentId, type CounselChatSession } from '@/lib/counsel-chat-service';
+import { getChatByRequestId, getChatByAppointmentId, getCounselorChats, dismissChatSession, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
 import { notificationSound } from '@/lib/notification-sound';
@@ -209,7 +209,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   useEffect(() => {
     if (open && isOnline) {
       loadRequests();
-      pollingRef.current = setInterval(loadRequests, 5000);
+      loadChats();
+      pollingRef.current = setInterval(() => {
+        loadRequests();
+        loadChats();
+      }, 5000);
     }
     
     return () => {
@@ -566,7 +570,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           // Approved - show full dashboard
           <div className="flex-1 flex flex-col space-y-4 min-h-0">
             {/* Earnings Display */}
-            {counselorProfile && typeof counselorProfile.totalEarnings === 'number' && (
+            {counselorProfile && (
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -574,10 +578,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                       <DollarSign className="h-6 w-6 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Total Earnings</p>
+                      <p className="text-sm text-gray-600">Gross Earnings</p>
                       <p className="text-2xl font-bold text-green-700">
-                        ${counselorProfile.totalEarnings.toFixed(2)}
+                        ${(counselorProfile.totalEarnings || 0).toFixed(2)}
                       </p>
+                      <p className="text-xs text-gray-500 mt-1">Total before deductions</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -766,11 +771,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   {counselorProfile && (
                     <p className="text-xs text-muted-foreground">
                       {counselorProfile.totalCases} total cases • {counselorProfile.completedCases} completed
-                      {typeof counselorProfile.totalEarnings === 'number' && (
-                        <span className="ml-2 text-green-600 font-semibold">
-                          • ${counselorProfile.totalEarnings.toFixed(2)} earned
-                        </span>
-                      )}
+                      <span className="ml-2 text-green-600 font-semibold">
+                        • Gross: ${(counselorProfile.totalEarnings || 0).toFixed(2)}
+                      </span>
                     </p>
                   )}
                 </div>
@@ -815,6 +818,10 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                 <TabsTrigger value="scheduled" className="flex-1">
                   <Calendar className="h-4 w-4 mr-2" />
                   Scheduled ({queuedAppointments.length})
+                </TabsTrigger>
+                <TabsTrigger value="chats" className="flex-1">
+                  <FileText className="h-4 w-4 mr-2" />
+                  My Chats ({counselorChats.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -932,6 +939,78 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              {/* My Chats */}
+              <TabsContent value="chats" className="flex-1 mt-2 min-h-0">
+                <ScrollArea className="h-[300px] border rounded-lg">
+                  {counselorChats.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-center">
+                      <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No active chats</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Your chat sessions will appear here
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 space-y-3">
+                      {counselorChats.map((chat) => {
+                        const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
+                        return (
+                          <div
+                            key={chat.id}
+                            className={`p-4 border rounded-lg ${
+                              isDismissed
+                                ? 'bg-gray-50 border-gray-200 opacity-60'
+                                : 'bg-white hover:shadow-md transition-shadow cursor-pointer'
+                            }`}
+                            onClick={() => {
+                              if (!isDismissed) {
+                                setChatSession(chat);
+                                setShowChat(true);
+                              }
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{chat.userName}</span>
+                                  {isDismissed ? (
+                                    <Badge variant="destructive" className="text-xs">
+                                      Dismissed
+                                    </Badge>
+                                  ) : chat.status === 'active' ? (
+                                    <Badge variant="default" className="text-xs bg-green-500">
+                                      Active
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Ended
+                                    </Badge>
+                                  )}
+                                </div>
+                                {chat.lastMessage && (
+                                  <p className="text-sm text-gray-600 line-clamp-2">
+                                    {chat.lastMessage}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <Clock className="h-3 w-3" />
+                                  {chat.updatedAt?.toDate?.().toLocaleDateString() || 'Recently'}
+                                  {chat.unreadCountCounselor > 0 && (
+                                    <Badge variant="default" className="ml-auto text-xs">
+                                      {chat.unreadCountCounselor} new
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>

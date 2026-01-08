@@ -16,6 +16,7 @@ import SupportDialog from './SupportDialog';
 import MyTickets from './MyTickets';
 import { CounselorDashboard } from './CounselorDashboard';
 import { CounselorAlertListener } from './CounselorAlertListener';
+import { UserChatHistory } from './UserChatHistory';
 
 interface UserProfileNavProps {
   onManageSubscription?: () => void;
@@ -29,6 +30,7 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
   const [ticketsDialogOpen, setTicketsDialogOpen] = useState(false);
   const [counselorDashboardOpen, setCounselorDashboardOpen] = useState(false);
+  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
 
   // Show nothing while auth is loading (prevents flickering and premature sign-in prompts)
   if (isLoading) {
@@ -90,6 +92,10 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
             <Inbox className="h-4 w-4 mr-2" />
             My Tickets
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setChatHistoryOpen(true)}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            My Chats
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setCounselorDashboardOpen(true)}>
             <Briefcase className="h-4 w-4 mr-2" />
@@ -107,6 +113,7 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
       <SupportDialog open={supportDialogOpen} onOpenChange={setSupportDialogOpen} />
       <MyTickets open={ticketsDialogOpen} onOpenChange={setTicketsDialogOpen} />
       <CounselorDashboard open={counselorDashboardOpen} onOpenChange={setCounselorDashboardOpen} />
+      <UserChatHistory open={chatHistoryOpen} onOpenChange={setChatHistoryOpen} />
     </>
     );
   }

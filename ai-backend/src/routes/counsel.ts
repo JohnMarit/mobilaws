@@ -36,6 +36,11 @@ import {
   LEGAL_CATEGORIES,
   type StateCode,
 } from '../lib/counsel-storage';
+import {
+  submitRating,
+  getCounselorRatings,
+  getUserRatingForCounselor,
+} from '../lib/counselor-ratings';
 
 const router = Router();
 
@@ -706,6 +711,70 @@ router.post('/admin/reject-changes/:counselorId', async (req: Request, res: Resp
   } catch (error) {
     console.error('❌ Error rejecting changes:', error);
     res.status(500).json({ error: 'Failed to reject changes' });
+  }
+});
+
+/**
+ * Submit a rating for a counselor
+ * POST /api/counsel/rating
+ */
+router.post('/rating', async (req: Request, res: Response) => {
+  try {
+    const { counselorId, userId, userName, rating, comment, chatId } = req.body;
+
+    if (!counselorId || !userId || !userName || !rating) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: counselorId, userId, userName, rating' 
+      });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    const result = await submitRating(counselorId, userId, userName, rating, comment, chatId);
+
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.json({ success: true, message: result.message });
+  } catch (error) {
+    console.error('❌ Error submitting rating:', error);
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+});
+
+/**
+ * Get ratings for a counselor
+ * GET /api/counsel/rating/:counselorId
+ */
+router.get('/rating/:counselorId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const ratings = await getCounselorRatings(counselorId, limit);
+    res.json({ success: true, ratings });
+  } catch (error) {
+    console.error('❌ Error getting ratings:', error);
+    res.status(500).json({ error: 'Failed to get ratings' });
+  }
+});
+
+/**
+ * Get user's rating for a counselor
+ * GET /api/counsel/rating/:counselorId/user/:userId
+ */
+router.get('/rating/:counselorId/user/:userId', async (req: Request, res: Response) => {
+  try {
+    const { counselorId, userId } = req.params;
+
+    const rating = await getUserRatingForCounselor(counselorId, userId);
+    res.json({ success: true, rating });
+  } catch (error) {
+    console.error('❌ Error getting user rating:', error);
+    res.status(500).json({ error: 'Failed to get user rating' });
   }
 });
 

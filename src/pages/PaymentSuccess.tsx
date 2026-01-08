@@ -80,15 +80,24 @@ export default function PaymentSuccess() {
                   // Clear pending booking
                   sessionStorage.removeItem('pendingBooking');
                   
-                  // Get chat session
-                  const chatSession = await getChatByRequestId(result.requestId);
+                  // Wait a moment for chat to be created, then get it
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  
+                  // Get chat session - try multiple times as it may take a moment to create
+                  let chatSession = await getChatByRequestId(result.requestId);
+                  let attempts = 0;
+                  while (!chatSession && attempts < 5) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    chatSession = await getChatByRequestId(result.requestId);
+                    attempts++;
+                  }
                   
                   if (chatSession) {
-                    // Navigate to home with chat open
-                    navigate(`/?openChat=${result.requestId}`);
+                    // Navigate to home with chat open directly
+                    navigate(`/?openChat=${chatSession.id}`);
                   } else {
                     // Navigate to home, chat will be created when counselor accepts
-                    navigate('/?bookingCreated=true');
+                    navigate(`/?openChat=${result.requestId}`);
                   }
                   
                   toast({

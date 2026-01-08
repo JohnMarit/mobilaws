@@ -15,7 +15,10 @@ export interface CounselChatSession {
   userName: string;
   counselorId: string;
   counselorName: string;
-  status: 'active' | 'ended' | 'scheduled';
+  status: 'active' | 'ended' | 'scheduled' | 'dismissed';
+  paymentPaid?: boolean; // Whether user has paid for this chat
+  dismissedAt?: Timestamp; // When counselor dismissed the chat
+  dismissedBy?: string; // Counselor ID who dismissed
   lastMessage?: string;
   lastMessageAt?: Timestamp;
   unreadCountUser: number;
@@ -207,6 +210,42 @@ export async function endChatSession(chatId: string): Promise<boolean> {
     return response.ok;
   } catch (error) {
     console.error('❌ Error ending chat:', error);
+    return false;
+  }
+}
+
+/**
+ * Dismiss chat session (counselor only)
+ */
+export async function dismissChatSession(chatId: string, counselorId: string): Promise<boolean> {
+  try {
+    const apiUrl = getApiUrl(`counsel/chat/${chatId}/dismiss`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ counselorId }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('❌ Error dismissing chat:', error);
+    return false;
+  }
+}
+
+/**
+ * Reactivate chat after payment
+ */
+export async function reactivateChatSession(chatId: string): Promise<boolean> {
+  try {
+    const apiUrl = getApiUrl(`counsel/chat/${chatId}/reactivate`);
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('❌ Error reactivating chat:', error);
     return false;
   }
 }
