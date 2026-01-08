@@ -317,56 +317,88 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
           return;
         }
 
-        // If chatId is returned, chat was created immediately - open it
-        if (result.chatId) {
-          const chat = await getChatById(result.chatId);
-          if (chat) {
-            setChatSession(chat);
-            setStep('accepted');
-            setRequestId(result.requestId || null);
-            
-            // Open chat automatically after a brief delay
-            setTimeout(() => {
-              setShowChat(true);
-            }, 300);
-            
-            toast({
-              title: '💬 Chat Ready!',
-              description: `You can now chat with ${counselor.name}.`,
-            });
-          }
-        } else if (result.requestId) {
-          // Poll for chat creation
-          setRequestId(result.requestId);
-          let attempts = 0;
-          const maxAttempts = 10;
-          const pollForChat = async () => {
-            attempts++;
-            const chat = await getChatByRequestId(result.requestId!);
+        // Chat should be created immediately when counselorId is provided
+        // Poll for chat creation (with immediate check first)
+        const findChat = async (): Promise<void> => {
+          // First try chatId if returned
+          if (result.chatId) {
+            const chat = await getChatById(result.chatId);
             if (chat) {
               setChatSession(chat);
               setStep('accepted');
+              setRequestId(result.requestId || null);
               
-              // Open chat automatically after a brief delay
+              // Open chat automatically immediately
               setTimeout(() => {
                 setShowChat(true);
-              }, 300);
+              }, 100);
               
               toast({
                 title: '💬 Chat Ready!',
                 description: `You can now chat with ${counselor.name}.`,
               });
-            } else if (attempts < maxAttempts) {
-              setTimeout(pollForChat, 1000);
-            } else {
-              toast({
-                title: 'Chat Created',
-                description: 'Your chat is being set up. Please wait a moment.',
-              });
+              return;
             }
-          };
-          setTimeout(pollForChat, 500);
-        }
+          }
+          
+          // If no chatId or chat not found, try requestId
+          if (result.requestId) {
+            let chat = await getChatByRequestId(result.requestId);
+            if (chat) {
+              setChatSession(chat);
+              setStep('accepted');
+              setRequestId(result.requestId);
+              
+              // Open chat automatically immediately
+              setTimeout(() => {
+                setShowChat(true);
+              }, 100);
+              
+              toast({
+                title: '💬 Chat Ready!',
+                description: `You can now chat with ${counselor.name}.`,
+              });
+              return;
+            }
+            
+            // If still not found, poll for it (should be created very quickly)
+            setRequestId(result.requestId);
+            let attempts = 0;
+            const maxAttempts = 5; // Reduced attempts since it should be instant
+            const pollForChat = async () => {
+              attempts++;
+              chat = await getChatByRequestId(result.requestId!);
+              if (chat) {
+                setChatSession(chat);
+                setStep('accepted');
+                
+                // Open chat automatically immediately
+                setTimeout(() => {
+                  setShowChat(true);
+                }, 100);
+                
+                toast({
+                  title: '💬 Chat Ready!',
+                  description: `You can now chat with ${counselor.name}.`,
+                });
+              } else if (attempts < maxAttempts) {
+                setTimeout(pollForChat, 500); // Faster polling
+              } else {
+                // If chat still not found after polling, show error
+                toast({
+                  title: 'Error',
+                  description: 'Chat creation is taking longer than expected. Please try again.',
+                  variant: 'destructive',
+                });
+                setStep('form');
+              }
+            };
+            setTimeout(pollForChat, 200);
+          }
+        };
+        
+        // Start finding chat immediately
+        await findChat();
       } catch (error) {
         console.error('Error creating counsel request:', error);
         toast({
@@ -402,8 +434,17 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
           </DialogDescription>
         </DialogHeader>
 
+        {/* Loading state when creating chat */}
+        {isSubmitting && step === 'form' && (
+          <div className="py-12 text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="text-lg font-medium">Creating your chat...</p>
+            <p className="text-sm text-muted-foreground">Please wait a moment</p>
+          </div>
+        )}
+
         {/* Step 1: Show Counselors List Directly */}
-        {step === 'form' && (
+        {step === 'form' && !isSubmitting && (
           <div className="space-y-4">
             {/* Available Counselors List */}
             <div className="space-y-3">
