@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Phone, MapPin, Scale, Calendar, Clock, CheckCircle2, XCircle, Users } from 'lucide-react';
+import { Loader2, Phone, MapPin, Scale, Calendar, Clock, CheckCircle2, XCircle, Users, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import {
   getCounselConfig,
   createCounselRequest,
@@ -49,6 +50,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   const [requestId, setRequestId] = useState<string | null>(null);
   const [request, setRequest] = useState<CounselRequest | null>(null);
   const [availableCount, setAvailableCount] = useState(0);
+  const [availableCounselors, setAvailableCounselors] = useState<import('@/lib/counsel-service').Counselor[]>([]);
   const [broadcastCount, setBroadcastCount] = useState(0);
   const [countdown, setCountdown] = useState(300); // 5 minutes default
   const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
@@ -60,6 +62,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
   
   const { user } = useAuth();
   const { toast } = useToast();
+  const { userSubscription } = useSubscription();
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -194,6 +197,7 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
     if (state) {
       getAvailableCounselors(state).then(counselors => {
         setAvailableCount(counselors.length);
+        setAvailableCounselors(counselors);
       });
     }
   }, [state]);
@@ -212,6 +216,21 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
       toast({
         title: 'Please Sign In',
         description: 'You need to sign in to book a counsel.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const hasActivePaidPlan =
+      userSubscription &&
+      userSubscription.isActive &&
+      !userSubscription.isFree &&
+      userSubscription.planId !== 'free';
+
+    if (!hasActivePaidPlan) {
+      toast({
+        title: 'Payment Required',
+        description: 'You need an active paid Mobilaws plan before you can chat or call a counsel. Please purchase a plan from your profile.',
         variant: 'destructive',
       });
       return;
@@ -395,6 +414,60 @@ export function BookCounsel({ open, onOpenChange }: BookCounselProps) {
                 </p>
               )}
             </div>
+
+            {/* Available Counselors Preview */}
+            {state && availableCounselors.length > 0 && (
+              <div className="mt-2 rounded-md border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  <ShieldCheck className="h-3 w-3" />
+                  Available Counselors
+                </div>
+                <div className="space-y-1">
+                  {availableCounselors.slice(0, 5).map((counselor) => {
+                    const primarySpecialization = counselor.specializations?.[0] || 'General Practice';
+                    const statusLabel = counselor.isOnline ? 'Online' : 'Offline';
+
+                    return (
+                      <div
+                        key={counselor.id}
+                        className="flex items-center justify-between gap-3 rounded-md bg-white/60 px-2 py-1.5 text-[11px] border"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="font-medium text-gray-900 text-xs">{counselor.name}</div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                            <span>
+                              <span className="font-semibold">Status:</span> {statusLabel}
+                            </span>
+                            <span>
+                              <span className="font-semibold">Type of law:</span> {primarySpecialization}
+                            </span>
+                            <span>
+                              <span className="font-semibold">Fee:</span> Based on your Mobilaws subscription
+                            </span>
+                          </div>
+                        </div>
+                        {counselor.isOnline && (
+                          <div className="flex flex-col items-end gap-1 text-[11px] text-green-700">
+                            <span className="flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                              Online
+                            </span>
+                            {typeof counselor.rating === 'number' && counselor.rating > 0 && (
+                              <span>{counselor.rating.toFixed(1)}★</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {availableCounselors.length > 5 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      And {availableCounselors.length - 5} more counsel(s) in {selectedState?.name}.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Description - Simplified */}
             <div className="space-y-2">
