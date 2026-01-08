@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, XCircle, HelpCircle, ArrowLeft, Award, BookOpen, Sparkles, MessageSquare } from 'lucide-react';
 import { Lesson, Module } from '@/lib/learningContent';
 import { useLearning } from '@/contexts/LearningContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
 import AudioPlayer, { HighlightedText } from './AudioPlayer';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import QuizRequestDialog from './QuizRequestDialog';
@@ -22,6 +23,7 @@ interface LessonRunnerProps {
 }
 
 export default function LessonRunner({ open, onClose, module, lesson }: LessonRunnerProps) {
+  const { user } = useAuth();
   const { startLesson, completeLesson, deductXp, tier } = useLearning();
   const { userSubscription } = useSubscription();
   const [currentPhase, setCurrentPhase] = useState<'content' | 'quiz'>('content');
@@ -54,6 +56,11 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
 
   useEffect(() => {
     if (open) {
+      // Require authentication to take lessons
+      if (!user) {
+        onClose();
+        return;
+      }
       startLesson(module.id, lesson.id);
       setCurrentPhase('content');
       setCurrentQuizIndex(0);
@@ -68,7 +75,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
         window.speechSynthesis.cancel();
       }
     }
-  }, [open, module.id, lesson.id, startLesson]);
+  }, [open, module.id, lesson.id, startLesson, user, onClose]);
 
   const handleStartQuiz = () => {
     setCurrentPhase('quiz');

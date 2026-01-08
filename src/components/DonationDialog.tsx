@@ -2,7 +2,7 @@
  * Donation Dialog - Allow users to donate any amount
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ type DonationStep = 'form' | 'processing' | 'success' | 'error';
 
 export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
   const [amount, setAmount] = useState('');
+  const [email, setEmail] = useState('');
   const [step, setStep] = useState<DonationStep>('form');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
@@ -28,6 +29,15 @@ export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
 
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Pre-fill email if user is logged in
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    } else if (!user) {
+      setEmail('');
+    }
+  }, [user]);
 
   const handleAmountChange = (value: string) => {
     // Allow only numbers and decimal point
@@ -54,10 +64,12 @@ export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
       return;
     }
 
-    if (!user) {
+    // Email is required for payment processing (Paystack requirement)
+    const donationEmail = user?.email || email.trim();
+    if (!donationEmail || !donationEmail.includes('@')) {
       toast({
-        title: 'Please Sign In',
-        description: 'You need to sign in to make a donation.',
+        title: 'Email Required',
+        description: 'Please enter a valid email address for payment processing.',
         variant: 'destructive',
       });
       return;
@@ -75,9 +87,9 @@ export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
         },
         body: JSON.stringify({
           amount: parseFloat(amount),
-          userId: user.id,
-          userEmail: user.email || '',
-          userName: user.displayName || 'Anonymous',
+          userId: user?.id || null,
+          userEmail: donationEmail,
+          userName: user?.displayName || user?.name || 'Anonymous Donor',
         }),
       });
 
@@ -111,6 +123,9 @@ export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
   const handleClose = () => {
     if (step !== 'processing') {
       setAmount('');
+      if (!user?.email) {
+        setEmail('');
+      }
       setStep('form');
       setPaymentLink(null);
       setErrorMessage('');
@@ -157,6 +172,26 @@ export function DonationDialog({ open, onOpenChange }: DonationDialogProps) {
                 Enter any amount you'd like to donate
               </p>
             </div>
+
+            {/* Email input for non-authenticated users */}
+            {!user && (
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-base font-semibold">
+                  Email Address <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="text-lg h-12"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Required for payment processing. We'll only use it to send your payment receipt.
+                </p>
+              </div>
+            )}
 
             {/* Quick Amount Buttons */}
             <div className="space-y-2">

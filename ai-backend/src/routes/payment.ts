@@ -619,15 +619,19 @@ router.post('/payment/create-donation', async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`💝 Creating donation payment: $${amount} from user ${userId}`);
+    // Handle both authenticated and anonymous donations
+    const isAnonymous = !userId;
+    console.log(`💝 Creating donation payment: $${amount} from ${isAnonymous ? 'anonymous user' : `user ${userId}`}`);
 
     // Convert USD to KES (using approximate rate of 120 KES per USD)
     const priceInKes = Math.round(amount * 120);
     console.log(`💱 Currency conversion: $${amount} USD → KSh ${priceInKes}`);
 
-    // Generate a unique reference
+    // Generate a unique reference (handle anonymous users)
     const randomSuffix = Math.random().toString(36).substring(2, 10);
-    const reference = `donation_${userId}_${Date.now()}_${randomSuffix}`;
+    const reference = isAnonymous 
+      ? `donation_anon_${Date.now()}_${randomSuffix}`
+      : `donation_${userId}_${Date.now()}_${randomSuffix}`;
 
     // Create one-time payment transaction (no plan/subscription)
     let transaction: any;

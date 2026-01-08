@@ -43,6 +43,12 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const streakColor = progress.streak >= 7 ? 'text-orange-500' : 'text-orange-400';
 
   const handleStartLesson = (module: Module, lesson: Lesson) => {
+    // Require authentication to take lessons
+    if (!user) {
+      toast.error('Please sign up to take lessons. Create an account to get started!');
+      return;
+    }
+    
     if (!canTakeLesson && tier === 'free') {
       alert('You have reached your daily lesson limit. Come back tomorrow or upgrade for unlimited access!');
       return;
