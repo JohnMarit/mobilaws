@@ -204,6 +204,23 @@ export async function sendChatMessage(
 
     await chatRef.update(updateData);
 
+    // Send notification to counselor when user sends a message
+    if (senderRole === 'user') {
+      const chatDoc = await chatRef.get();
+      if (chatDoc.exists) {
+        const chatData = chatDoc.data();
+        if (chatData?.counselorId) {
+          await sendMessageNotificationToCounselor(
+            chatData.counselorId,
+            chatData.counselorName || 'Counselor',
+            senderName,
+            chatId,
+            message
+          );
+        }
+      }
+    }
+
     console.log(`✅ Message sent in chat ${chatId}`);
     return true;
   } catch (error) {
@@ -293,6 +310,99 @@ async function sendChatNotificationToCounselor(
   } catch (error) {
     console.error('❌ Error sending chat notification:', error);
     throw error;
+  }
+}
+
+/**
+ * Send notification to counselor about new message
+ */
+async function sendMessageNotificationToCounselor(
+  counselorId: string,
+  counselorName: string,
+  userName: string,
+  chatId: string,
+  messageText: string
+): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+
+  try {
+    // Get counselor's push tokens
+    const tokensSnap = await db
+      .collection('userPushTokens')
+      .doc(counselorId)
+      .collection('tokens')
+      .get();
+    
+    const tokens = tokensSnap.docs.map(d => d.data().token as string).filter(Boolean);
+
+    if (!tokens.length) {
+      console.log('ℹ️ No push tokens found for counselor, skipping message notification');
+      return;
+    }
+
+    const messaging = admin.messaging();
+    const title = `💬 ${userName}`;
+    const body = messageText.substring(0, 100); // Truncate long messages
+
+    const messages: admin.messaging.TokenMessage[] = tokens.map(token => ({
+      token,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: 'new_message',
+        chatId,
+        userName,
+        counselorName,
+        message: messageText,
+        click_action: '/counselor',
+      },
+      android: {
+        priority: 'high',
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          vibrate: [200, 100, 200],
+          tag: chatId, // Group notifications by chat
+          renotify: true,
+        },
+      },
+    }));
+
+    // Send notifications (don't await - fire and forget)
+    const hasSendEach = typeof (messaging as any).sendEach === 'function';
+    if (hasSendEach) {
+      (messaging as any).sendEach(messages).catch((err: Error) => {
+        console.error('Failed to send message notifications:', err);
+      });
+    } else {
+      Promise.all(messages.map(msg => messaging.send(msg).catch(err => {
+        console.error('Failed to send message notification:', err);
+      }))).catch((err) => {
+        console.error('Failed to send message notifications batch:', err);
+      });
+    }
+
+    console.log(`✅ Sent message notification to counselor ${counselorId}`);
+  } catch (error) {
+    console.error('❌ Error sending message notification:', error);
+    // Don't throw - notification failure shouldn't block message sending
   }
 }
 

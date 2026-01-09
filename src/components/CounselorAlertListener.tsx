@@ -50,14 +50,21 @@ export function CounselorAlertListener() {
 
     // Listen for service worker messages
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'NEW_COUNSEL_REQUEST' || event.data?.type === 'new_chat') {
+      if (event.data?.type === 'NEW_COUNSEL_REQUEST' || event.data?.type === 'new_chat' || event.data?.type === 'new_message') {
         console.log('🔔 Received notification:', event.data);
         
         // Play sound
         playNewChatSound();
         
         // Show toast
-        if (event.data.type === 'new_chat') {
+        if (event.data.type === 'new_message') {
+          const userName = event.data.data?.userName || 'A user';
+          const message = event.data.data?.message || 'New message';
+          toast({
+            title: `💬 ${userName}`,
+            description: message.substring(0, 100),
+          });
+        } else if (event.data.type === 'new_chat') {
           toast({
             title: '💬 New Chat!',
             description: `${event.data.data?.userName || 'A user'} has started a chat with you.`,
