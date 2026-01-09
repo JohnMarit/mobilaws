@@ -162,6 +162,24 @@ export async function getChatByAppointmentId(appointmentId: string): Promise<Cou
 }
 
 /**
+ * Get chat by chat ID
+ */
+export async function getChatById(chatId: string): Promise<CounselChatSession | null> {
+  try {
+    const apiUrl = getApiUrl(`counsel/chat/${chatId}`);
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return data.chat;
+  } catch (error) {
+    console.error('❌ Error getting chat by ID:', error);
+    return null;
+  }
+}
+
+/**
  * Get user's chats
  */
 export async function getUserChats(userId: string): Promise<CounselChatSession[]> {
