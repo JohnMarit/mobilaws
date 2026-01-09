@@ -265,18 +265,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     return Array.from(cats);
   }, [modules]);
 
-  // Handle navigation changes
-  useEffect(() => {
-    if (activeNav === 'featured') {
-      setActiveTab('lessons');
-    } else if (activeNav === 'learning') {
-      setActiveTab('lessons');
-    } else if (activeNav === 'certification') {
-      setActiveTab('certifications');
-    } else if (activeNav === 'leaderboard') {
-      setActiveTab('leaderboard');
+  // Filter modules based on navigation
+  const displayedModules = useMemo(() => {
+    if (activeNav === 'learning') {
+      // Show only courses user has started (has progress)
+      return filteredModules.filter(module => {
+        const modProg = getModuleProgress(module.id);
+        return modProg && Object.keys(modProg.lessonsCompleted || {}).length > 0;
+      });
+    } else if (activeNav === 'featured') {
+      // Show all courses
+      return filteredModules;
     }
-  }, [activeNav]);
+    // For certification and leaderboard, return empty (they show different content)
+    return [];
+  }, [filteredModules, activeNav, getModuleProgress]);
 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
@@ -284,135 +287,99 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <BookOpen className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-semibold">Learning Paths</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          
+          {/* Stats as Round Icons */}
+          <div className="flex items-center gap-2">
+            {/* Level Icon */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                <Star className="h-3.5 w-3.5 text-yellow-300" fill="currentColor" />
+              </div>
+              <span className="text-[10px] font-medium text-gray-700">{progress.level}</span>
+            </div>
+            
+            {/* Streak Icon */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center shadow-sm ${streakColor === 'text-orange-500' ? 'ring-1 ring-orange-300' : ''}`}>
+                <Flame className="h-3.5 w-3.5 text-white" fill="currentColor" />
+              </div>
+              <span className="text-[10px] font-medium text-gray-700">{progress.streak}</span>
+            </div>
+            
+            {/* Daily Lessons/Goal Icon */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm">
+                {tier === 'free' ? (
+                  <Trophy className="h-3.5 w-3.5 text-white" fill="currentColor" />
+                ) : (
+                  <Target className="h-3.5 w-3.5 text-white" fill="currentColor" />
+                )}
+              </div>
+              <span className="text-[10px] font-medium text-gray-700">
+                {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
+              </span>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 p-0 ml-2"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4 h-auto">
-              <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2 sm:py-2.5">
-                <FontAwesomeIcon icon={faRoute} className="mr-2 text-primary" />
-                <span className="hidden sm:inline">Learning Path</span>
-                <span className="sm:hidden">Path</span>
-              </TabsTrigger>
-              <TabsTrigger value="certifications" className="text-xs sm:text-sm py-2 sm:py-2.5">
-                <FontAwesomeIcon icon={faCertificate} className="mr-2 text-amber-500" />
-                <span className="hidden sm:inline">Certifications</span>
-                <span className="sm:hidden">Certs</span>
-              </TabsTrigger>
-              <TabsTrigger value="leaderboard" className="text-xs sm:text-sm py-2 sm:py-2.5">
-                <FontAwesomeIcon icon={faTrophy} className="mr-2 text-yellow-500" />
-                <span className="hidden sm:inline">Leaderboard</span>
-                <span className="sm:hidden">Top</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="lessons" className="space-y-4 sm:space-y-6">
-              <div className="grid gap-4 sm:gap-6">
-                {/* Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
-                    <CardHeader className="pb-2 p-3 sm:p-4">
-                      <CardDescription className="text-xs sm:text-sm text-blue-100">Level</CardDescription>
-                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                        <Star className="h-5 w-5 text-yellow-300" />
-                        Level {progress.level}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                      <div className="text-sm sm:text-base text-blue-50">{progress.xp} XP total</div>
-                      <Progress value={xpPercent} className="h-1.5 bg-white/30" />
-                      <div className="text-xs sm:text-sm text-blue-100">Next level at +{120 - (progress.xp % 120)} XP</div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
-                    <CardHeader className="pb-2 p-3 sm:p-4">
-                      <CardDescription className="text-xs sm:text-sm text-blue-100">Streak</CardDescription>
-                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                        <Flame className={`h-5 w-5 ${streakColor}`} />
-                        {progress.streak} days
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                      <div className="text-sm sm:text-base text-blue-50">Keep the fire alive daily.</div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
-                    <CardHeader className="pb-2 p-3 sm:p-4">
-                      <CardDescription className="text-xs sm:text-sm text-blue-100">
-                        {tier === 'free' ? 'Daily Lessons' : 'Daily Goal'}
-                      </CardDescription>
-                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                        {tier === 'free' ? (
-                          <>
-                            <Trophy className="h-5 w-5 text-white" />
-                            {dailyLessonsRemaining}/2
-                          </>
-                        ) : (
-                          <>
-                            <Target className="h-5 w-5 text-white" />
-                            {progress.dailyGoal} XP
-                          </>
-                        )}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                      <div className="text-sm sm:text-base text-blue-50">
-                        {tier === 'free'
-                          ? dailyLessonsRemaining > 0
-                            ? `${dailyLessonsRemaining} lesson${dailyLessonsRemaining === 1 ? '' : 's'} left today`
-                            : 'Come back tomorrow!'
-                          : 'Complete lessons to hit your goal.'}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Separator />
-
-                {/* Modules */}
-                <div className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <h3 className="text-lg sm:text-xl font-semibold">Courses</h3>
-                    <div className="flex items-center gap-2">
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-[140px] sm:w-[180px]">
-                          <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          {categories.map(cat => (
-                            <SelectItem key={cat} value={cat}>
-                              <FontAwesomeIcon icon={
-                                cat === 'faScroll' ? faScroll :
-                                cat === 'faGlobe' ? faGlobe :
-                                cat === 'faScaleBalanced' ? faScaleBalanced :
-                                cat === 'faLandmark' ? faLandmark : faBook
-                              } className="mr-2" />
-                              {cat.replace('fa', '')}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
-                    </div>
+          {activeNav === 'featured' || activeNav === 'learning' ? (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Modules */}
+              <div className="space-y-3 sm:space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h3 className="text-lg sm:text-xl font-semibold">
+                    {activeNav === 'learning' ? 'My Learning' : 'All Courses'}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-[140px] sm:w-[180px]">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map(cat => (
+                          <SelectItem key={cat} value={cat}>
+                            <FontAwesomeIcon icon={
+                              cat === 'faScroll' ? faScroll :
+                              cat === 'faGlobe' ? faGlobe :
+                              cat === 'faScaleBalanced' ? faScaleBalanced :
+                              cat === 'faLandmark' ? faLandmark : faBook
+                            } className="mr-2" />
+                            {cat.replace('fa', '')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
                   </div>
+                </div>
+                {displayedModules.length === 0 ? (
+                  <div className="text-center py-12">
+                    <BookOpen className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-500 text-lg">
+                      {activeNav === 'learning' 
+                        ? "You haven't started any courses yet. Browse Featured to get started!" 
+                        : 'No courses available.'}
+                    </p>
+                  </div>
+                ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    {filteredModules.map((module) => {
+                    {displayedModules.map((module) => {
                       const { percent, done } = moduleStatus(module);
                       const isExpanded = expandedLessons.has(module.id);
                       const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
@@ -420,8 +387,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       return (
                         <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
                           <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
-                            <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-1.5 sm:gap-2">
+                            {/* Course Image/Icon */}
+                            <div className="mb-3 flex justify-center">
+                              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shadow-md">
                                 <FontAwesomeIcon
                                   icon={
                                     module.icon === 'faScroll' ? faScroll :
@@ -430,9 +398,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                           module.icon === 'faLandmark' ? faLandmark :
                                             faBook
                                   }
-                                  className="text-xl sm:text-2xl text-primary"
+                                  className="text-4xl sm:text-5xl text-primary"
                                 />
-                                <span className="leading-tight">{module.title}</span>
+                              </div>
+                            </div>
+                            <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-1.5 sm:gap-2 w-full justify-center">
+                                <span className="leading-tight text-center">{module.title}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Button
@@ -659,18 +631,14 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       );
                     })}
                   </div>
-                </div>
+                )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="certifications">
-              <ExamPage />
-            </TabsContent>
-
-            <TabsContent value="leaderboard">
-              <Leaderboard />
-            </TabsContent>
-          </Tabs>
+            </div>
+          ) : activeNav === 'certification' ? (
+            <ExamPage />
+          ) : activeNav === 'leaderboard' ? (
+            <Leaderboard />
+          ) : null}
         </div>
 
         {/* Bottom Navigation */}
@@ -864,8 +832,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     return (
                       <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
-                          <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
+                          {/* Course Image/Icon */}
+                          <div className="mb-3 flex justify-center">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shadow-md">
                               <FontAwesomeIcon
                                 icon={
                                   module.icon === 'faScroll' ? faScroll :
@@ -874,9 +843,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                         module.icon === 'faLandmark' ? faLandmark :
                                           faBook
                                 }
-                                className="text-xl sm:text-2xl text-primary"
+                                className="text-4xl sm:text-5xl text-primary"
                               />
-                              <span className="leading-tight">{module.title}</span>
+                            </div>
+                          </div>
+                          <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-1.5 sm:gap-2 w-full justify-center">
+                              <span className="leading-tight text-center">{module.title}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Button
