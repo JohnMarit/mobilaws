@@ -19,6 +19,7 @@ export interface CounselChatSession {
   paymentPaid?: boolean; // Whether user has paid for this chat
   dismissedAt?: Timestamp; // When counselor dismissed the chat
   dismissedBy?: string; // Counselor ID who dismissed
+  endedAt?: Timestamp; // When chat was ended
   lastMessage?: string;
   lastMessageAt?: Timestamp;
   unreadCountUser: number;

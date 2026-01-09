@@ -624,7 +624,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             </div>
           </div>
 
-          {/* Chats Section - Chats are created automatically after payment */}
+          {/* Chats Section - Shows all chats (active and ended) */}
           {isOnline && (
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
@@ -633,7 +633,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   My Chats ({counselorChats.length})
                 </h3>
                 <p className="text-xs text-gray-600 mt-1">
-                  Chat sessions are created automatically when clients pay. Click to open a chat.
+                  All chat sessions with your clients. Active chats show in green, ended chats in gray.
                 </p>
               </div>
               <div className="max-h-[350px] overflow-y-auto">
@@ -651,16 +651,21 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   <div className="p-4 space-y-2">
                     {counselorChats.map((chat) => {
                       const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
+                      const isEnded = chat.status === 'ended';
+                      const isClickable = !isDismissed; // Can view ended chats
+                      
                       return (
                         <div
                           key={chat.id}
                           className={`p-4 border rounded-lg transition-all ${
                             isDismissed
                               ? 'bg-gray-50 border-gray-200 opacity-60'
+                              : isEnded
+                              ? 'bg-gray-50 border-gray-300 cursor-pointer hover:shadow-sm'
                               : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-100 hover:shadow-md hover:border-blue-300 cursor-pointer'
                           }`}
                           onClick={() => {
-                            if (!isDismissed) {
+                            if (isClickable) {
                               setChatSession(chat);
                               setShowChat(true);
                             }

@@ -113,6 +113,16 @@ export function CounselChatInterface({
       return;
     }
 
+    // Check if chat is ended
+    if (chatSession.status === 'ended') {
+      toast({
+        title: 'Chat Ended',
+        description: 'This chat has been ended. You cannot send new messages.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Check if chat is dismissed or payment not paid
     if (chatSession.status === 'dismissed' || !chatSession.paymentPaid) {
       toast({
@@ -160,7 +170,17 @@ export function CounselChatInterface({
   const handleEndChat = async () => {
     if (!chatSession) return;
 
-    const confirmed = window.confirm('Are you sure you want to end this chat session?');
+    // Only counselor can end the chat
+    if (userRole !== 'counselor') {
+      toast({
+        title: 'Cannot End Chat',
+        description: 'Only the counselor can end the chat session.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure you want to end this chat session? The user will no longer be able to send messages.');
     if (!confirmed) return;
 
     const success = await endChatSession(chatSession.id);
@@ -169,12 +189,7 @@ export function CounselChatInterface({
         title: 'Chat Ended',
         description: 'The chat session has been ended.',
       });
-      // If user, show rating dialog
-      if (userRole === 'user') {
-        setShowRatingDialog(true);
-      } else {
-        onOpenChange(false);
-      }
+      onOpenChange(false);
     }
   };
 
@@ -272,25 +287,26 @@ export function CounselChatInterface({
               </div>
               <div className="flex items-center gap-2">
                 {userRole === 'counselor' && chatSession.status === 'active' && (
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={handleDismissChat}
-                    disabled={isDismissing}
-                    title="Dismiss Chat"
-                  >
-                    <Ban className="h-4 w-4" />
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleDismissChat}
+                      disabled={isDismissing}
+                      title="Dismiss Chat (requires user to pay again)"
+                    >
+                      <Ban className="h-4 w-4" />
+                    </Button>
+                    <Button variant="destructive" size="icon" onClick={handleEndChat} title="End Chat (permanently closes chat)">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                {chatSession.status !== 'active' && (
+                  <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+                    Close
                   </Button>
                 )}
-                <Button variant="outline" size="icon" title="Voice Call">
-                  <Phone className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" title="Video Call">
-                  <Video className="h-4 w-4" />
-                </Button>
-                <Button variant="destructive" size="icon" onClick={handleEndChat} title="End Chat">
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </DialogHeader>
@@ -343,7 +359,17 @@ export function CounselChatInterface({
         </ScrollArea>
 
         {/* Input */}
-        {canSendMessages ? (
+        {chatSession.status === 'ended' ? (
+          <div className="px-6 py-4 border-t bg-gray-50">
+            <p className="text-sm text-gray-700 mb-2 flex items-center gap-2">
+              <X className="h-4 w-4" />
+              This chat has been ended. You can view the history but cannot send new messages.
+            </p>
+            <Button onClick={() => onOpenChange(false)} variant="outline" size="sm">
+              Close
+            </Button>
+          </div>
+        ) : canSendMessages ? (
           <div className="px-6 py-4 border-t">
             <div className="flex items-center gap-2">
               <Input

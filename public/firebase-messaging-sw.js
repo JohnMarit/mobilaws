@@ -14,7 +14,7 @@ function initMessaging(config) {
   messaging.onBackgroundMessage((payload) => {
     const notification = payload.notification || {};
     const title = notification.title || 'Learning reminder';
-    const body = notification.body || 'Time for today’s lesson.';
+    const body = notification.body || 'Time for today's lesson.';
     const data = payload.data || {};
 
     self.registration.showNotification(title, {
@@ -23,14 +23,14 @@ function initMessaging(config) {
       icon: '/android-chrome-192x192.png',
       badge: '/android-chrome-192x192.png',
       vibrate: [100, 50, 100],
-      tag: 'learning-daily-reminder',
+      tag: data.type === 'new_chat' ? 'new-chat-notification' : 'learning-daily-reminder',
     });
 
     // Notify all open clients so foreground tabs can ring immediately
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       clientList.forEach((client) => {
         client.postMessage({
-          type: 'NEW_COUNSEL_REQUEST',
+          type: data.type || 'NEW_COUNSEL_REQUEST',
           data,
         });
       });
@@ -45,8 +45,9 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  // Force the counselor dashboard to open/focus for counsel requests
-  const isCounselRequest = event.notification?.data?.type === 'counsel_request';
+  // Force the counselor dashboard to open/focus for counsel requests and new chats
+  const notifType = event.notification?.data?.type;
+  const isCounselRequest = notifType === 'counsel_request' || notifType === 'new_chat';
   const targetUrl = isCounselRequest
     ? '/counselor'
     : (event.notification?.data?.click_action || event.notification?.data?.url || '/');

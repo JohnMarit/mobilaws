@@ -119,6 +119,15 @@ export async function createChatSession(
     );
     console.log('✅ System message sent!');
 
+    // Send notification to counselor about new chat
+    try {
+      console.log('📤 Sending notification to counselor...');
+      await sendChatNotificationToCounselor(counselorId, counselorName, userName, chatRef.id);
+      console.log('✅ Notification sent to counselor!');
+    } catch (notifError) {
+      console.error('⚠️ Failed to send notification (non-critical):', notifError);
+    }
+
     console.log(`✅ Chat session created successfully: ${chatRef.id}`);
     return chatRef.id;
   } catch (error) {
@@ -200,6 +209,90 @@ export async function sendChatMessage(
   } catch (error) {
     console.error('❌ Error sending message:', error);
     return false;
+  }
+}
+
+/**
+ * Send notification to counselor about new chat
+ */
+async function sendChatNotificationToCounselor(
+  counselorId: string,
+  counselorName: string,
+  userName: string,
+  chatId: string
+): Promise<void> {
+  const db = getFirestore();
+  if (!db) return;
+
+  try {
+    // Get counselor's push tokens
+    const tokensSnap = await db
+      .collection('userPushTokens')
+      .doc(counselorId)
+      .collection('tokens')
+      .get();
+    
+    const tokens = tokensSnap.docs.map(d => d.data().token as string).filter(Boolean);
+
+    if (!tokens.length) {
+      console.log('ℹ️ No push tokens found for counselor, skipping notification');
+      return;
+    }
+
+    const messaging = admin.messaging();
+    const title = `💬 New Chat from ${userName}`;
+    const body = `${userName} has started a chat with you. Click to respond.`;
+
+    const messages: admin.messaging.TokenMessage[] = tokens.map(token => ({
+      token,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        type: 'new_chat',
+        chatId,
+        userName,
+        counselorName,
+        click_action: '/counselor',
+      },
+      android: {
+        priority: 'high',
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+        },
+        payload: {
+          aps: {
+            sound: 'default',
+          },
+        },
+      },
+      webpush: {
+        headers: {
+          Urgency: 'high',
+        },
+        notification: {
+          vibrate: [200, 100, 200],
+        },
+      },
+    }));
+
+    // Send notifications
+    const hasSendEach = typeof (messaging as any).sendEach === 'function';
+    if (hasSendEach) {
+      await (messaging as any).sendEach(messages);
+    } else {
+      await Promise.all(messages.map(msg => messaging.send(msg).catch(err => {
+        console.error('Failed to send notification:', err);
+      })));
+    }
+
+    console.log(`✅ Sent new chat notification to counselor ${counselorId}`);
+  } catch (error) {
+    console.error('❌ Error sending chat notification:', error);
+    throw error;
   }
 }
 
