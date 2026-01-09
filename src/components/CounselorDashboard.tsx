@@ -266,7 +266,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         });
 
         if (newStatus) {
-          loadRequests();
+          loadChats();
         }
       } else {
         toast({
@@ -319,8 +319,8 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2">
             <Scale className="h-5 w-5" />
             Counselor Dashboard
@@ -332,6 +332,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </DialogDescription>
         </DialogHeader>
 
+        <ScrollArea className="flex-1 px-6 pb-6">
         {/* Checking approval status */}
         {isCheckingApproval ? (
           <div className="py-12 flex items-center justify-center">
@@ -392,28 +393,29 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </div>
         ) : (
           // Approved - show full dashboard
-          <div className="flex-1 flex flex-col space-y-4 min-h-0">
+          <div className="space-y-4 py-2">
             {/* Earnings Display */}
             {counselorProfile && (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <DollarSign className="h-6 w-6 text-green-600" />
+              <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border border-green-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
+                      <DollarSign className="h-7 w-7 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Gross Earnings</p>
-                      <p className="text-2xl font-bold text-green-700">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Earnings</p>
+                      <p className="text-3xl font-bold text-green-700 mt-1">
                         ${(counselorProfile.totalEarnings || 0).toFixed(2)}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Total before deductions</p>
+                      <p className="text-xs text-gray-600 mt-1">Total before deductions</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Booking Fee</p>
-                    <p className="text-sm font-semibold text-gray-700">
-                      ${(counselorProfile.bookingFee || 10).toFixed(2)} per booking
+                  <div className="text-right bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-green-100">
+                    <p className="text-xs text-gray-500 font-medium">Booking Fee</p>
+                    <p className="text-lg font-bold text-gray-800 mt-0.5">
+                      ${(counselorProfile.bookingFee || 10).toFixed(2)}
                     </p>
+                    <p className="text-xs text-gray-500">per booking</p>
                   </div>
                 </div>
               </div>
@@ -441,10 +443,10 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
             {/* Edit Profile Section */}
             {counselorProfile && (
-              <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Edit className="h-4 w-4" />
+              <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-gray-600" />
                     Profile Settings
                   </h3>
                   {!isEditingProfile && (
@@ -551,7 +553,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             )}
 
             {/* Setup Section */}
-            <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                <MapPin className="h-5 w-5 text-gray-600" />
+                Location & Contact
+              </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
@@ -587,17 +593,14 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             </div>
 
             {/* Online Status Toggle */}
-            <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center justify-between pt-4 border-t">
               <div className="flex items-center gap-3">
-                <div className={`h-4 w-4 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                <div className={`h-3 w-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-400'}`} />
                 <div>
-                  <p className="font-medium">{isOnline ? 'Online - Available for Chats' : 'Offline'}</p>
+                  <p className="font-semibold text-base">{isOnline ? '🟢 Online - Available for Chats' : '⚫ Offline'}</p>
                   {counselorProfile && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-gray-600 mt-0.5">
                       {counselorProfile.totalCases} total cases • {counselorProfile.completedCases} completed
-                      <span className="ml-2 text-green-600 font-semibold">
-                        • Gross: ${(counselorProfile.totalEarnings || 0).toFixed(2)}
-                      </span>
                     </p>
                   )}
                 </div>
@@ -622,36 +625,38 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
           {/* Chats Section - Chats are created automatically after payment */}
           {isOnline && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="mb-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
                   My Chats ({counselorChats.length})
                 </h3>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-gray-600 mt-1">
                   Chat sessions are created automatically when clients pay. Click to open a chat.
                 </p>
               </div>
-              <ScrollArea className="h-[400px] border rounded-lg">
+              <div className="max-h-[350px] overflow-y-auto">
                 {counselorChats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No active chats</p>
-                    <p className="text-sm text-muted-foreground mt-2">
+                  <div className="flex flex-col items-center justify-center p-12 text-center">
+                    <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                      <FileText className="h-10 w-10 text-gray-400" />
+                    </div>
+                    <p className="font-medium text-gray-700">No active chats</p>
+                    <p className="text-sm text-gray-500 mt-2 max-w-xs">
                       Your chat sessions will appear here once clients make payments
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3 space-y-3">
+                  <div className="p-4 space-y-2">
                     {counselorChats.map((chat) => {
                       const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
                       return (
                         <div
                           key={chat.id}
-                          className={`p-4 border rounded-lg ${
+                          className={`p-4 border rounded-lg transition-all ${
                             isDismissed
                               ? 'bg-gray-50 border-gray-200 opacity-60'
-                              : 'bg-white hover:shadow-md transition-shadow cursor-pointer'
+                              : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-100 hover:shadow-md hover:border-blue-300 cursor-pointer'
                           }`}
                           onClick={() => {
                             if (!isDismissed) {
@@ -662,14 +667,14 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{chat.userName}</span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-gray-800">{chat.userName}</span>
                                 {isDismissed ? (
                                   <Badge variant="destructive" className="text-xs">
                                     Dismissed
                                   </Badge>
                                 ) : chat.status === 'active' ? (
-                                  <Badge variant="default" className="text-xs bg-green-500">
+                                  <Badge className="text-xs bg-green-500 hover:bg-green-600">
                                     Active
                                   </Badge>
                                 ) : (
@@ -677,20 +682,20 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                                     Ended
                                   </Badge>
                                 )}
+                                {chat.unreadCountCounselor > 0 && (
+                                  <Badge className="text-xs bg-red-500 hover:bg-red-600">
+                                    {chat.unreadCountCounselor} new
+                                  </Badge>
+                                )}
                               </div>
                               {chat.lastMessage && (
-                                <p className="text-sm text-gray-600 line-clamp-2">
+                                <p className="text-sm text-gray-600 line-clamp-1">
                                   {chat.lastMessage}
                                 </p>
                               )}
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <Clock className="h-3 w-3" />
                                 {chat.updatedAt?.toDate?.().toLocaleDateString() || 'Recently'}
-                                {chat.unreadCountCounselor > 0 && (
-                                  <Badge variant="default" className="ml-auto text-xs">
-                                    {chat.unreadCountCounselor} new
-                                  </Badge>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -699,17 +704,19 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                     })}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
             </div>
           )}
 
             {/* Offline Message */}
             {!isOnline && (
-              <div className="flex-1 flex items-center justify-center p-8 text-center border rounded-lg bg-gray-50">
-                <div>
-                  <Circle className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-600">You are offline</p>
-                  <p className="text-sm text-muted-foreground mt-2">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <div className="h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <Circle className="h-12 w-12 text-gray-400" />
+                  </div>
+                  <p className="text-xl font-semibold text-gray-700">You are offline</p>
+                  <p className="text-sm text-gray-500 mt-2 max-w-sm">
                     Go online to start receiving chat requests from clients
                   </p>
                 </div>
@@ -717,6 +724,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             )}
           </div>
         )}
+        </ScrollArea>
       </DialogContent>
       {chatSession && (
         <CounselChatInterface
