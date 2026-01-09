@@ -58,7 +58,7 @@ export function CounselChatInterface({
     }
   }, [chatSession, user, userRole]);
 
-  // Load initial messages and subscribe to real-time updates
+  // Load initial messages, subscribe, and fallback poll to ensure delivery
   useEffect(() => {
     if (!chatSession || !open) {
       console.log('⚠️ Not subscribing: chatSession=', !!chatSession, 'open=', open);
@@ -74,12 +74,14 @@ export function CounselChatInterface({
       status: chatSession.status,
     });
     
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
     // Load initial messages first
     const loadInitialMessages = async () => {
       try {
         console.log(`📥 [${userRole.toUpperCase()}] Loading initial messages for chat ${chatSession.id}...`);
         const initialMessages = await getChatMessages(chatSession.id, 50);
-        console.log(`✅ [${userRole.toUpperCase()}] Loaded ${initialMessages.length} initial messages:`, initialMessages);
+        console.log(`✅ [${userRole.toUpperCase()}] Loaded ${initialMessages.length} initial messages`);
         setMessages(initialMessages);
       } catch (error) {
         console.error(`❌ [${userRole.toUpperCase()}] Error loading initial messages:`, error);
@@ -91,14 +93,7 @@ export function CounselChatInterface({
     // Subscribe to real-time updates
     console.log(`🔔 [${userRole.toUpperCase()}] Subscribing to real-time messages for chat ${chatSession.id}...`);
     const unsubscribe = subscribeToMessages(chatSession.id, (newMessages) => {
-      console.log(`📨 [${userRole.toUpperCase()}] Real-time update received: ${newMessages.length} messages in chat ${chatSession.id}`);
-      console.log(`   - Messages:`, newMessages.map(m => ({
-        id: m.id,
-        sender: m.senderName,
-        role: m.senderRole,
-        message: m.message.substring(0, 30),
-        time: m.createdAt
-      })));
+      console.log(`📨 [${userRole.toUpperCase()}] Real-time update: ${newMessages.length} messages in chat ${chatSession.id}`);
       setMessages(newMessages);
       
       // Mark messages as read
@@ -109,9 +104,29 @@ export function CounselChatInterface({
       }
     });
 
+    // Fallback polling every 3s in case real-time listener fails
+    fallbackInterval = setInterval(async () => {
+      try {
+        const polled = await getChatMessages(chatSession.id, 50);
+        setMessages(prev => {
+          // If new messages differ in length or last id, update
+          const prevLast = prev.at(-1)?.id;
+          const newLast = polled.at(-1)?.id;
+          if (prev.length !== polled.length || prevLast !== newLast) {
+            console.log(`🔁 [${userRole.toUpperCase()}] Fallback poll updated messages (${polled.length})`);
+            return polled;
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error('❌ [POLL] Error fetching messages:', err);
+      }
+    }, 3000);
+
     return () => {
       console.log(`🔌 [${userRole.toUpperCase()}] Unsubscribing from chat ${chatSession.id}`);
       unsubscribe();
+      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, [chatSession?.id, open, userRole, user?.id]);
 
