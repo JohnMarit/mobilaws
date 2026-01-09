@@ -83,15 +83,33 @@ export async function sendChatMessage(
  */
 export async function getChatMessages(chatId: string, messageLimit: number = 50): Promise<ChatMessage[]> {
   try {
+    console.log(`📡 [API] Fetching messages for chat ${chatId} (limit: ${messageLimit})`);
     const apiUrl = getApiUrl(`counsel/chat/${chatId}/messages?limit=${messageLimit}`);
+    console.log(`   - URL: ${apiUrl}`);
+    
     const response = await fetch(apiUrl);
+    console.log(`   - Response status: ${response.status} ${response.statusText}`);
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`❌ [API] Failed to fetch messages: ${response.status}`);
+      return [];
+    }
 
     const data = await response.json();
+    console.log(`✅ [API] Received ${data.messages?.length || 0} messages from API`);
+    
+    if (data.messages && data.messages.length > 0) {
+      console.log(`   - First message:`, {
+        id: data.messages[0].id,
+        sender: data.messages[0].senderName,
+        role: data.messages[0].senderRole,
+        message: data.messages[0].message?.substring(0, 30)
+      });
+    }
+    
     return data.messages || [];
   } catch (error) {
-    console.error('❌ Error getting messages:', error);
+    console.error('❌ [API] Error getting messages:', error);
     return [];
   }
 }
@@ -281,34 +299,62 @@ export function subscribeToMessages(
     return () => {};
   }
 
-  console.log(`📡 Subscribing to messages for chat: ${chatId}`);
+  console.log(`📡 [SUBSCRIPTION] Setting up real-time listener for chat: ${chatId}`);
+  console.log(`   - Firebase path: counselChats/${chatId}/messages`);
+  
   const messagesRef = collection(db, 'counselChats', chatId, 'messages');
   const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(50));
 
+  let initialLoad = true;
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      console.log(`📨 Received ${snapshot.docs.length} messages for chat ${chatId}`);
+      console.log(`📨 [SNAPSHOT ${initialLoad ? 'INITIAL' : 'UPDATE'}] Received ${snapshot.docs.length} messages for chat ${chatId}`);
+      
+      if (snapshot.docs.length === 0) {
+        console.warn(`⚠️ No messages found in chat ${chatId}`);
+      }
+      
       const messages = snapshot.docs
         .map(doc => {
           const data = doc.data();
-          return { 
+          const message = { 
             id: doc.id, 
             ...data,
             createdAt: data.createdAt || doc.data().createdAt
           } as ChatMessage;
+          
+          if (initialLoad) {
+            console.log(`   📄 Message ${doc.id}:`, {
+              sender: message.senderName,
+              role: message.senderRole,
+              type: message.messageType,
+              text: message.message?.substring(0, 30)
+            });
+          }
+          
+          return message;
         })
         .reverse(); // Reverse to show oldest first
       
+      console.log(`✅ [CALLBACK] Calling callback with ${messages.length} messages`);
       callback(messages);
+      
+      if (initialLoad) {
+        initialLoad = false;
+      }
     },
     (error) => {
-      console.error(`❌ Error in message subscription for chat ${chatId}:`, error);
+      console.error(`❌ [SUBSCRIPTION ERROR] Error in message subscription for chat ${chatId}:`, error);
+      console.error(`   - Error code:`, error.code);
+      console.error(`   - Error message:`, error.message);
+      
       // If there's an index error, try without orderBy as fallback
       if (error.code === 'failed-precondition') {
         console.warn('⚠️ Index missing, trying without orderBy...');
         const fallbackQuery = query(messagesRef, limit(50));
         onSnapshot(fallbackQuery, (snapshot) => {
+          console.log(`📨 [FALLBACK] Received ${snapshot.docs.length} messages (no ordering)`);
           const messages = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage))
             .sort((a, b) => {
@@ -322,6 +368,7 @@ export function subscribeToMessages(
     }
   );
 
+  console.log(`✅ [SUBSCRIPTION] Listener set up successfully for chat ${chatId}`);
   return unsubscribe;
 }
 

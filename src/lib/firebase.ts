@@ -43,6 +43,11 @@ try {
     });
   
   db = getFirestore(app);
+  console.log('✅ Firestore initialized:', {
+    projectId: firebaseConfig.projectId,
+    hasDb: !!db,
+    type: db?.type
+  });
   
   // Initialize Analytics (only in browser and if supported)
   if (typeof window !== 'undefined') {

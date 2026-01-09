@@ -218,12 +218,27 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const loadChats = async () => {
     if (!user) return;
     try {
-      console.log(`📡 Fetching chats for counselor: ${user.id}`);
+      console.log(`📡 [DASHBOARD] Fetching chats for counselor: ${user.id}`);
       const chats = await getCounselorChats(user.id);
-      console.log(`📋 Loaded ${chats.length} chats for counselor ${user.id}:`, chats);
+      console.log(`📋 [DASHBOARD] Loaded ${chats.length} chats for counselor ${user.id}`);
+      
+      if (chats.length > 0) {
+        console.log(`   📊 [DASHBOARD] Chat details:`);
+        chats.forEach((chat, index) => {
+          console.log(`      ${index + 1}. ${chat.userName} (${chat.status})`, {
+            id: chat.id,
+            lastMessage: chat.lastMessage?.substring(0, 30),
+            unreadCount: chat.unreadCountCounselor,
+            updatedAt: chat.updatedAt
+          });
+        });
+      } else {
+        console.warn(`   ⚠️ [DASHBOARD] No chats found for counselor ${user.id}`);
+      }
+      
       setCounselorChats(chats);
     } catch (error) {
-      console.error('❌ Error loading chats:', error);
+      console.error('❌ [DASHBOARD] Error loading chats:', error);
     }
   };
 
@@ -477,10 +492,21 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   {/* Chat List */}
                   <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
                     <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-                      <h3 className="font-semibold text-sm flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-blue-600" />
-                        Chats ({counselorChats.length})
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-blue-600" />
+                          Chats ({counselorChats.length})
+                        </h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={loadChats}
+                          className="h-7 px-2 text-xs"
+                        >
+                          <Loader2 className="h-3 w-3 mr-1" />
+                          Refresh
+                        </Button>
+                      </div>
                     </div>
                     
                     {!isOnline ? (

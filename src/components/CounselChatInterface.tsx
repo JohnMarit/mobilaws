@@ -66,24 +66,39 @@ export function CounselChatInterface({
       return;
     }
 
-    console.log(`📡 Setting up message subscription for chat: ${chatSession.id}, role: ${userRole}`);
+    console.log(`📡 [${userRole.toUpperCase()}] Setting up message subscription for chat: ${chatSession.id}`);
+    console.log(`   - Chat details:`, {
+      id: chatSession.id,
+      userName: chatSession.userName,
+      counselorName: chatSession.counselorName,
+      status: chatSession.status,
+    });
     
     // Load initial messages first
     const loadInitialMessages = async () => {
       try {
+        console.log(`📥 [${userRole.toUpperCase()}] Loading initial messages for chat ${chatSession.id}...`);
         const initialMessages = await getChatMessages(chatSession.id, 50);
-        console.log(`📥 Loaded ${initialMessages.length} initial messages`);
+        console.log(`✅ [${userRole.toUpperCase()}] Loaded ${initialMessages.length} initial messages:`, initialMessages);
         setMessages(initialMessages);
       } catch (error) {
-        console.error('❌ Error loading initial messages:', error);
+        console.error(`❌ [${userRole.toUpperCase()}] Error loading initial messages:`, error);
       }
     };
     
     loadInitialMessages();
     
     // Subscribe to real-time updates
+    console.log(`🔔 [${userRole.toUpperCase()}] Subscribing to real-time messages for chat ${chatSession.id}...`);
     const unsubscribe = subscribeToMessages(chatSession.id, (newMessages) => {
-      console.log(`📨 Received ${newMessages.length} messages in chat ${chatSession.id}`);
+      console.log(`📨 [${userRole.toUpperCase()}] Real-time update received: ${newMessages.length} messages in chat ${chatSession.id}`);
+      console.log(`   - Messages:`, newMessages.map(m => ({
+        id: m.id,
+        sender: m.senderName,
+        role: m.senderRole,
+        message: m.message.substring(0, 30),
+        time: m.createdAt
+      })));
       setMessages(newMessages);
       
       // Mark messages as read
@@ -95,7 +110,7 @@ export function CounselChatInterface({
     });
 
     return () => {
-      console.log(`🔌 Unsubscribing from chat ${chatSession.id}`);
+      console.log(`🔌 [${userRole.toUpperCase()}] Unsubscribing from chat ${chatSession.id}`);
       unsubscribe();
     };
   }, [chatSession?.id, open, userRole, user?.id]);
