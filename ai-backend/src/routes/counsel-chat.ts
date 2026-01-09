@@ -189,11 +189,26 @@ router.get('/chat/user/:userId', async (req: Request, res: Response) => {
 router.get('/chat/counselor/:counselorId', async (req: Request, res: Response) => {
   try {
     const { counselorId } = req.params;
+    console.log(`📥 [API] GET /chat/counselor/${counselorId} - Request received`);
+    
     const chats = await getCounselorChats(counselorId);
+    
+    console.log(`📤 [API] Returning ${chats.length} chats for counselor ${counselorId}`);
+    if (chats.length > 0) {
+      console.log(`   📋 [API] Chat summary:`);
+      chats.forEach((chat, i) => {
+        console.log(`      ${i + 1}. Chat ${chat.id}: ${chat.userName} (${chat.status}, unread: ${chat.unreadCountCounselor})`);
+      });
+    } else {
+      console.log(`   ⚠️ [API] No chats found for counselor ${counselorId}`);
+    }
 
     res.json({ success: true, chats });
   } catch (error) {
-    console.error('❌ Error getting counselor chats:', error);
+    console.error('❌ [API] Error getting counselor chats:', error);
+    if (error instanceof Error) {
+      console.error('   Error details:', error.message);
+    }
     res.status(500).json({ error: 'Failed to get chats' });
   }
 });

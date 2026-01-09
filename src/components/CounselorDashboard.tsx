@@ -218,29 +218,47 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   }, [open, isOnline, user]);
 
   const loadChats = async () => {
-    if (!user) return;
+    if (!user) {
+      console.warn('⚠️ [DASHBOARD] Cannot load chats: user is null');
+      return;
+    }
     try {
       console.log(`📡 [DASHBOARD] Fetching chats for counselor: ${user.id}`);
+      console.log(`   - User object:`, { id: user.id, email: user.email, name: user.name });
+      console.log(`   - Dashboard state: isOnline=${isOnline}, open=${open}`);
+      
       const chats = await getCounselorChats(user.id);
-      console.log(`📋 [DASHBOARD] Loaded ${chats.length} chats for counselor ${user.id}`);
+      console.log(`📋 [DASHBOARD] API returned ${chats.length} chats for counselor ${user.id}`);
       
       if (chats.length > 0) {
         console.log(`   📊 [DASHBOARD] Chat details:`);
         chats.forEach((chat, index) => {
           console.log(`      ${index + 1}. ${chat.userName} (${chat.status})`, {
             id: chat.id,
+            counselorId: chat.counselorId,
+            userId: chat.userId,
             lastMessage: chat.lastMessage?.substring(0, 30),
             unreadCount: chat.unreadCountCounselor,
+            paymentPaid: chat.paymentPaid,
             updatedAt: chat.updatedAt
           });
         });
       } else {
         console.warn(`   ⚠️ [DASHBOARD] No chats found for counselor ${user.id}`);
+        console.warn(`   ℹ️ [DASHBOARD] Possible reasons:`);
+        console.warn(`      1. No users have started chats with this counselor yet`);
+        console.warn(`      2. Counselor ID mismatch (check if counselorId in chats matches user.id)`);
+        console.warn(`      3. Database query issue or permission problem`);
+        console.warn(`   💡 [DASHBOARD] To debug: Check Firestore counselChats collection for counselorId="${user.id}"`);
       }
       
       setCounselorChats(chats);
     } catch (error) {
       console.error('❌ [DASHBOARD] Error loading chats:', error);
+      if (error instanceof Error) {
+        console.error('   Error details:', error.message);
+        console.error('   Error stack:', error.stack);
+      }
     }
   };
 
@@ -682,15 +700,26 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                     <MessageSquare className="h-5 w-5 text-blue-600" />
                     Chat History ({counselorChats.length})
                   </h2>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadChats}
-                    className="h-8"
-                  >
-                    <Loader2 className="h-4 w-4 mr-2" />
-                    Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        console.log('🔄 Manual refresh triggered by counselor');
+                        console.log('Current state:', { 
+                          counselorId: user?.id, 
+                          isOnline, 
+                          chatCount: counselorChats.length,
+                          pollingActive: !!pollingRef.current 
+                        });
+                        loadChats();
+                      }}
+                      className="h-8"
+                    >
+                      <Loader2 className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
               </div>
               
@@ -702,10 +731,24 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                     <p className="text-sm text-gray-400 mt-1">Set your status to online in the sidebar</p>
                   </div>
                 ) : counselorChats.length === 0 ? (
-                  <div className="p-12 text-center">
+                  <div className="p-12 text-center space-y-4">
                     <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-3" />
-                    <p className="text-base text-gray-500 font-medium">No chats yet</p>
-                    <p className="text-sm text-gray-400 mt-1">Waiting for clients to connect...</p>
+                    <div>
+                      <p className="text-base text-gray-500 font-medium">No chats yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Waiting for clients to connect...</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto">
+                      <p className="text-xs font-semibold text-blue-800 mb-2">🔍 Debugging Info</p>
+                      <div className="text-xs text-blue-700 space-y-1 font-mono">
+                        <div>Counselor ID: {user?.id}</div>
+                        <div>Status: {isOnline ? '🟢 Online' : '🔴 Offline'}</div>
+                        <div>Polling: {pollingRef.current ? '✅ Active' : '❌ Inactive'}</div>
+                        <div className="mt-2 pt-2 border-t border-blue-200">
+                          <p className="text-blue-600 mb-1">Check browser console (F12) for detailed logs</p>
+                          <p className="text-blue-600">Look for: [DASHBOARD] and [CHAT-SERVICE] logs</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="p-4">

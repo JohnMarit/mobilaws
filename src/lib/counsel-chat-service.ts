@@ -226,15 +226,28 @@ export async function getUserChats(userId: string): Promise<CounselChatSession[]
  */
 export async function getCounselorChats(counselorId: string): Promise<CounselChatSession[]> {
   try {
+    console.log(`🌐 [CHAT-SERVICE] getCounselorChats called for counselorId: ${counselorId}`);
     const apiUrl = getApiUrl(`counsel/chat/counselor/${counselorId}`);
+    console.log(`   - API URL: ${apiUrl}`);
+    
     const response = await fetch(apiUrl);
+    console.log(`   - Response status: ${response.status} ${response.statusText}`);
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`❌ [CHAT-SERVICE] Failed to fetch counselor chats: ${response.status}`);
+      return [];
+    }
 
     const data = await response.json();
+    console.log(`✅ [CHAT-SERVICE] Received data:`, data);
+    console.log(`   - Chats count: ${data.chats?.length || 0}`);
+    
     return data.chats || [];
   } catch (error) {
-    console.error('❌ Error getting counselor chats:', error);
+    console.error('❌ [CHAT-SERVICE] Error getting counselor chats:', error);
+    if (error instanceof Error) {
+      console.error('   Error details:', error.message);
+    }
     return [];
   }
 }
