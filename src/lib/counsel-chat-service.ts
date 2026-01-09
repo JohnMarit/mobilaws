@@ -276,20 +276,50 @@ export function subscribeToMessages(
   callback: (messages: ChatMessage[]) => void
 ): () => void {
   if (!db) {
-    console.error('Firebase not initialized');
+    console.error('❌ Firebase not initialized');
     return () => {};
   }
 
+  console.log(`📡 Subscribing to messages for chat: ${chatId}`);
   const messagesRef = collection(db, 'counselChats', chatId, 'messages');
   const q = query(messagesRef, orderBy('createdAt', 'desc'), limit(50));
 
-  const unsubscribe = onSnapshot(q, (snapshot) => {
-    const messages = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage))
-      .reverse(); // Reverse to show oldest first
-    
-    callback(messages);
-  });
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      console.log(`📨 Received ${snapshot.docs.length} messages for chat ${chatId}`);
+      const messages = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return { 
+            id: doc.id, 
+            ...data,
+            createdAt: data.createdAt || doc.data().createdAt
+          } as ChatMessage;
+        })
+        .reverse(); // Reverse to show oldest first
+      
+      callback(messages);
+    },
+    (error) => {
+      console.error(`❌ Error in message subscription for chat ${chatId}:`, error);
+      // If there's an index error, try without orderBy as fallback
+      if (error.code === 'failed-precondition') {
+        console.warn('⚠️ Index missing, trying without orderBy...');
+        const fallbackQuery = query(messagesRef, limit(50));
+        onSnapshot(fallbackQuery, (snapshot) => {
+          const messages = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as ChatMessage))
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+              const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+              return aTime - bTime;
+            });
+          callback(messages);
+        });
+      }
+    }
+  );
 
   return unsubscribe;
 }

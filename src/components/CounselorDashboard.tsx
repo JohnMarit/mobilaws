@@ -202,7 +202,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
       loadChats();
       pollingRef.current = setInterval(() => {
         loadChats();
-      }, 5000);
+      }, 3000); // Poll more frequently to catch new chats
     }
     
     return () => {
@@ -211,15 +211,16 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         pollingRef.current = null;
       }
     };
-  }, [open, isOnline]);
+  }, [open, isOnline, user]);
 
   const loadChats = async () => {
     if (!user) return;
     try {
       const chats = await getCounselorChats(user.id);
+      console.log(`📋 Loaded ${chats.length} chats for counselor ${user.id}`);
       setCounselorChats(chats);
     } catch (error) {
-      console.error('Error loading chats:', error);
+      console.error('❌ Error loading chats:', error);
     }
   };
 

@@ -19,6 +19,7 @@ import {
   markMessagesAsRead,
   endChatSession,
   dismissChatSession,
+  getChatMessages,
   type ChatMessage,
   type CounselChatSession,
 } from '@/lib/counsel-chat-service';
@@ -57,21 +58,47 @@ export function CounselChatInterface({
     }
   }, [chatSession, user, userRole]);
 
-  // Subscribe to real-time messages
+  // Load initial messages and subscribe to real-time updates
   useEffect(() => {
-    if (!chatSession || !open) return;
+    if (!chatSession || !open) {
+      console.log('⚠️ Not subscribing: chatSession=', !!chatSession, 'open=', open);
+      setMessages([]);
+      return;
+    }
 
+    console.log(`📡 Setting up message subscription for chat: ${chatSession.id}, role: ${userRole}`);
+    
+    // Load initial messages first
+    const loadInitialMessages = async () => {
+      try {
+        const initialMessages = await getChatMessages(chatSession.id, 50);
+        console.log(`📥 Loaded ${initialMessages.length} initial messages`);
+        setMessages(initialMessages);
+      } catch (error) {
+        console.error('❌ Error loading initial messages:', error);
+      }
+    };
+    
+    loadInitialMessages();
+    
+    // Subscribe to real-time updates
     const unsubscribe = subscribeToMessages(chatSession.id, (newMessages) => {
+      console.log(`📨 Received ${newMessages.length} messages in chat ${chatSession.id}`);
       setMessages(newMessages);
       
       // Mark messages as read
       if (user) {
-        markMessagesAsRead(chatSession.id, user.id, userRole);
+        markMessagesAsRead(chatSession.id, user.id, userRole).catch(err => {
+          console.error('❌ Error marking messages as read:', err);
+        });
       }
     });
 
-    return () => unsubscribe();
-  }, [chatSession, open, userRole, user]);
+    return () => {
+      console.log(`🔌 Unsubscribing from chat ${chatSession.id}`);
+      unsubscribe();
+    };
+  }, [chatSession?.id, open, userRole, user?.id]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -81,7 +108,10 @@ export function CounselChatInterface({
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !chatSession || !user) return;
+    if (!newMessage.trim() || !chatSession || !user) {
+      console.log('⚠️ Cannot send message:', { hasMessage: !!newMessage.trim(), hasChat: !!chatSession, hasUser: !!user });
+      return;
+    }
 
     // Check if chat is dismissed or payment not paid
     if (chatSession.status === 'dismissed' || !chatSession.paymentPaid) {
@@ -93,6 +123,7 @@ export function CounselChatInterface({
       return;
     }
 
+    console.log(`📤 Sending message in chat ${chatSession.id} as ${userRole}:`, newMessage.trim());
     setIsSending(true);
     try {
       const success = await sendChatMessage(
@@ -104,8 +135,10 @@ export function CounselChatInterface({
       );
 
       if (success) {
+        console.log(`✅ Message sent successfully in chat ${chatSession.id}`);
         setNewMessage('');
       } else {
+        console.error(`❌ Failed to send message in chat ${chatSession.id}`);
         toast({
           title: 'Failed to send message',
           description: 'Please try again.',
@@ -113,7 +146,12 @@ export function CounselChatInterface({
         });
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ Error sending message:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSending(false);
     }
