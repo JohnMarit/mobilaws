@@ -329,47 +329,54 @@ export function CounselChatInterface({
         {/* Messages */}
         <ScrollArea className="flex-1 px-6" ref={scrollRef}>
           <div className="space-y-4 py-4">
-            {messages.map((message) => {
-              const isOwnMessage = message.senderRole === userRole;
-              const isSystemMessage = message.messageType === 'system';
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-3" />
+                <p className="text-sm text-gray-500">Loading messages...</p>
+              </div>
+            ) : (
+              messages.map((message) => {
+                const isOwnMessage = message.senderRole === userRole;
+                const isSystemMessage = message.messageType === 'system';
 
-              if (isSystemMessage) {
+                if (isSystemMessage) {
+                  return (
+                    <div key={message.id} className="flex justify-center">
+                      <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+                        {message.message}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={message.id} className="flex justify-center">
-                    <div className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
-                      {message.message}
+                  <div
+                    key={message.id}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                        isOwnMessage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-gray-100 text-gray-900'
+                      }`}
+                    >
+                      {!isOwnMessage && (
+                        <p className="text-xs font-semibold mb-1">{message.senderName}</p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                      <p
+                        className={`text-xs mt-1 ${
+                          isOwnMessage ? 'text-primary-foreground/70' : 'text-gray-500'
+                        }`}
+                      >
+                        {formatTime(message.createdAt)}
+                      </p>
                     </div>
                   </div>
                 );
-              }
-
-              return (
-                <div
-                  key={message.id}
-                  className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                      isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    {!isOwnMessage && (
-                      <p className="text-xs font-semibold mb-1">{message.senderName}</p>
-                    )}
-                    <p className="text-sm whitespace-pre-wrap">{message.message}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        isOwnMessage ? 'text-primary-foreground/70' : 'text-gray-500'
-                      }`}
-                    >
-                      {formatTime(message.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+              })
+            )}
           </div>
         </ScrollArea>
 

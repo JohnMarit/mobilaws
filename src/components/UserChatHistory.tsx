@@ -34,15 +34,25 @@ export function UserChatHistory({ open, onOpenChange, onOpenChat }: UserChatHist
   useEffect(() => {
     if (open && user) {
       loadChats();
+      // Poll for updates every 5 seconds
+      const interval = setInterval(loadChats, 5000);
+      return () => clearInterval(interval);
     }
   }, [open, user]);
 
   const loadChats = async () => {
     if (!user) return;
     
-    setIsLoading(true);
+    // Only show loading on initial load
+    if (chats.length === 0) {
+      setIsLoading(true);
+    }
+    
     try {
+      console.log(`📡 [USER HISTORY] Loading chats for user: ${user.id}`);
       const userChats = await getUserChats(user.id);
+      console.log(`📋 [USER HISTORY] Loaded ${userChats.length} chats`);
+      
       // Sort by updatedAt (most recent first)
       userChats.sort((a, b) => {
         const aTime = a.updatedAt?.toMillis?.() || a.updatedAt || 0;
@@ -51,7 +61,7 @@ export function UserChatHistory({ open, onOpenChange, onOpenChat }: UserChatHist
       });
       setChats(userChats);
     } catch (error) {
-      console.error('Error loading chats:', error);
+      console.error('❌ [USER HISTORY] Error loading chats:', error);
     } finally {
       setIsLoading(false);
     }
@@ -82,17 +92,22 @@ export function UserChatHistory({ open, onOpenChange, onOpenChat }: UserChatHist
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return 'Today';
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return `${days} days ago`;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    
+    if (hours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else {
-      return date.toLocaleDateString();
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getStatusBadge = (chat: CounselChatSession) => {
@@ -135,8 +150,8 @@ export function UserChatHistory({ open, onOpenChange, onOpenChat }: UserChatHist
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 mt-4">
-            {isLoading ? (
+          <ScrollArea className="flex-1 px-6 pb-6">
+            {isLoading && chats.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <Clock className="h-8 w-8 animate-spin text-primary" />
               </div>

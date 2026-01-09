@@ -203,15 +203,20 @@ export async function getChatById(chatId: string): Promise<CounselChatSession | 
  */
 export async function getUserChats(userId: string): Promise<CounselChatSession[]> {
   try {
+    console.log(`📡 [API] Fetching chats for user: ${userId}`);
     const apiUrl = getApiUrl(`counsel/chat/user/${userId}`);
     const response = await fetch(apiUrl);
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error(`❌ [API] Failed to fetch user chats: ${response.status}`);
+      return [];
+    }
 
     const data = await response.json();
+    console.log(`✅ [API] Received ${data.chats?.length || 0} chats for user ${userId}`);
     return data.chats || [];
   } catch (error) {
-    console.error('❌ Error getting user chats:', error);
+    console.error('❌ [API] Error getting user chats:', error);
     return [];
   }
 }
