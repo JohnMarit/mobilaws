@@ -197,14 +197,16 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     }
   };
 
-  // Load chats when online
+  // Load chats whenever dialog opens; poll only when online
   useEffect(() => {
-    if (open && isOnline && user) {
-      console.log(`🔄 Starting to load chats for counselor ${user.id}`);
+    if (open && user) {
+      console.log(`🔄 [DASHBOARD] Initial load chats for counselor ${user.id} (online=${isOnline})`);
       loadChats();
-      pollingRef.current = setInterval(() => {
-        loadChats();
-      }, 3000); // Poll more frequently
+      if (isOnline) {
+        pollingRef.current = setInterval(() => {
+          loadChats();
+        }, 3000); // Poll more frequently when online
+      }
     }
     
     return () => {
