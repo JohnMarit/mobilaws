@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, Volume2, DollarSign, Edit, Save, X } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, DollarSign, Edit, Save, X } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -29,7 +29,6 @@ import {
 import { getCounselorChats, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
-import { notificationSound } from '@/lib/notification-sound';
 
 interface CounselorDashboardProps {
   open: boolean;
@@ -225,28 +224,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   };
 
   // Removed loadRequests - no longer needed since chats are created automatically after payment
-
-  const handleTestSound = async () => {
-    toast({
-      title: '🔊 Testing Sound',
-      description: 'Playing test notification...',
-    });
-    
-    const success = await notificationSound.testSound();
-    
-    if (success) {
-      toast({
-        title: '✅ Sound Working!',
-        description: 'Audio notifications are enabled. You will hear incoming requests.',
-      });
-    } else {
-      toast({
-        title: '❌ Sound Failed',
-        description: 'Could not play sound. Please check browser permissions.',
-        variant: 'destructive',
-      });
-    }
-  };
+  // Removed handleTestSound - notification sounds no longer needed
 
   const handleToggleOnline = async () => {
     if (!user) {
@@ -624,32 +602,21 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleTestSound}
-                  variant="outline"
-                  size="sm"
-                  className="min-w-[100px]"
-                >
-                  <Volume2 className="h-4 w-4 mr-2" />
-                  Test Sound
-                </Button>
-                <Button
-                  onClick={handleToggleOnline}
-                  disabled={isTogglingStatus || !selectedState}
-                  variant={isOnline ? 'destructive' : 'default'}
-                  className="min-w-[120px]"
-                >
-                  {isTogglingStatus ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Circle className="h-4 w-4 mr-2" />
-                      {isOnline ? 'Go Offline' : 'Go Online'}
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                onClick={handleToggleOnline}
+                disabled={isTogglingStatus || !selectedState}
+                variant={isOnline ? 'destructive' : 'default'}
+                className="min-w-[120px]"
+              >
+                {isTogglingStatus ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Circle className="h-4 w-4 mr-2" />
+                    {isOnline ? 'Go Offline' : 'Go Online'}
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 

@@ -24,7 +24,6 @@ import {
   type CounselChatSession,
 } from '@/lib/counsel-chat-service';
 import { submitRating, getUserRatingForCounselor, type CounselorRating } from '@/lib/counselor-ratings-service';
-import { notificationSound } from '@/lib/notification-sound';
 
 interface CounselChatInterfaceProps {
   open: boolean;
@@ -64,14 +63,6 @@ export function CounselChatInterface({
     if (!chatSession || !open) return;
 
     const unsubscribe = subscribeToMessages(chatSession.id, (newMessages) => {
-      // Play sound for new messages from other party
-      if (newMessages.length > messages.length) {
-        const latestMessage = newMessages[newMessages.length - 1];
-        if (latestMessage.senderRole !== userRole) {
-          notificationSound.playMessageNotification();
-        }
-      }
-      
       setMessages(newMessages);
       
       // Mark messages as read

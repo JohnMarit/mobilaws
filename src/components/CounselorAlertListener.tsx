@@ -1,10 +1,3 @@
-import { useEffect, useRef } from 'react';
-import { useAuth } from '@/contexts/FirebaseAuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { getCounselorProfile, getRequestsForCounselor, getPendingCounselRequests } from '@/lib/counsel-service';
-import { ensureDailyPushRegistration } from '@/lib/pushNotifications';
-import { notificationSound } from '@/lib/notification-sound';
-
 /**
  * Background listener for counselors.
  * DISABLED: No longer needed since chats are created automatically after payment.

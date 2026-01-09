@@ -213,8 +213,6 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
     setPhone('');
     setState('');
     setCategory('');
-    setPreferredDate('');
-    setPreferredTime('');
     setStep('form');
     setRequestId(null);
     setRequest(null);
@@ -439,7 +437,7 @@ export function BookCounsel({ open, onOpenChange, autoOpenRequestId }: BookCouns
           <div className="py-12 text-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
             <p className="text-lg font-medium">Creating your chat...</p>
-            <p className="text-sm text-muted-foreground">Please wait a moment</p>
+            <p className="text-sm text-muted-foreground">This will only take a moment</p>
           </div>
         )}
 
