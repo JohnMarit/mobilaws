@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp, Trash2, RotateCcw } from 'lucide-react';
+import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp, Trash2, RotateCcw, X, Award, Play } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
@@ -24,9 +24,10 @@ import { getApiUrl } from '@/lib/api';
 interface LearningHubProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  fullscreen?: boolean;
 }
 
-export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
+export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson } = useLearning();
   const { showLoginModal, setShowLoginModal } = usePromptLimit();
@@ -37,6 +38,8 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
   const [isDeletingLessons, setIsDeletingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'lessons' | 'certifications' | 'leaderboard'>('lessons');
+  const [activeNav, setActiveNav] = useState<'featured' | 'learning' | 'certification' | 'leaderboard'>('featured');
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -262,6 +265,472 @@ export default function LearningHub({ open, onOpenChange }: LearningHubProps) {
     return Array.from(cats);
   }, [modules]);
 
+  // Handle navigation changes
+  useEffect(() => {
+    if (activeNav === 'featured') {
+      setActiveTab('lessons');
+    } else if (activeNav === 'learning') {
+      setActiveTab('lessons');
+    } else if (activeNav === 'certification') {
+      setActiveTab('certifications');
+    } else if (activeNav === 'leaderboard') {
+      setActiveTab('leaderboard');
+    }
+  }, [activeNav]);
+
+  // If fullscreen mode, render fullscreen layout
+  if (fullscreen && open) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold">Learning Paths</h1>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto p-4 pb-20">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4 h-auto">
+              <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2 sm:py-2.5">
+                <FontAwesomeIcon icon={faRoute} className="mr-2 text-primary" />
+                <span className="hidden sm:inline">Learning Path</span>
+                <span className="sm:hidden">Path</span>
+              </TabsTrigger>
+              <TabsTrigger value="certifications" className="text-xs sm:text-sm py-2 sm:py-2.5">
+                <FontAwesomeIcon icon={faCertificate} className="mr-2 text-amber-500" />
+                <span className="hidden sm:inline">Certifications</span>
+                <span className="sm:hidden">Certs</span>
+              </TabsTrigger>
+              <TabsTrigger value="leaderboard" className="text-xs sm:text-sm py-2 sm:py-2.5">
+                <FontAwesomeIcon icon={faTrophy} className="mr-2 text-yellow-500" />
+                <span className="hidden sm:inline">Leaderboard</span>
+                <span className="sm:hidden">Top</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="lessons" className="space-y-4 sm:space-y-6">
+              <div className="grid gap-4 sm:gap-6">
+                {/* Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                    <CardHeader className="pb-2 p-3 sm:p-4">
+                      <CardDescription className="text-xs sm:text-sm text-blue-100">Level</CardDescription>
+                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                        <Star className="h-5 w-5 text-yellow-300" />
+                        Level {progress.level}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+                      <div className="text-sm sm:text-base text-blue-50">{progress.xp} XP total</div>
+                      <Progress value={xpPercent} className="h-1.5 bg-white/30" />
+                      <div className="text-xs sm:text-sm text-blue-100">Next level at +{120 - (progress.xp % 120)} XP</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                    <CardHeader className="pb-2 p-3 sm:p-4">
+                      <CardDescription className="text-xs sm:text-sm text-blue-100">Streak</CardDescription>
+                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                        <Flame className={`h-5 w-5 ${streakColor}`} />
+                        {progress.streak} days
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+                      <div className="text-sm sm:text-base text-blue-50">Keep the fire alive daily.</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                    <CardHeader className="pb-2 p-3 sm:p-4">
+                      <CardDescription className="text-xs sm:text-sm text-blue-100">
+                        {tier === 'free' ? 'Daily Lessons' : 'Daily Goal'}
+                      </CardDescription>
+                      <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                        {tier === 'free' ? (
+                          <>
+                            <Trophy className="h-5 w-5 text-white" />
+                            {dailyLessonsRemaining}/2
+                          </>
+                        ) : (
+                          <>
+                            <Target className="h-5 w-5 text-white" />
+                            {progress.dailyGoal} XP
+                          </>
+                        )}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
+                      <div className="text-sm sm:text-base text-blue-50">
+                        {tier === 'free'
+                          ? dailyLessonsRemaining > 0
+                            ? `${dailyLessonsRemaining} lesson${dailyLessonsRemaining === 1 ? '' : 's'} left today`
+                            : 'Come back tomorrow!'
+                          : 'Complete lessons to hit your goal.'}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Separator />
+
+                {/* Modules */}
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h3 className="text-lg sm:text-xl font-semibold">Courses</h3>
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="w-[140px] sm:w-[180px]">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {categories.map(cat => (
+                            <SelectItem key={cat} value={cat}>
+                              <FontAwesomeIcon icon={
+                                cat === 'faScroll' ? faScroll :
+                                cat === 'faGlobe' ? faGlobe :
+                                cat === 'faScaleBalanced' ? faScaleBalanced :
+                                cat === 'faLandmark' ? faLandmark : faBook
+                              } className="mr-2" />
+                              {cat.replace('fa', '')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    {filteredModules.map((module) => {
+                      const { percent, done } = moduleStatus(module);
+                      const isExpanded = expandedLessons.has(module.id);
+                      const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
+                      const isSelected = selectedModuleId === module.id;
+                      return (
+                        <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
+                          <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
+                            <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-1.5 sm:gap-2">
+                                <FontAwesomeIcon
+                                  icon={
+                                    module.icon === 'faScroll' ? faScroll :
+                                      module.icon === 'faGlobe' ? faGlobe :
+                                        module.icon === 'faScaleBalanced' ? faScaleBalanced :
+                                          module.icon === 'faLandmark' ? faLandmark :
+                                            faBook
+                                  }
+                                  className="text-xl sm:text-2xl text-primary"
+                                />
+                                <span className="leading-tight">{module.title}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => toggleFavorite(module.id)}
+                                >
+                                  <FontAwesomeIcon 
+                                    icon={faHeart} 
+                                    className={`text-lg ${favorites.has(module.id) ? 'text-red-500' : 'text-gray-300'}`}
+                                  />
+                                </Button>
+                                {done ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" /> : null}
+                              </div>
+                            </CardTitle>
+                            <CardDescription className="text-sm sm:text-base">{module.description}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="flex-1 flex flex-col gap-3 sm:gap-4 p-3 sm:p-6 pt-0">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
+                              <Badge variant="outline" className="capitalize text-xs sm:text-sm">
+                                {module.requiredTier}
+                              </Badge>
+                              <span>{module.lessons.length} lessons</span>
+                            </div>
+                            <div>
+                              <Progress value={percent} className="h-2 sm:h-2.5" />
+                              <div className="text-xs sm:text-sm text-muted-foreground mt-1">{percent}% complete</div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                <Badge variant="outline" className="capitalize text-[11px] sm:text-xs">
+                                  {module.requiredTier}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="text-sm"
+                                  onClick={() => setSelectedModuleId(prev => prev === module.id ? null : module.id)}
+                                >
+                                  {isSelected ? 'Hide lessons' : 'View lessons'}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <div className="mt-3 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                  {visibleLessons.map((lesson) => {
+                                    const lp = getLessonProgress(module.id, lesson.id);
+                                    const isLocked = lesson.locked;
+                                    const isCompleted = lp?.completed === true && !isLocked;
+
+                                    return (
+                                      <Card
+                                        key={lesson.id}
+                                        className={`h-full flex flex-col justify-between border shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-70' : ''}`}
+                                      >
+                                        <CardContent className="flex-1 flex flex-col gap-3 p-3 sm:p-4">
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div className="space-y-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm sm:text-base font-semibold leading-tight line-clamp-2">{lesson.title}</span>
+                                                {isCompleted && (
+                                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                    Done
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                                                <span className="flex items-center gap-1">
+                                                  <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
+                                                  {lesson.xpReward} XP
+                                                </span>
+                                                <span>• {lesson.quiz.length} Q</span>
+                                                {lesson.hasAudio && (
+                                                  <span className="flex items-center gap-1 text-blue-600">
+                                                    <FontAwesomeIcon icon={faHeadphones} className="h-3 w-3" />
+                                                    Audio
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            {isLocked && (
+                                              <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
+                                                <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                <span className="hidden sm:inline">Locked</span>
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center justify-between pt-1">
+                                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                              <Badge variant="outline" className="capitalize text-[11px] sm:text-xs">
+                                                {lesson.tier || 'basic'}
+                                              </Badge>
+                                            </div>
+                                            <Button
+                                              size="sm"
+                                              variant={isCompleted ? 'outline' : 'default'}
+                                              className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[70px] sm:min-w-[90px]"
+                                              onClick={() => handleStartLesson(module, lesson)}
+                                              disabled={isLocked}
+                                            >
+                                              <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
+                                              <span className="sm:hidden">{isCompleted ? '✓' : '▶'}</span>
+                                              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1 hidden sm:inline" />
+                                            </Button>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    );
+                                  })}
+                                </div>
+                                
+                                {/* Expand/Collapse Button */}
+                                {module.lessons.length > 5 && (
+                                  <Button
+                                    variant="ghost"
+                                    className="w-full mt-1 text-sm"
+                                    onClick={() => {
+                                      setExpandedLessons(prev => {
+                                        const newSet = new Set(prev);
+                                        if (newSet.has(module.id)) {
+                                          newSet.delete(module.id);
+                                        } else {
+                                          newSet.add(module.id);
+                                        }
+                                        return newSet;
+                                      });
+                                    }}
+                                  >
+                                    {expandedLessons.has(module.id) ? (
+                                      <>
+                                        <ChevronUp className="h-4 w-4 mr-2" />
+                                        Show Less
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="h-4 w-4 mr-2" />
+                                        Show All {module.lessons.length} Lessons
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                                
+                                {/* Delete/Regenerate Generated Lessons Buttons */}
+                                {hasUserGeneratedLessons(module) && (() => {
+                                  const totalSets = countGenerationSets(module);
+                                  const hasMoreThan5Sets = totalSets > 5;
+                                  
+                                  return (
+                                    <div className="w-full mt-2 space-y-2">
+                                      <Button
+                                        variant="outline"
+                                        className="w-full border-dashed border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 transition-all text-orange-700"
+                                        onClick={() => deleteGeneratedLessons(module.id, module.title, false)}
+                                        disabled={isDeletingLessons === module.id}
+                                      >
+                                        {isDeletingLessons === module.id ? (
+                                          <>
+                                            <div className="animate-spin mr-2">⏳</div>
+                                            Deleting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete Last 5 Lessons
+                                          </>
+                                        )}
+                                      </Button>
+                                      
+                                      {hasMoreThan5Sets && (
+                                        <Button
+                                          variant="outline"
+                                          className="w-full border-dashed border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all text-red-700"
+                                          onClick={() => deleteGeneratedLessons(module.id, module.title, true)}
+                                          disabled={isDeletingLessons === module.id}
+                                        >
+                                          {isDeletingLessons === module.id ? (
+                                            <>
+                                              <div className="animate-spin mr-2">⏳</div>
+                                              Deleting...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <RotateCcw className="h-4 w-4 mr-2" />
+                                              Delete All Lessons
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                                
+                                {/* Request More Lessons Button */}
+                                {done && (
+                                  <Button
+                                    variant="outline"
+                                    className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
+                                    onClick={() => requestMoreLessons(module.id, module.title)}
+                                    disabled={isRequestingLessons === module.id}
+                                  >
+                                    {isRequestingLessons === module.id ? (
+                                      <>
+                                        <div className="animate-spin mr-2">⏳</div>
+                                        Generating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                        Request 5 More Lessons
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="certifications">
+              <ExamPage />
+            </TabsContent>
+
+            <TabsContent value="leaderboard">
+              <Leaderboard />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around py-2 safe-area-inset-bottom z-40">
+          <button
+            onClick={() => setActiveNav('featured')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              activeNav === 'featured' ? 'text-primary' : 'text-gray-600'
+            }`}
+          >
+            <Star className="h-5 w-5" fill={activeNav === 'featured' ? 'currentColor' : 'none'} />
+            <span className="text-xs font-medium">Featured</span>
+          </button>
+          <button
+            onClick={() => setActiveNav('learning')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              activeNav === 'learning' ? 'text-primary' : 'text-gray-600'
+            }`}
+          >
+            <Play className="h-5 w-5" />
+            <span className="text-xs font-medium">My Learning</span>
+          </button>
+          <button
+            onClick={() => setActiveNav('certification')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              activeNav === 'certification' ? 'text-primary' : 'text-gray-600'
+            }`}
+          >
+            <Award className="h-5 w-5" />
+            <span className="text-xs font-medium">Certification</span>
+          </button>
+          <button
+            onClick={() => setActiveNav('leaderboard')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+              activeNav === 'leaderboard' ? 'text-primary' : 'text-gray-600'
+            }`}
+          >
+            <Trophy className="h-5 w-5" />
+            <span className="text-xs font-medium">Leaderboard</span>
+          </button>
+        </div>
+
+        {activeLesson && (
+          <LessonRunner
+            module={activeLesson.module}
+            lesson={activeLesson.lesson}
+            onClose={closeLesson}
+            open={Boolean(activeLesson)}
+          />
+        )}
+
+        <LoginModal 
+          isOpen={showLoginModal} 
+          onClose={() => setShowLoginModal(false)} 
+        />
+      </div>
+    );
+  }
+
+  // Original dialog mode
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">

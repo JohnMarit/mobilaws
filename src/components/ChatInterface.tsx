@@ -587,7 +587,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
         </>
       )}
 
-      <LearningHub open={showLearningHub} onOpenChange={setShowLearningHub} />
+      <LearningHub open={showLearningHub} onOpenChange={setShowLearningHub} fullscreen={true} />
 
       {/* Book Counsel Dialog */}
       <BookCounsel

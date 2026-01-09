@@ -627,7 +627,10 @@ export async function getCounselorChats(counselorId: string): Promise<CounselCha
     
     const chats = snapshot.docs.map(doc => {
       const data = doc.data() as CounselChatSession;
-      console.log(`  - Chat ${doc.id}: ${data.userName} (${data.status})`);
+      console.log(`  - Chat ${doc.id}: ${data.userName} (${data.status})`, {
+        userEmail: data.userEmail || 'MISSING',
+        counselorEmail: data.counselorEmail || 'MISSING'
+      });
       return data;
     });
     
@@ -728,6 +731,54 @@ export async function deleteMessages(chatId: string, messageIds: string[]): Prom
     return true;
   } catch (error) {
     console.error('❌ Error deleting messages:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete entire chat conversations (counselor only)
+ * Deletes the chat document and all its messages
+ */
+export async function deleteChatConversations(chatIds: string[]): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    console.log(`🗑️ Deleting ${chatIds.length} chat conversation(s)`);
+    
+    // Firestore batch operations are limited to 500 operations
+    // We'll process in batches if needed
+    const batchSize = 500;
+    
+    for (let i = 0; i < chatIds.length; i += batchSize) {
+      const batch = db.batch();
+      const chatBatch = chatIds.slice(i, i + batchSize);
+      
+      for (const chatId of chatBatch) {
+        // Delete all messages in the chat first
+        const messagesRef = db
+          .collection(COUNSEL_CHATS_COLLECTION)
+          .doc(chatId)
+          .collection(CHAT_MESSAGES_COLLECTION);
+        
+        const messagesSnapshot = await messagesRef.get();
+        messagesSnapshot.docs.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        
+        // Delete the chat document itself
+        const chatRef = db.collection(COUNSEL_CHATS_COLLECTION).doc(chatId);
+        batch.delete(chatRef);
+      }
+      
+      await batch.commit();
+      console.log(`✅ Deleted batch ${Math.floor(i / batchSize) + 1} (${chatBatch.length} chats)`);
+    }
+    
+    console.log(`✅ Deleted ${chatIds.length} chat conversation(s) and all their messages`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting chat conversations:', error);
     return false;
   }
 }

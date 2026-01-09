@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, Circle, MapPin, Phone, XCircle, FileText, DollarSign, Edit, Save, X, MessageSquare, Users } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, Circle, MapPin, Phone, XCircle, FileText, DollarSign, Edit, Save, X, MessageSquare, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -25,6 +25,7 @@ import {
   type SouthSudanState,
   type LegalCategory,
 } from '@/lib/counsel-service';
+import { getApiUrl } from '@/lib/api';
 import { getCounselorChats, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
@@ -48,6 +49,9 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const [chatSession, setChatSession] = useState<CounselChatSession | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [counselorChats, setCounselorChats] = useState<CounselChatSession[]>([]);
+  const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isDeletingChats, setIsDeletingChats] = useState(false);
   
   // Approval status
   const [isCheckingApproval, setIsCheckingApproval] = useState(true);
@@ -237,6 +241,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             id: chat.id,
             counselorId: chat.counselorId,
             userId: chat.userId,
+            userEmail: chat.userEmail, // Debug: Check if email is present
             lastMessage: chat.lastMessage?.substring(0, 30),
             unreadCount: chat.unreadCountCounselor,
             paymentPaid: chat.paymentPaid,
@@ -260,6 +265,62 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
         console.error('   Error stack:', error.stack);
       }
     }
+  };
+
+  const handleDeleteSelectedChats = async () => {
+    if (selectedChats.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedChats.size} conversation(s)? This will permanently delete all messages in these chats. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeletingChats(true);
+    try {
+      const apiUrl = getApiUrl('counsel/chat/delete');
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatIds: Array.from(selectedChats) }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Conversations Deleted',
+          description: `${selectedChats.size} conversation(s) have been deleted.`,
+        });
+        setSelectedChats(new Set());
+        setIsSelectionMode(false);
+        // Reload chats
+        await loadChats();
+      } else {
+        const error = await response.json();
+        toast({
+          title: 'Failed to Delete',
+          description: error.error || 'Could not delete conversations. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting chats:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete conversations.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingChats(false);
+    }
+  };
+
+  const toggleChatSelection = (chatId: string) => {
+    const newSelection = new Set(selectedChats);
+    if (newSelection.has(chatId)) {
+      newSelection.delete(chatId);
+    } else {
+      newSelection.add(chatId);
+    }
+    setSelectedChats(newSelection);
   };
 
   const handleToggleOnline = async () => {
@@ -466,19 +527,19 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                       {counselorProfile && (
                         <div className="text-xs">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-gray-600">
-                              <DollarSign className="h-3 w-3 inline mr-1" />
+                          <span className="text-gray-600">
+                            <DollarSign className="h-3 w-3 inline mr-1" />
                               Fee:
                             </span>
                             <span className="font-semibold">
                               ${(counselorProfile.bookingFee || 10).toFixed(2)}
-                            </span>
+                          </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-gray-600">Earned:</span>
-                            <span className="text-green-600 font-semibold">
+                          <span className="text-green-600 font-semibold">
                               ${(counselorProfile.totalEarnings || 0).toFixed(2)}
-                            </span>
+                          </span>
                           </div>
                         </div>
                       )}
@@ -523,14 +584,14 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                       <div className="flex items-center gap-3 mb-3">
                         <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center shadow">
                           <DollarSign className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
+                          </div>
+                          <div>
                           <p className="text-xs font-medium text-gray-500 uppercase">Total Earnings</p>
                           <p className="text-xl font-bold text-green-700">
-                            ${(counselorProfile.totalEarnings || 0).toFixed(2)}
-                          </p>
+                              ${(counselorProfile.totalEarnings || 0).toFixed(2)}
+                            </p>
                         </div>
-                      </div>
+                          </div>
                       <div className="text-xs text-gray-600 space-y-1">
                         <div className="flex justify-between">
                           <span>Total Cases:</span>
@@ -699,26 +760,73 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                   <h2 className="font-semibold text-lg flex items-center gap-2">
                     <MessageSquare className="h-5 w-5 text-blue-600" />
                     Chat History ({counselorChats.length})
+                    {isSelectionMode && selectedChats.size > 0 && (
+                      <span className="text-sm font-normal text-gray-600">
+                        ({selectedChats.size} selected)
+                      </span>
+                    )}
                   </h2>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        console.log('🔄 Manual refresh triggered by counselor');
-                        console.log('Current state:', { 
-                          counselorId: user?.id, 
-                          isOnline, 
-                          chatCount: counselorChats.length,
-                          pollingActive: !!pollingRef.current 
-                        });
-                        loadChats();
-                      }}
-                      className="h-8"
-                    >
-                      <Loader2 className="h-4 w-4 mr-2" />
-                      Refresh
-                    </Button>
+                    {isSelectionMode ? (
+                      <>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteSelectedChats}
+                          disabled={selectedChats.size === 0 || isDeletingChats}
+                          className="h-8"
+                        >
+                          {isDeletingChats ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 mr-2" />
+                          )}
+                          Delete ({selectedChats.size})
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setIsSelectionMode(false);
+                            setSelectedChats(new Set());
+                          }}
+                          className="h-8"
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsSelectionMode(true)}
+                          className="h-8"
+                          title="Delete Conversations"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            console.log('🔄 Manual refresh triggered by counselor');
+                            console.log('Current state:', { 
+                              counselorId: user?.id, 
+                              isOnline, 
+                              chatCount: counselorChats.length,
+                              pollingActive: !!pollingRef.current 
+                            });
+                            loadChats();
+                          }}
+                          className="h-8"
+                        >
+                          <Loader2 className="h-4 w-4 mr-2" />
+                          Refresh
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -763,24 +871,55 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                         const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
                         const isEnded = chat.status === 'ended';
                         const isActive = chat.status === 'active' && chat.paymentPaid;
-                        // Get avatar from user email (stored in chat)
-                        const avatarUrl = chat.userEmail ? getGravatarUrl(chat.userEmail, 80) : getGravatarUrl(chat.userName, 80);
+                        // Get avatar from user email (stored in chat) - use email for gravatar
+                        const userEmailForAvatar = chat.userEmail || '';
+                        const avatarUrl = userEmailForAvatar 
+                          ? getGravatarUrl(userEmailForAvatar, 80) 
+                          : getGravatarUrl(chat.userName, 80);
                         const initials = getInitials(chat.userName);
+                        
+                        // Debug log to check email
+                        if (!chat.userEmail) {
+                          console.warn(`⚠️ Chat ${chat.id} missing userEmail for ${chat.userName}`);
+                        }
+                        
+                        const isSelected = selectedChats.has(chat.id);
                         
                         return (
                           <div
                             key={chat.id}
-                            className={`p-4 cursor-pointer transition-all hover:bg-gray-50 ${
-                              chatSession?.id === chat.id 
+                            className={`p-4 transition-all ${
+                              isSelectionMode 
+                                ? 'cursor-pointer hover:bg-gray-50' 
+                                : 'cursor-pointer hover:bg-gray-50'
+                            } ${
+                              chatSession?.id === chat.id && !isSelectionMode
                                 ? 'bg-blue-50 border-l-4 border-l-blue-500' 
+                                : ''
+                            } ${
+                              isSelected 
+                                ? 'bg-red-50 border-l-4 border-l-red-500' 
                                 : ''
                             } ${isDismissed ? 'opacity-60' : ''}`}
                             onClick={() => {
-                              setChatSession(chat);
-                              setShowChat(true);
+                              if (isSelectionMode) {
+                                toggleChatSelection(chat.id);
+                              } else {
+                                setChatSession(chat);
+                                setShowChat(true);
+                              }
                             }}
                           >
                             <div className="flex items-center gap-4">
+                              {isSelectionMode && (
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleChatSelection(chat.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                />
+                              )}
                               <Avatar className="h-12 w-12 flex-shrink-0">
                                 <AvatarImage src={avatarUrl} alt={chat.userName} />
                                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold">

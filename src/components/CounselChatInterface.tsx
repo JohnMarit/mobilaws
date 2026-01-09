@@ -345,9 +345,19 @@ export function CounselChatInterface({
 
   const otherPartyName = userRole === 'user' ? chatSession.counselorName : chatSession.userName;
   const otherPartyEmail = userRole === 'user' ? chatSession.counselorEmail : chatSession.userEmail;
-  const otherPartyAvatar = otherPartyEmail ? getGravatarUrl(otherPartyEmail, 40) : getGravatarUrl(otherPartyName, 40);
+  // Use email for gravatar, fallback to name if email not available
+  const otherPartyAvatar = otherPartyEmail 
+    ? getGravatarUrl(otherPartyEmail, 40) 
+    : getGravatarUrl(otherPartyName, 40);
   const myEmail = userRole === 'user' ? chatSession.userEmail : chatSession.counselorEmail;
-  const myAvatar = myEmail ? getGravatarUrl(myEmail, 40) : getGravatarUrl(user?.name || 'User', 40);
+  const myAvatar = myEmail 
+    ? getGravatarUrl(myEmail, 40) 
+    : getGravatarUrl(user?.name || 'User', 40);
+  
+  // Debug: Log email availability
+  if (!otherPartyEmail && userRole === 'counselor') {
+    console.warn(`⚠️ Chat ${chatSession.id} missing userEmail for ${chatSession.userName}`);
+  }
   const isDismissed = chatSession.status === 'dismissed' || !chatSession.paymentPaid;
   // Only dismiss should block messaging, not ended status
   const canSendMessages = chatSession.paymentPaid && !isDismissed;
