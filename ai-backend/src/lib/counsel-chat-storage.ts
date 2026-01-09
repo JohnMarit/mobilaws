@@ -14,8 +14,10 @@ export interface CounselChatSession {
   appointmentId?: string;
   userId: string;
   userName: string;
+  userEmail?: string; // User's email for gravatar
   counselorId: string;
   counselorName: string;
+  counselorEmail?: string; // Counselor's email for gravatar
   status: 'active' | 'ended' | 'scheduled' | 'dismissed';
   paymentPaid: boolean; // Whether user has paid for this chat
   dismissedAt?: admin.firestore.Timestamp; // When counselor dismissed the chat
@@ -60,15 +62,19 @@ export async function createChatSession(
   userId: string,
   userName: string,
   counselorId: string,
-  counselorName: string
+  counselorName: string,
+  userEmail?: string,
+  counselorEmail?: string
 ): Promise<string | null> {
   console.log(`📝 createChatSession called with:`, {
     requestId,
     appointmentId,
     userId,
     userName,
+    userEmail,
     counselorId,
-    counselorName
+    counselorName,
+    counselorEmail
   });
   
   const db = getFirestore();
@@ -99,12 +105,18 @@ export async function createChatSession(
       updatedAt: now,
     };
     
-    // Only add requestId/appointmentId if they exist (Firestore doesn't allow undefined)
+    // Only add optional fields if they exist (Firestore doesn't allow undefined)
     if (requestId) {
       chatSession.requestId = requestId;
     }
     if (appointmentId) {
       chatSession.appointmentId = appointmentId;
+    }
+    if (userEmail) {
+      chatSession.userEmail = userEmail;
+    }
+    if (counselorEmail) {
+      chatSession.counselorEmail = counselorEmail;
     }
 
     console.log('📤 Saving chat session to Firestore...');
@@ -683,6 +695,39 @@ export async function dismissChatSession(chatId: string, counselorId: string): P
     return true;
   } catch (error) {
     console.error('❌ Error dismissing chat:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete messages from a chat (counselor only)
+ */
+export async function deleteMessages(chatId: string, messageIds: string[]): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    console.log(`🗑️ Deleting ${messageIds.length} messages from chat ${chatId}`);
+    
+    const batch = db.batch();
+    
+    // Delete each message
+    for (const messageId of messageIds) {
+      const messageRef = db
+        .collection(COUNSEL_CHATS_COLLECTION)
+        .doc(chatId)
+        .collection(CHAT_MESSAGES_COLLECTION)
+        .doc(messageId);
+      
+      batch.delete(messageRef);
+    }
+    
+    await batch.commit();
+    
+    console.log(`✅ Deleted ${messageIds.length} messages from chat ${chatId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting messages:', error);
     return false;
   }
 }

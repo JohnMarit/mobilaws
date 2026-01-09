@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Phone, Video, X, Star, Ban, Loader2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Send, Phone, Video, X, Star, Ban, Loader2, Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
@@ -23,6 +24,7 @@ import {
   type ChatMessage,
   type CounselChatSession,
 } from '@/lib/counsel-chat-service';
+import { getGravatarUrl } from '@/lib/gravatar';
 import { submitRating, getUserRatingForCounselor, type CounselorRating } from '@/lib/counselor-ratings-service';
 
 interface CounselChatInterfaceProps {
@@ -47,6 +49,8 @@ export function CounselChatInterface({
   const [ratingComment, setRatingComment] = useState('');
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
   const [userRating, setUserRating] = useState<CounselorRating | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -143,21 +147,11 @@ export function CounselChatInterface({
       return;
     }
 
-    // Check if chat is ended
-    if (chatSession.status === 'ended') {
-      toast({
-        title: 'Chat Ended',
-        description: 'This chat has been ended. You cannot send new messages.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check if chat is dismissed or payment not paid
+    // ONLY dismiss blocks messaging - closed status does NOT block
     if (chatSession.status === 'dismissed' || !chatSession.paymentPaid) {
       toast({
-        title: 'Chat Inactive',
-        description: 'This chat has been dismissed. Please pay again to continue.',
+        title: 'Chat Dismissed',
+        description: 'This chat has been dismissed. You cannot send messages.',
         variant: 'destructive',
       });
       return;
@@ -197,27 +191,27 @@ export function CounselChatInterface({
     }
   };
 
-  const handleEndChat = async () => {
+  const handleCloseChat = async () => {
     if (!chatSession) return;
 
-    // Only counselor can end the chat
+    // Only counselor can close the chat
     if (userRole !== 'counselor') {
       toast({
-        title: 'Cannot End Chat',
-        description: 'Only the counselor can end the chat session.',
+        title: 'Cannot Close Chat',
+        description: 'Only the counselor can close the chat session.',
         variant: 'destructive',
       });
       return;
     }
 
-    const confirmed = window.confirm('Are you sure you want to end this chat session? The user will no longer be able to send messages.');
+    const confirmed = window.confirm('Are you sure you want to close this chat session?');
     if (!confirmed) return;
 
     const success = await endChatSession(chatSession.id);
     if (success) {
       toast({
-        title: 'Chat Ended',
-        description: 'The chat session has been ended.',
+        title: 'Chat Closed',
+        description: 'The chat session has been closed.',
       });
       onOpenChange(false);
     }
@@ -227,7 +221,7 @@ export function CounselChatInterface({
     if (!chatSession || !user) return;
 
     const confirmed = window.confirm(
-      'Are you sure you want to dismiss this chat? The user will need to pay again to continue.'
+      'Are you sure you want to dismiss this chat? The user will be blocked from sending messages.'
     );
     if (!confirmed) return;
 
@@ -237,7 +231,7 @@ export function CounselChatInterface({
       if (success) {
         toast({
           title: 'Chat Dismissed',
-          description: 'The chat has been dismissed. User needs to pay again to continue.',
+          description: 'The chat has been dismissed. User is blocked from messaging.',
         });
         onOpenChange(false);
       } else {
@@ -250,6 +244,58 @@ export function CounselChatInterface({
     } finally {
       setIsDismissing(false);
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedMessages.size === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selectedMessages.size} message(s)? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      // Delete messages from backend
+      const apiUrl = `${window.location.origin}/api/counsel/chat/${chatSession.id}/messages/delete`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageIds: Array.from(selectedMessages) }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Messages Deleted',
+          description: `${selectedMessages.size} message(s) have been deleted.`,
+        });
+        setSelectedMessages(new Set());
+        setIsSelectionMode(false);
+        // Messages will be updated via real-time listener
+      } else {
+        toast({
+          title: 'Failed to Delete',
+          description: 'Could not delete messages. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting messages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete messages.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const toggleMessageSelection = (messageId: string) => {
+    const newSelection = new Set(selectedMessages);
+    if (newSelection.has(messageId)) {
+      newSelection.delete(messageId);
+    } else {
+      newSelection.add(messageId);
+    }
+    setSelectedMessages(newSelection);
   };
 
   const handleSubmitRating = async () => {
@@ -298,8 +344,22 @@ export function CounselChatInterface({
   if (!chatSession) return null;
 
   const otherPartyName = userRole === 'user' ? chatSession.counselorName : chatSession.userName;
+  const otherPartyEmail = userRole === 'user' ? chatSession.counselorEmail : chatSession.userEmail;
+  const otherPartyAvatar = otherPartyEmail ? getGravatarUrl(otherPartyEmail, 40) : getGravatarUrl(otherPartyName, 40);
+  const myEmail = userRole === 'user' ? chatSession.userEmail : chatSession.counselorEmail;
+  const myAvatar = myEmail ? getGravatarUrl(myEmail, 40) : getGravatarUrl(user?.name || 'User', 40);
   const isDismissed = chatSession.status === 'dismissed' || !chatSession.paymentPaid;
-  const canSendMessages = chatSession.status === 'active' && chatSession.paymentPaid;
+  // Only dismiss should block messaging, not ended status
+  const canSendMessages = chatSession.paymentPaid && !isDismissed;
+  
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <>
@@ -308,34 +368,68 @@ export function CounselChatInterface({
           {/* Header */}
           <DialogHeader className="px-6 py-4 border-b">
             <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>{otherPartyName}</DialogTitle>
-                <p className="text-sm text-muted-foreground">
-                  {isDismissed ? '🔴 Dismissed - Payment Required' : 
-                   chatSession.status === 'active' ? '🟢 Active' : '⚫ Ended'}
-                </p>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={otherPartyAvatar} alt={otherPartyName} />
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold">
+                    {getInitials(otherPartyName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle>{otherPartyName}</DialogTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {isDismissed ? '🔴 Dismissed' : 
+                     chatSession.status === 'active' ? '🟢 Active' : '⚫ Closed'}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                {userRole === 'counselor' && chatSession.status === 'active' && (
+                {userRole === 'counselor' && !isDismissed && (
                   <>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleDismissChat}
-                      disabled={isDismissing}
-                      title="Dismiss Chat (requires user to pay again)"
-                    >
-                      <Ban className="h-4 w-4" />
-                    </Button>
-                    <Button variant="destructive" size="icon" onClick={handleEndChat} title="End Chat (permanently closes chat)">
-                      <X className="h-4 w-4" />
-                    </Button>
+                    {isSelectionMode ? (
+                      <>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={handleDeleteSelected}
+                          disabled={selectedMessages.size === 0}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete ({selectedMessages.size})
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            setIsSelectionMode(false);
+                            setSelectedMessages(new Set());
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={() => setIsSelectionMode(true)}
+                          title="Delete Messages"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          onClick={handleDismissChat}
+                          disabled={isDismissing}
+                          title="Dismiss Chat (blocks user from messaging)"
+                        >
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </>
-                )}
-                {chatSession.status !== 'active' && (
-                  <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-                    Close
-                  </Button>
                 )}
               </div>
             </div>
@@ -353,6 +447,9 @@ export function CounselChatInterface({
               messages.map((message) => {
                 const isOwnMessage = message.senderRole === userRole;
                 const isSystemMessage = message.messageType === 'system';
+                const isSelected = selectedMessages.has(message.id);
+                const messageAvatar = isOwnMessage ? myAvatar : otherPartyAvatar;
+                const messageInitials = isOwnMessage ? getInitials(user?.name || 'Me') : getInitials(otherPartyName);
 
                 if (isSystemMessage) {
                   return (
@@ -367,11 +464,24 @@ export function CounselChatInterface({
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                    className={`flex gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
+                      isSelectionMode ? 'cursor-pointer' : ''
+                    }`}
+                    onClick={() => isSelectionMode && userRole === 'counselor' && toggleMessageSelection(message.id)}
                   >
+                    {!isOwnMessage && (
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarImage src={messageAvatar} alt={message.senderName} />
+                        <AvatarFallback className="bg-gradient-to-br from-gray-400 to-gray-600 text-white text-xs">
+                          {messageInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div
                       className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        isOwnMessage
+                        isSelected
+                          ? 'ring-2 ring-red-500'
+                          : isOwnMessage
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-gray-100 text-gray-900'
                       }`}
@@ -388,6 +498,14 @@ export function CounselChatInterface({
                         {formatTime(message.createdAt)}
                       </p>
                     </div>
+                    {isOwnMessage && (
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarImage src={messageAvatar} alt="You" />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
+                          {messageInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
                 );
               })
@@ -396,17 +514,7 @@ export function CounselChatInterface({
         </ScrollArea>
 
         {/* Input */}
-        {chatSession.status === 'ended' ? (
-          <div className="px-6 py-4 border-t bg-gray-50">
-            <p className="text-sm text-gray-700 mb-2 flex items-center gap-2">
-              <X className="h-4 w-4" />
-              This chat has been ended. You can view the history but cannot send new messages.
-            </p>
-            <Button onClick={() => onOpenChange(false)} variant="outline" size="sm">
-              Close
-            </Button>
-          </div>
-        ) : canSendMessages ? (
+        {canSendMessages ? (
           <div className="px-6 py-4 border-t">
             <div className="flex items-center gap-2">
               <Input
@@ -426,10 +534,11 @@ export function CounselChatInterface({
               </Button>
             </div>
           </div>
-        ) : isDismissed && userRole === 'user' ? (
-          <div className="px-6 py-4 border-t bg-yellow-50">
-            <p className="text-sm text-yellow-800 mb-2">
-              This chat has been dismissed. Please pay again to continue the conversation.
+        ) : isDismissed ? (
+          <div className="px-6 py-4 border-t bg-red-50">
+            <p className="text-sm text-red-800 mb-2 flex items-center gap-2">
+              <Ban className="h-4 w-4" />
+              This chat has been dismissed. You cannot send messages.
             </p>
             <Button onClick={() => onOpenChange(false)} variant="outline" size="sm">
               Close

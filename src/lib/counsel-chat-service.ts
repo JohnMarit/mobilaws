@@ -13,8 +13,10 @@ export interface CounselChatSession {
   appointmentId?: string;
   userId: string;
   userName: string;
+  userEmail?: string; // User's email for gravatar
   counselorId: string;
   counselorName: string;
+  counselorEmail?: string; // Counselor's email for gravatar
   status: 'active' | 'ended' | 'scheduled' | 'dismissed';
   paymentPaid?: boolean; // Whether user has paid for this chat
   dismissedAt?: Timestamp; // When counselor dismissed the chat

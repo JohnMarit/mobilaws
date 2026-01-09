@@ -751,78 +751,82 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {counselorChats.map((chat) => {
+                  <div className="divide-y">
+                    {counselorChats
+                      .sort((a, b) => {
+                        // Sort by most recent first
+                        const aTime = a.updatedAt?.toMillis?.() || a.updatedAt || 0;
+                        const bTime = b.updatedAt?.toMillis?.() || b.updatedAt || 0;
+                        return bTime - aTime;
+                      })
+                      .map((chat) => {
                         const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
                         const isEnded = chat.status === 'ended';
                         const isActive = chat.status === 'active' && chat.paymentPaid;
-                        const avatarUrl = getGravatarUrl(chat.userName, 60);
+                        // Get avatar from user email (stored in chat)
+                        const avatarUrl = chat.userEmail ? getGravatarUrl(chat.userEmail, 80) : getGravatarUrl(chat.userName, 80);
                         const initials = getInitials(chat.userName);
                         
                         return (
                           <div
                             key={chat.id}
-                            className={`bg-white border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg ${
+                            className={`p-4 cursor-pointer transition-all hover:bg-gray-50 ${
                               chatSession?.id === chat.id 
-                                ? 'border-blue-500 shadow-md' 
-                                : isDismissed 
-                                  ? 'border-gray-200 opacity-60' 
-                                  : 'border-gray-200 hover:border-blue-300'
-                            }`}
+                                ? 'bg-blue-50 border-l-4 border-l-blue-500' 
+                                : ''
+                            } ${isDismissed ? 'opacity-60' : ''}`}
                             onClick={() => {
-                              if (!isDismissed) {
-                                setChatSession(chat);
-                                setShowChat(true);
-                              }
+                              setChatSession(chat);
+                              setShowChat(true);
                             }}
                           >
-                            <div className="flex items-start gap-3 mb-3">
-                              <Avatar className="h-14 w-14 flex-shrink-0">
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-12 w-12 flex-shrink-0">
                                 <AvatarImage src={avatarUrl} alt={chat.userName} />
-                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold text-lg">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold">
                                   {initials}
                                 </AvatarFallback>
                               </Avatar>
                               
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-base truncate">{chat.userName}</p>
-                                <span className="text-xs text-gray-500">
-                                  {formatTime(chat.updatedAt)}
-                                </span>
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <p className="font-semibold text-base truncate">{chat.userName}</p>
+                                  <span className="text-xs text-gray-500 flex-shrink-0">
+                                    {formatTime(chat.updatedAt)}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 mb-1">
+                                  {isDismissed ? (
+                                    <Badge variant="destructive" className="text-xs h-5">
+                                      Dismissed
+                                    </Badge>
+                                  ) : isEnded ? (
+                                    <Badge variant="secondary" className="text-xs h-5">
+                                      Closed
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="text-xs h-5 bg-green-500">
+                                      Active
+                                    </Badge>
+                                  )}
+                                  {chat.unreadCountCounselor > 0 && (
+                                    <Badge className="text-xs h-5 bg-red-500">
+                                      {chat.unreadCountCounselor} new
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {chat.lastMessage && (
+                                  <p className="text-sm text-gray-600 truncate">
+                                    {chat.lastMessage}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            
-                            <div className="flex items-center gap-2 mb-2">
-                              {isDismissed ? (
-                                <Badge variant="destructive" className="text-xs">
-                                  Dismissed
-                                </Badge>
-                              ) : isEnded ? (
-                                <Badge variant="secondary" className="text-xs">
-                                  Ended
-                                </Badge>
-                              ) : (
-                                <Badge className="text-xs bg-green-500">
-                                  Active
-                                </Badge>
-                              )}
-                              {chat.unreadCountCounselor > 0 && (
-                                <Badge className="text-xs bg-red-500">
-                                  {chat.unreadCountCounselor} new
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            {chat.lastMessage && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mt-2">
-                                {chat.lastMessage}
-                              </p>
-                            )}
                           </div>
                         );
                       })}
-                    </div>
                   </div>
                 )}
               </ScrollArea>

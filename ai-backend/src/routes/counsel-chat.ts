@@ -214,6 +214,36 @@ router.get('/chat/counselor/:counselorId', async (req: Request, res: Response) =
 });
 
 /**
+ * Delete messages (counselor only)
+ * POST /api/counsel/chat/:chatId/messages/delete
+ */
+router.post('/chat/:chatId/messages/delete', async (req: Request, res: Response) => {
+  try {
+    const { chatId } = req.params;
+    const { messageIds } = req.body;
+
+    if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+      return res.status(400).json({ error: 'messageIds array is required' });
+    }
+
+    console.log(`🗑️ [API] Deleting ${messageIds.length} messages from chat ${chatId}`);
+
+    const { deleteMessages } = await import('../lib/counsel-chat-storage');
+    const success = await deleteMessages(chatId, messageIds);
+
+    if (success) {
+      console.log(`✅ [API] Deleted ${messageIds.length} messages from chat ${chatId}`);
+      res.json({ success: true, message: `Deleted ${messageIds.length} messages` });
+    } else {
+      res.status(500).json({ error: 'Failed to delete messages' });
+    }
+  } catch (error) {
+    console.error('❌ [API] Error deleting messages:', error);
+    res.status(500).json({ error: 'Failed to delete messages' });
+  }
+});
+
+/**
  * End chat session
  * POST /api/counsel/chat/:chatId/end
  */

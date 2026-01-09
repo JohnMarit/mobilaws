@@ -487,7 +487,9 @@ export async function createCounselRequest(
           requestData.userId,
           requestData.userName,
           counselorId,
-          counselorName || counselorData.name
+          counselorName || counselorData.name,
+          requestData.userEmail,
+          counselorData.email
         );
         console.log(`✅ Chat session created immediately: ${chatId}`);
       } catch (chatError) {
@@ -777,7 +779,9 @@ export async function acceptCounselRequest(
         requestData.userId,
         requestData.userName,
         counselorId,
-        counselorName
+        counselorName,
+        requestData.userEmail,
+        undefined // counselor email will be fetched if needed
       );
       console.log(`✅ Chat session created successfully: ${chatId}`);
     } catch (chatError) {
@@ -935,7 +939,9 @@ export async function acceptQueuedAppointment(
       appointment.userId,
       appointment.userName,
       counselorId,
-      counselorName
+      counselorName,
+      appointment.userEmail,
+      undefined // counselor email will be fetched if needed
     );
 
     // Update appointment
