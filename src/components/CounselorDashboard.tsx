@@ -1,6 +1,6 @@
 /**
  * Counselor Dashboard
- * Interface for counselors to go online, view and accept requests
+ * WhatsApp-style interface for counselors to manage chats
  * Only accessible to admin-approved counselors
  */
 
@@ -9,11 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Scale, CheckCircle2, Clock, User, Circle, MapPin, Phone, Calendar, Bell, XCircle, FileText, DollarSign, Edit, Save, X } from 'lucide-react';
+import { Loader2, Scale, CheckCircle2, Clock, Circle, MapPin, Phone, XCircle, FileText, DollarSign, Edit, Save, X, MessageSquare, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -29,6 +28,8 @@ import {
 import { getCounselorChats, type CounselChatSession } from '@/lib/counsel-chat-service';
 import { CounselorApplication } from './CounselorApplication';
 import { CounselChatInterface } from './CounselChatInterface';
+import { getGravatarUrl } from '@/lib/gravatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface CounselorDashboardProps {
   open: boolean;
@@ -198,11 +199,12 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
 
   // Load chats when online
   useEffect(() => {
-    if (open && isOnline) {
+    if (open && isOnline && user) {
+      console.log(`🔄 Starting to load chats for counselor ${user.id}`);
       loadChats();
       pollingRef.current = setInterval(() => {
         loadChats();
-      }, 3000); // Poll more frequently to catch new chats
+      }, 3000); // Poll more frequently
     }
     
     return () => {
@@ -216,16 +218,14 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   const loadChats = async () => {
     if (!user) return;
     try {
+      console.log(`📡 Fetching chats for counselor: ${user.id}`);
       const chats = await getCounselorChats(user.id);
-      console.log(`📋 Loaded ${chats.length} chats for counselor ${user.id}`);
+      console.log(`📋 Loaded ${chats.length} chats for counselor ${user.id}:`, chats);
       setCounselorChats(chats);
     } catch (error) {
       console.error('❌ Error loading chats:', error);
     }
   };
-
-  // Removed loadRequests - no longer needed since chats are created automatically after payment
-  // Removed handleTestSound - notification sounds no longer needed
 
   const handleToggleOnline = async () => {
     if (!user) {
@@ -287,14 +287,27 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
     }
   };
 
-  // Removed handleAcceptRequest and handleAcceptAppointment - chats are created automatically after payment
-
-  // Removed getCategoryInfo and getStateName - no longer needed
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'Unknown';
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleString();
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    
+    if (hours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   // Show application form if needed
@@ -319,21 +332,21 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="flex items-center gap-2">
-            <Scale className="h-5 w-5" />
+      <DialogContent className="sm:max-w-[95vw] lg:max-w-[1200px] max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Scale className="h-6 w-6" />
             Counselor Dashboard
           </DialogTitle>
           <DialogDescription>
             {approvalStatus === 'approved' 
-              ? 'Go online to chat with your clients'
+              ? 'Manage your profile and chat with clients'
               : 'Apply to become an approved counselor'}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 pb-6">
         {/* Checking approval status */}
         {isCheckingApproval ? (
           <div className="py-12 flex items-center justify-center">
@@ -341,7 +354,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </div>
         ) : approvalStatus === 'none' ? (
           // Not applied yet
-          <div className="py-8 text-center space-y-4">
+          <div className="py-8 px-6 text-center space-y-4">
             <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
               <FileText className="h-10 w-10 text-blue-600" />
             </div>
@@ -350,9 +363,6 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
               <p className="text-sm text-muted-foreground mt-2">
                 Apply to join Mobilaws as a legal counsel.
               </p>
-              <p className="text-sm text-muted-foreground">
-                Admin approval is required.
-              </p>
             </div>
             <Button onClick={() => setShowApplicationForm(true)} className="w-full max-w-xs">
               Apply Now
@@ -360,7 +370,7 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
           </div>
         ) : approvalStatus === 'pending' ? (
           // Pending approval
-          <div className="py-8 text-center space-y-4">
+          <div className="py-8 px-6 text-center space-y-4">
             <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
               <Clock className="h-10 w-10 text-yellow-600" />
             </div>
@@ -369,14 +379,11 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
               <p className="text-sm text-muted-foreground mt-2">
                 Your application is being reviewed by our admin team.
               </p>
-              <p className="text-sm text-muted-foreground">
-                You'll be able to access the dashboard once approved.
-              </p>
             </div>
           </div>
         ) : approvalStatus === 'rejected' ? (
           // Rejected
-          <div className="py-8 text-center space-y-4">
+          <div className="py-8 px-6 text-center space-y-4">
             <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
               <XCircle className="h-10 w-10 text-red-600" />
             </div>
@@ -393,353 +400,366 @@ export function CounselorDashboard({ open, onOpenChange }: CounselorDashboardPro
             </Button>
           </div>
         ) : (
-          // Approved - show full dashboard
-          <div className="space-y-4 py-2">
-            {/* Earnings Display */}
-            {counselorProfile && (
-              <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border border-green-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
-                      <DollarSign className="h-7 w-7 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Earnings</p>
-                      <p className="text-3xl font-bold text-green-700 mt-1">
-                        ${(counselorProfile.totalEarnings || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1">Total before deductions</p>
-                    </div>
-                  </div>
-                  <div className="text-right bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-green-100">
-                    <p className="text-xs text-gray-500 font-medium">Booking Fee</p>
-                    <p className="text-lg font-bold text-gray-800 mt-0.5">
-                      ${(counselorProfile.bookingFee || 10).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-gray-500">per booking</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Pending Changes Notice */}
-            {counselorProfile?.pendingChanges && (
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-yellow-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-yellow-800">Pending Changes Awaiting Approval</p>
-                    <div className="mt-2 space-y-1 text-sm text-yellow-700">
-                      {counselorProfile.pendingChanges.bookingFee !== undefined && (
-                        <p>• Booking Fee: ${counselorProfile.pendingChanges.bookingFee.toFixed(2)}</p>
-                      )}
-                      {counselorProfile.pendingChanges.specializations && (
-                        <p>• Specializations: {counselorProfile.pendingChanges.specializations.join(', ')}</p>
+          // Approved - WhatsApp-style layout
+          <div className="flex-1 flex min-h-0">
+            {/* Left Sidebar - Profile & Chat List */}
+            <div className="w-96 border-r flex flex-col bg-gray-50">
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {/* Online Status Card */}
+                  <div className="bg-white rounded-lg p-4 shadow-sm border">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`h-3 w-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                        <span className="font-semibold text-sm">
+                          {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      {counselorProfile && (
+                        <Badge variant="outline" className="text-xs">
+                          <Users className="h-3 w-3 mr-1" />
+                          {counselorChats.filter(c => c.status === 'active').length} active
+                        </Badge>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                    
+                    <div className="space-y-2 mb-3">
+                      <div className="text-xs text-gray-600">
+                        <MapPin className="h-3 w-3 inline mr-1" />
+                        {states.find(s => s.code === selectedState)?.name || 'Select state'}
+                      </div>
+                      {counselorProfile && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600">
+                            <DollarSign className="h-3 w-3 inline mr-1" />
+                            ${(counselorProfile.bookingFee || 10).toFixed(2)}/booking
+                          </span>
+                          <span className="text-green-600 font-semibold">
+                            ${(counselorProfile.totalEarnings || 0).toFixed(2)} earned
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-            {/* Edit Profile Section */}
-            {counselorProfile && (
-              <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2">
-                    <Edit className="h-5 w-5 text-gray-600" />
-                    Profile Settings
-                  </h3>
-                  {!isEditingProfile && (
+                    {!isOnline && (
+                      <Select value={selectedState} onValueChange={setSelectedState}>
+                        <SelectTrigger className="h-9 text-sm mb-2">
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {states.map((s) => (
+                            <SelectItem key={s.code} value={s.code}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    
                     <Button
-                      variant="outline"
+                      onClick={handleToggleOnline}
+                      disabled={isTogglingStatus || !selectedState}
+                      variant={isOnline ? 'destructive' : 'default'}
                       size="sm"
-                      onClick={handleStartEdit}
-                      disabled={!!counselorProfile.pendingChanges}
+                      className="w-full"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                      {isTogglingStatus ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Circle className="h-4 w-4 mr-2" />
+                          {isOnline ? 'Go Offline' : 'Go Online'}
+                        </>
+                      )}
                     </Button>
-                  )}
+                  </div>
+
+                  {/* Chat List */}
+                  <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                    <div className="px-4 py-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                        Chats ({counselorChats.length})
+                      </h3>
+                    </div>
+                    
+                    {!isOnline ? (
+                      <div className="p-8 text-center">
+                        <Circle className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Go online to see chats</p>
+                      </div>
+                    ) : counselorChats.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">No chats yet</p>
+                        <p className="text-xs text-gray-400 mt-1">Waiting for clients...</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y max-h-[400px] overflow-y-auto">
+                        {counselorChats.map((chat) => {
+                          const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
+                          const isEnded = chat.status === 'ended';
+                          const isActive = chat.status === 'active' && chat.paymentPaid;
+                          const avatarUrl = getGravatarUrl(chat.userName, 40);
+                          const initials = getInitials(chat.userName);
+                          
+                          return (
+                            <div
+                              key={chat.id}
+                              className={`p-3 cursor-pointer transition-all hover:bg-gray-50 ${
+                                chatSession?.id === chat.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                              }`}
+                              onClick={() => {
+                                if (!isDismissed) {
+                                  setChatSession(chat);
+                                  setShowChat(true);
+                                }
+                              }}
+                            >
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-12 w-12 flex-shrink-0">
+                                  <AvatarImage src={avatarUrl} alt={chat.userName} />
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white font-semibold">
+                                    {initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="font-semibold text-sm truncate">{chat.userName}</p>
+                                    <span className="text-xs text-gray-500 flex-shrink-0">
+                                      {formatTime(chat.updatedAt)}
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {isDismissed ? (
+                                      <Badge variant="destructive" className="text-xs h-5">
+                                        Dismissed
+                                      </Badge>
+                                    ) : isEnded ? (
+                                      <Badge variant="secondary" className="text-xs h-5">
+                                        Ended
+                                      </Badge>
+                                    ) : (
+                                      <Badge className="text-xs h-5 bg-green-500">
+                                        Active
+                                      </Badge>
+                                    )}
+                                    {chat.unreadCountCounselor > 0 && (
+                                      <Badge className="text-xs h-5 bg-red-500">
+                                        {chat.unreadCountCounselor}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  
+                                  {chat.lastMessage && (
+                                    <p className="text-xs text-gray-600 truncate mt-1">
+                                      {chat.lastMessage}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {isEditingProfile ? (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        Booking Fee (USD)
-                      </Label>
-                      <Input
-                        type="number"
-                        value={editBookingFee}
-                        onChange={(e) => setEditBookingFee(e.target.value)}
-                        min="1"
-                        step="0.01"
-                        placeholder="10.00"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        <Scale className="h-4 w-4" />
-                        Specializations
-                      </Label>
-                      <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                        {categories.map((cat) => (
-                          <div
-                            key={cat.id}
-                            className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-colors ${
-                              editSpecializations.includes(cat.id)
-                                ? 'bg-primary/10 border-primary'
-                                : 'bg-white border-gray-200 hover:border-gray-300'
-                            }`}
-                            onClick={() => toggleSpecialization(cat.id)}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={editSpecializations.includes(cat.id)}
-                              onChange={() => toggleSpecialization(cat.id)}
-                              className="rounded"
-                            />
-                            <span className="text-sm">{cat.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        className="flex-1"
-                        disabled={isSubmittingChanges}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleSubmitChanges}
-                        className="flex-1"
-                        disabled={isSubmittingChanges}
-                      >
-                        {isSubmittingChanges ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4 mr-1" />
-                        )}
-                        Submit for Approval
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Booking Fee:</span>
-                      <span className="font-semibold">${(counselorProfile.bookingFee || 10).toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Specializations:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {counselorProfile.specializations?.map((spec) => (
-                          <Badge key={spec} variant="secondary" className="text-xs">
-                            {spec}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Setup Section */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
-              <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                <MapPin className="h-5 w-5 text-gray-600" />
-                Location & Contact
-              </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  Your State
-                </Label>
-                <Select value={selectedState} onValueChange={setSelectedState} disabled={isOnline}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select state" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {states.map((s) => (
-                      <SelectItem key={s.code} value={s.code}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
-                  Phone Number
-                </Label>
-                <Input
-                  type="tel"
-                  placeholder="+211 9XX XXX XXX"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  disabled={isOnline}
-                />
-              </div>
+              </ScrollArea>
             </div>
 
-            {/* Online Status Toggle */}
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="flex items-center gap-3">
-                <div className={`h-3 w-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' : 'bg-gray-400'}`} />
-                <div>
-                  <p className="font-semibold text-base">{isOnline ? '🟢 Online - Available for Chats' : '⚫ Offline'}</p>
+            {/* Right Panel - Profile Details */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <ScrollArea className="flex-1 p-6">
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* Earnings Card */}
                   {counselorProfile && (
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      {counselorProfile.totalCases} total cases • {counselorProfile.completedCases} completed
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Button
-                onClick={handleToggleOnline}
-                disabled={isTogglingStatus || !selectedState}
-                variant={isOnline ? 'destructive' : 'default'}
-                className="min-w-[120px]"
-              >
-                {isTogglingStatus ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Circle className="h-4 w-4 mr-2" />
-                    {isOnline ? 'Go Offline' : 'Go Online'}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Chats Section - Shows all chats (active and ended) */}
-          {isOnline && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  My Chats ({counselorChats.length})
-                </h3>
-                <p className="text-xs text-gray-600 mt-1">
-                  All chat sessions with your clients. Active chats show in green, ended chats in gray.
-                </p>
-              </div>
-              <div className="max-h-[350px] overflow-y-auto">
-                {counselorChats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-12 text-center">
-                    <div className="h-20 w-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                      <FileText className="h-10 w-10 text-gray-400" />
+                    <div className="bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border border-green-200 rounded-xl p-6 shadow-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="h-14 w-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-md">
+                            <DollarSign className="h-7 w-7 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Earnings</p>
+                            <p className="text-3xl font-bold text-green-700 mt-1">
+                              ${(counselorProfile.totalEarnings || 0).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-600 mt-1">
+                              {counselorProfile.totalCases} total • {counselorProfile.completedCases} completed
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right bg-white/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-green-100">
+                          <p className="text-xs text-gray-500 font-medium">Booking Fee</p>
+                          <p className="text-lg font-bold text-gray-800 mt-0.5">
+                            ${(counselorProfile.bookingFee || 10).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="font-medium text-gray-700">No active chats</p>
-                    <p className="text-sm text-gray-500 mt-2 max-w-xs">
-                      Your chat sessions will appear here once clients make payments
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-4 space-y-2">
-                    {counselorChats.map((chat) => {
-                      const isDismissed = chat.status === 'dismissed' || !chat.paymentPaid;
-                      const isEnded = chat.status === 'ended';
-                      const isClickable = !isDismissed; // Can view ended chats
-                      
-                      return (
-                        <div
-                          key={chat.id}
-                          className={`p-4 border rounded-lg transition-all ${
-                            isDismissed
-                              ? 'bg-gray-50 border-gray-200 opacity-60'
-                              : isEnded
-                              ? 'bg-gray-50 border-gray-300 cursor-pointer hover:shadow-sm'
-                              : 'bg-gradient-to-br from-white to-blue-50/30 border-blue-100 hover:shadow-md hover:border-blue-300 cursor-pointer'
-                          }`}
-                          onClick={() => {
-                            if (isClickable) {
-                              setChatSession(chat);
-                              setShowChat(true);
-                            }
-                          }}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-gray-800">{chat.userName}</span>
-                                {isDismissed ? (
-                                  <Badge variant="destructive" className="text-xs">
-                                    Dismissed
-                                  </Badge>
-                                ) : chat.status === 'active' ? (
-                                  <Badge className="text-xs bg-green-500 hover:bg-green-600">
-                                    Active
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="secondary" className="text-xs">
-                                    Ended
-                                  </Badge>
-                                )}
-                                {chat.unreadCountCounselor > 0 && (
-                                  <Badge className="text-xs bg-red-500 hover:bg-red-600">
-                                    {chat.unreadCountCounselor} new
-                                  </Badge>
-                                )}
-                              </div>
-                              {chat.lastMessage && (
-                                <p className="text-sm text-gray-600 line-clamp-1">
-                                  {chat.lastMessage}
-                                </p>
+                  )}
+
+                  {/* Pending Changes Notice */}
+                  {counselorProfile?.pendingChanges && (
+                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-yellow-800">Pending Changes Awaiting Approval</p>
+                          <div className="mt-2 space-y-1 text-sm text-yellow-700">
+                            {counselorProfile.pendingChanges.bookingFee !== undefined && (
+                              <p>• Booking Fee: ${counselorProfile.pendingChanges.bookingFee.toFixed(2)}</p>
+                            )}
+                            {counselorProfile.pendingChanges.specializations && (
+                              <p>• Specializations updated</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Profile Settings */}
+                  {counselorProfile && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Edit className="h-5 w-5 text-gray-600" />
+                          Profile Settings
+                        </h3>
+                        {!isEditingProfile && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleStartEdit}
+                            disabled={!!counselorProfile.pendingChanges}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                      </div>
+
+                      {isEditingProfile ? (
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Booking Fee (USD)</Label>
+                            <Input
+                              type="number"
+                              value={editBookingFee}
+                              onChange={(e) => setEditBookingFee(e.target.value)}
+                              min="1"
+                              step="0.01"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Specializations</Label>
+                            <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                              {categories.map((cat) => (
+                                <label
+                                  key={cat.id}
+                                  className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                                    editSpecializations.includes(cat.id)
+                                      ? 'bg-primary/10 border border-primary'
+                                      : 'hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={editSpecializations.includes(cat.id)}
+                                    onChange={() => toggleSpecialization(cat.id)}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm">{cat.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              onClick={handleCancelEdit}
+                              className="flex-1"
+                              disabled={isSubmittingChanges}
+                            >
+                              <X className="h-4 w-4 mr-1" />
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleSubmitChanges}
+                              className="flex-1"
+                              disabled={isSubmittingChanges}
+                            >
+                              {isSubmittingChanges ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4 mr-1" />
                               )}
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <Clock className="h-3 w-3" />
-                                {chat.updatedAt?.toDate?.().toLocaleDateString() || 'Recently'}
-                              </div>
+                              Submit for Approval
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between py-2 border-b">
+                            <span className="text-sm text-gray-600">Booking Fee:</span>
+                            <span className="font-semibold">${(counselorProfile.bookingFee || 10).toFixed(2)}</span>
+                          </div>
+                          <div className="py-2">
+                            <span className="text-sm text-gray-600 block mb-2">Specializations:</span>
+                            <div className="flex flex-wrap gap-2">
+                              {counselorProfile.specializations?.map((spec) => (
+                                <Badge key={spec} variant="secondary">
+                                  {spec}
+                                </Badge>
+                              ))}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                      )}
+                    </div>
+                  )}
 
-            {/* Offline Message */}
-            {!isOnline && (
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                <div className="flex flex-col items-center justify-center p-12 text-center">
-                  <div className="h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <Circle className="h-12 w-12 text-gray-400" />
+                  {/* Contact Info */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
+                      <MapPin className="h-5 w-5 text-gray-600" />
+                      Location & Contact
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm text-gray-600">State:</span>
+                        <span className="font-semibold">
+                          {states.find(s => s.code === selectedState)?.name || 'Not set'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between py-2">
+                        <span className="text-sm text-gray-600">Phone:</span>
+                        <span className="font-semibold">{phone || 'Not set'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xl font-semibold text-gray-700">You are offline</p>
-                  <p className="text-sm text-gray-500 mt-2 max-w-sm">
-                    Go online to start receiving chat requests from clients
-                  </p>
                 </div>
-              </div>
-            )}
+              </ScrollArea>
+            </div>
           </div>
         )}
-        </ScrollArea>
       </DialogContent>
-      {chatSession && (
-        <CounselChatInterface
-          open={showChat}
-          onOpenChange={setShowChat}
-          chatSession={chatSession}
-          userRole="counselor"
-        />
-      )}
     </Dialog>
+    
+    {chatSession && (
+      <CounselChatInterface
+        open={showChat}
+        onOpenChange={setShowChat}
+        chatSession={chatSession}
+        userRole="counselor"
+      />
+    )}
+    </>
   );
 }

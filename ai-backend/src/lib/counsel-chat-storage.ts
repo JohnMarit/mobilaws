@@ -485,19 +485,36 @@ export async function getUserChats(userId: string): Promise<CounselChatSession[]
  * Get counselor's active chats
  */
 export async function getCounselorChats(counselorId: string): Promise<CounselChatSession[]> {
+  console.log(`🔍 getCounselorChats called with counselorId: ${counselorId}`);
+  
   const db = getFirestore();
-  if (!db) return [];
+  if (!db) {
+    console.error('❌ Firestore not initialized!');
+    return [];
+  }
 
   try {
+    console.log(`📡 Querying counselChats collection for counselorId: ${counselorId}`);
     const snapshot = await db
       .collection(COUNSEL_CHATS_COLLECTION)
       .where('counselorId', '==', counselorId)
       .orderBy('updatedAt', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => doc.data() as CounselChatSession);
+    console.log(`📊 Query result: ${snapshot.size} chat(s) found for counselor ${counselorId}`);
+    
+    const chats = snapshot.docs.map(doc => {
+      const data = doc.data() as CounselChatSession;
+      console.log(`  - Chat ${doc.id}: ${data.userName} (${data.status})`);
+      return data;
+    });
+    
+    return chats;
   } catch (error) {
     console.error('❌ Error getting counselor chats:', error);
+    if (error instanceof Error) {
+      console.error('   Error details:', error.message);
+    }
     return [];
   }
 }
