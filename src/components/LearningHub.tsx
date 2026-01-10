@@ -107,6 +107,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   };
 
   const closeLesson = () => {
+    // If we have a selected course, reopen it when lesson closes
+    if (activeLesson) {
+      const module = modules.find(m => m.id === activeLesson.module.id);
+      if (module) {
+        setSelectedCourse(module);
+      }
+    }
     setActiveLesson(null);
   };
 
@@ -552,9 +559,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         {selectedCourse && (
           <Dialog open={Boolean(selectedCourse)} onOpenChange={() => setSelectedCourse(null)}>
             <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+              <DialogHeader className="pr-8">
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
                     <FontAwesomeIcon
                       icon={
                         selectedCourse.icon === 'faScroll' ? faScroll :
@@ -566,8 +573,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       className="text-3xl text-primary"
                     />
                   </div>
-                  <div className="flex-1">
-                    <DialogTitle className="text-xl">{selectedCourse.title}</DialogTitle>
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-xl pr-4 break-words">{selectedCourse.title}</DialogTitle>
                     <DialogDescription className="mt-1">{selectedCourse.description}</DialogDescription>
                   </div>
                 </div>
@@ -578,17 +585,63 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   <Badge variant="outline" className="capitalize">{selectedCourse.requiredTier}</Badge>
                   <span className="text-sm text-muted-foreground">{selectedCourse.lessons.length} lessons</span>
                   {(() => {
-                    const { percent } = moduleStatus(selectedCourse);
+                    const { percent, done } = moduleStatus(selectedCourse);
+                    
                     return (
                       <div className="flex-1">
                         <Progress value={percent} className="h-2" />
-                        <div className="text-xs text-muted-foreground mt-1">{percent}% complete</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {percent === 100 && done 
+                            ? "100% complete - You can generate more lessons!" 
+                            : `${percent}% complete`}
+                        </div>
                       </div>
                     );
                   })()}
                 </div>
 
                 <Separator />
+
+                {(() => {
+                  const { percent, done } = moduleStatus(selectedCourse);
+                  
+                  // Show message when 100% complete - user can always generate more
+                  if (percent === 100 && done) {
+                    return (
+                      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0">
+                            <Sparkles className="h-6 w-6 text-purple-500" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-purple-900 mb-1">Congratulations! You've completed all lessons!</p>
+                            <p className="text-sm text-purple-700">You can add and generate more lessons to continue learning.</p>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              requestMoreLessons(selectedCourse.id, selectedCourse.title);
+                            }}
+                            disabled={isRequestingLessons === selectedCourse.id}
+                            className="flex-shrink-0"
+                          >
+                            {isRequestingLessons === selectedCourse.id ? (
+                              <>
+                                <div className="animate-spin mr-2">⏳</div>
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add and generate more
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {selectedCourse.lessons.map((lesson) => {
@@ -623,7 +676,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                             className="w-full"
                             onClick={() => {
                               handleStartLesson(selectedCourse, lesson);
-                              setSelectedCourse(null);
+                              // Don't close the course view - it will reopen when lesson closes
                             }}
                             disabled={isLocked}
                           >
@@ -649,7 +702,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 Generate More Lessons?
               </DialogTitle>
               <DialogDescription>
-                You've completed 5 lessons! Would you like to generate 5 more lessons for{' '}
+                You've completed 5 lessons! Would you like to add and generate more lessons for{' '}
                 <span className="font-semibold">{moduleForGeneration?.name}</span>?
               </DialogDescription>
             </DialogHeader>
@@ -690,7 +743,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   ) : (
                     <>
                       <Plus className="h-4 w-4 mr-2" />
-                      Generate 5 More
+                      Add and generate more
                     </>
                   )}
                 </Button>
@@ -1072,8 +1125,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                     </>
                                   ) : (
                                     <>
-                                      <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                      Request 5 More Lessons
+                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                        Add and generate more
                                     </>
                                   )}
                                 </Button>

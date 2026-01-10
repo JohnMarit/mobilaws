@@ -180,9 +180,9 @@ Generate ${numberOfLessons} engaging lessons now!`;
       return res.status(500).json({ error: 'Failed to generate lessons' });
     }
 
-    // Add hasAudio flag based on tier
+    // Add hasAudio flag - available for all tiers (free, basic, standard, premium)
     newLessons.forEach((lesson: any, index: number) => {
-      lesson.hasAudio = tier === 'premium' || (tier === 'standard' && index % 3 === 0);
+      lesson.hasAudio = true; // Audio available for all tiers
       lesson.accessLevels = moduleData?.accessLevels || [tier];
       lesson.createdAt = admin.firestore.Timestamp.now();
       lesson.userGenerated = true; // Mark as user-generated

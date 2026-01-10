@@ -767,19 +767,12 @@ function topicToLesson(topic: LegalTopic, userTier: 'free' | 'basic' | 'standard
   const accessible = isTopicAccessible(topic.id, userTier);
   const quiz = quizDatabase[topic.id] || [];
   
-  // Determine if lesson should have audio
+  // Determine if lesson should have audio - available for all tiers
   let hasAudio = false;
   if (accessible) {
-    if (userTier === 'premium') {
-      // Premium: All lessons have audio
-      hasAudio = true;
-    } else if (userTier === 'standard') {
-      // Standard: 30% of lessons have audio (approximately every 3rd lesson)
-      // Calculate which lessons get audio (30% = roughly 1 in 3)
-      const audioInterval = Math.ceil(totalLessons / (totalLessons * 0.3));
-      hasAudio = (lessonIndex + 1) % audioInterval === 0 || lessonIndex === 0; // First lesson + every Nth
-    }
-    // Basic and free: No audio
+    // Audio is available for all plans (free, basic, standard, premium)
+    // All accessible lessons have audio enabled
+    hasAudio = true;
   }
   
   // Don't show upgrade message for premium users

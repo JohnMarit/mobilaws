@@ -37,15 +37,11 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [showQuizRequest, setShowQuizRequest] = useState(false);
   const [showMessageTutor, setShowMessageTutor] = useState(false);
   
-  // Determine if audio is enabled for this lesson
+  // Determine if audio is enabled for this lesson - available for all tiers
   const audioEnabled = useMemo(() => {
-    if (!lesson.hasAudio) return false;
-    // Premium users get all lessons with audio
-    if (tier === 'premium') return true;
-    // Standard users get 30% (already marked in lesson.hasAudio)
-    if (tier === 'standard') return lesson.hasAudio;
-    return false;
-  }, [lesson.hasAudio, tier]);
+    // Audio is available for all plans (free, basic, standard, premium) if lesson has audio
+    return lesson.hasAudio === true;
+  }, [lesson.hasAudio]);
 
   const totalSteps = 1 + lesson.quiz.length; // 1 content + n quizzes
   const currentStep = currentPhase === 'content' ? 0 : 1 + currentQuizIndex;
