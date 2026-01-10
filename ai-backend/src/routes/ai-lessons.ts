@@ -239,7 +239,7 @@ Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON 
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.8,
-      max_tokens: 4000,
+      max_tokens: 16000, // Increased from 4000 to accommodate full lesson generation with dialogues, case studies, and quizzes
       response_format: { type: 'json_object' }
     });
     } catch (openaiError) {
@@ -266,10 +266,18 @@ Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON 
       newLessons = result.lessons || [];
     } catch (parseError) {
       console.error('❌ Failed to parse AI response:', parseError);
-      console.error('Response content:', responseContent.substring(0, 500));
+      console.error('Response length:', responseContent.length);
+      console.error('Response content (first 500 chars):', responseContent.substring(0, 500));
+      console.error('Response content (last 500 chars):', responseContent.substring(Math.max(0, responseContent.length - 500)));
+      
+      // Check if response was truncated
+      if (!responseContent.trim().endsWith('}')) {
+        console.error('⚠️ Response appears to be truncated (does not end with }). Consider increasing max_tokens.');
+      }
+      
       return res.status(500).json({ 
         error: 'Failed to parse AI response',
-        message: 'The AI response was not in the expected format. Please try again.'
+        message: 'The AI response was not in the expected format. The response may have been truncated. Please try again.'
       });
     }
 
