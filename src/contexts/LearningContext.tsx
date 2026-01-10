@@ -318,6 +318,7 @@ function convertGeneratedModuleToModule(
 async function fetchUserLessons(userId: string): Promise<Record<string, GeneratedLesson[]>> {
   try {
     const apiUrl = getApiUrl(`user-lessons/${userId}`);
+    console.log(`📚 Fetching user lessons from: ${apiUrl}`);
     const response = await fetch(apiUrl);
     
     if (!response.ok) {
@@ -333,8 +334,10 @@ async function fetchUserLessons(userId: string): Promise<Record<string, Generate
     Object.entries(modulesData).forEach(([moduleId, moduleValue]) => {
       const lessons = (moduleValue as any)?.lessons;
       normalized[moduleId] = Array.isArray(lessons) ? lessons : [];
+      console.log(`📖 Module ${moduleId}: ${normalized[moduleId].length} user lessons`);
     });
 
+    console.log(`✅ Total user lessons loaded for ${Object.keys(normalized).length} modules`);
     return normalized;
   } catch (error) {
     console.error('Error fetching user lessons:', error);
@@ -378,46 +381,17 @@ async function fetchModulesFromBackend(
       const userModuleLessons = Array.isArray(userLessons?.[m.id]) ? userLessons[m.id] : [];
       const moduleLessons = Array.isArray(m.lessons) ? m.lessons : [];
       
-      // Determine which module lessons to show
-      // If user has requested more lessons OR has completed the initial set, show all lessons
+      // Calculate completed count from progress
       const completedCount = moduleProgress ? Object.keys(moduleProgress.lessonsCompleted).length : 0;
-      const initialLessonCount = Math.min(5, moduleLessons.length);
-      const hasCompletedInitial = completedCount >= initialLessonCount;
-      const hasRequestedMore = userModuleLessons.length > 0;
       
-      // Show all module lessons if: user requested more OR completed initial set
-      const moduleLessonsToShow = (hasRequestedMore || hasCompletedInitial) 
-        ? moduleLessons 
-        : moduleLessons.slice(0, 5);
-      
-      // Combine all lessons
-      const combinedLessons = [
-        ...(Array.isArray(moduleLessonsToShow) ? moduleLessonsToShow : []), 
+      // Always show ALL lessons - no limiting
+      // Combine base module lessons with user-generated lessons
+      const allLessons = [
+        ...moduleLessons, 
         ...userModuleLessons
       ];
       
-      // Sort lessons: 
-      // 1. New user-generated lessons (incomplete) first
-      // 2. Original lessons (incomplete)
-      // 3. Completed lessons last
-      const allLessons = combinedLessons.sort((a, b) => {
-        const aCompleted = moduleProgress?.lessonsCompleted[a.id]?.completed === true;
-        const bCompleted = moduleProgress?.lessonsCompleted[b.id]?.completed === true;
-        const aIsUserGenerated = (a as any).userGenerated === true;
-        const bIsUserGenerated = (b as any).userGenerated === true;
-        
-        // Completed lessons go last
-        if (aCompleted && !bCompleted) return 1;
-        if (!aCompleted && bCompleted) return -1;
-        
-        // Among incomplete: user-generated first
-        if (!aCompleted && !bCompleted) {
-          if (aIsUserGenerated && !bIsUserGenerated) return -1;
-          if (!aIsUserGenerated && bIsUserGenerated) return 1;
-        }
-        
-        return 0;
-      });
+      console.log(`📊 Module "${m.title}": ${moduleLessons.length} base + ${userModuleLessons.length} user-generated = ${allLessons.length} total lessons (${completedCount} completed in progress)`);
       
       const moduleWithLessons: GeneratedModule = {
         ...m,
