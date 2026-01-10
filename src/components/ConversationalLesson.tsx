@@ -89,7 +89,7 @@ export default function ConversationalLessonComponent({
 
   if (isComplete) {
     return (
-      <Card className="w-full max-w-full mx-auto">
+      <Card className="max-w-4xl mx-auto">
         <CardContent className="p-8 text-center space-y-6">
           <motion.div
             initial={{ scale: 0 }}
@@ -141,7 +141,7 @@ export default function ConversationalLessonComponent({
   const isLeftSide = currentLine.speaker === 'character1';
 
   return (
-    <div className="w-full max-w-full mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Character Display */}
       <div className="flex justify-between items-start mb-8">
         {/* Character 1 */}

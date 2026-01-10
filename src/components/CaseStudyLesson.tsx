@@ -24,7 +24,7 @@ export default function CaseStudyLesson({ caseStudies, onComplete }: CaseStudyLe
     const passed = score >= 75;
     
     return (
-      <Card className="w-full max-w-full mx-auto">
+      <Card className="max-w-4xl mx-auto">
         <CardContent className="p-8 text-center space-y-6">
           <motion.div
             initial={{ scale: 0 }}
@@ -99,7 +99,7 @@ export default function CaseStudyLesson({ caseStudies, onComplete }: CaseStudyLe
   };
 
   return (
-    <div className="w-full max-w-full mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

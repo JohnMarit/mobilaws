@@ -301,104 +301,12 @@ function convertGeneratedModuleToModule(
     };
   });
 
-  // Sort lessons according to requirements:
-  // 1. Newly generated lessons first (sorted by creation time, newest first)
-  // 2. First completed original lesson (if exists and is completed) - placed after newly generated
-  // 3. Then incomplete original lessons
-  // 4. Then other completed original lessons
-  
-  // Separate lessons into categories
-  const userGeneratedLessons: Lesson[] = [];
-  const originalLessons: Lesson[] = [];
-  
-  lessons.forEach(lesson => {
-    if (lesson.userGenerated) {
-      userGeneratedLessons.push(lesson);
-    } else {
-      originalLessons.push(lesson);
-    }
-  });
-  
-  // Sort user-generated lessons by creation time (newest first)
-  const getTimestamp = (lesson: Lesson): number => {
-    if (lesson.createdAt) {
-      if (typeof lesson.createdAt === 'object' && 'toMillis' in lesson.createdAt) {
-        return (lesson.createdAt as any).toMillis();
-      } else if (typeof lesson.createdAt === 'object' && 'seconds' in lesson.createdAt) {
-        return (lesson.createdAt as any).seconds * 1000;
-      } else if (typeof lesson.createdAt === 'string') {
-        return new Date(lesson.createdAt).getTime();
-      } else if (lesson.createdAt instanceof Date) {
-        return lesson.createdAt.getTime();
-      }
-    }
-    if (lesson.generationBatchId && lesson.generationBatchId.startsWith('batch-')) {
-      const timestampStr = lesson.generationBatchId.replace('batch-', '');
-      return parseInt(timestampStr, 10) || 0;
-    }
-    return 0;
-  };
-  
-  userGeneratedLessons.sort((a, b) => getTimestamp(b) - getTimestamp(a));
-  
-  // Find first original lesson and check if it's completed
-  // We need to identify the first lesson from the original module (not user-generated)
-  // This is typically the first lesson in the original array
-  const firstOriginalLesson = originalLessons.length > 0 ? originalLessons[0] : null;
-  const firstOriginalCompleted = firstOriginalLesson?.completed || false;
-  
-  // Separate original lessons into: first (if completed), incomplete, completed
-  // Keep original order for lessons of the same type
-  const firstCompletedLesson = firstOriginalCompleted && firstOriginalLesson ? [firstOriginalLesson] : [];
-  const incompleteOriginalLessons = originalLessons.filter((l, index) => 
-    index !== 0 && !l.completed
-  );
-  const otherCompletedOriginalLessons = originalLessons.filter((l, index) => 
-    index !== 0 && l.completed
-  );
-  
-  // Combine in order: user-generated, first completed (if exists), incomplete, other completed
-  const sortedLessons = [
-    ...userGeneratedLessons,
-    ...firstCompletedLesson,
-    ...incompleteOriginalLessons,
-    ...otherCompletedOriginalLessons
-  ];
-
-  // Apply sequential locking: lessons unlock only after previous lesson is completed
-  const lessonsWithSequentialLocking = sortedLessons.map((lesson, index) => {
-    // First lesson is always unlocked (unless locked by tier)
-    if (index === 0) {
-      return lesson;
-    }
-    
-    // User-generated lessons are always unlocked (they appear after completion)
-    if (lesson.userGenerated) {
-      return lesson;
-    }
-    
-    // Check if previous lesson is completed
-    const previousLesson = sortedLessons[index - 1];
-    const previousCompleted = previousLesson.completed || false;
-    
-    // If previous lesson is not completed, lock this lesson
-    // (unless it's already locked by tier - keep the stricter lock)
-    if (!previousCompleted) {
-      return {
-        ...lesson,
-        locked: true, // Lock by sequence
-      };
-    }
-    
-    return lesson;
-  });
-
   return {
     id: generatedModule.id,
     title: generatedModule.title,
     description: generatedModule.description,
     icon: generatedModule.icon,
-    lessons: lessonsWithSequentialLocking,
+    lessons,
     locked: isModuleLocked,
     requiredTier,
   };
@@ -482,8 +390,34 @@ async function fetchModulesFromBackend(
         ? moduleLessons 
         : moduleLessons.slice(0, 5);
       
-      // Ensure we're spreading arrays
-      const allLessons = [...(Array.isArray(moduleLessonsToShow) ? moduleLessonsToShow : []), ...userModuleLessons];
+      // Combine all lessons
+      const combinedLessons = [
+        ...(Array.isArray(moduleLessonsToShow) ? moduleLessonsToShow : []), 
+        ...userModuleLessons
+      ];
+      
+      // Sort lessons: 
+      // 1. New user-generated lessons (incomplete) first
+      // 2. Original lessons (incomplete)
+      // 3. Completed lessons last
+      const allLessons = combinedLessons.sort((a, b) => {
+        const aCompleted = moduleProgress?.lessonsCompleted[a.id]?.completed === true;
+        const bCompleted = moduleProgress?.lessonsCompleted[b.id]?.completed === true;
+        const aIsUserGenerated = (a as any).userGenerated === true;
+        const bIsUserGenerated = (b as any).userGenerated === true;
+        
+        // Completed lessons go last
+        if (aCompleted && !bCompleted) return 1;
+        if (!aCompleted && bCompleted) return -1;
+        
+        // Among incomplete: user-generated first
+        if (!aCompleted && !bCompleted) {
+          if (aIsUserGenerated && !bIsUserGenerated) return -1;
+          if (!aIsUserGenerated && bIsUserGenerated) return 1;
+        }
+        
+        return 0;
+      });
       
       const moduleWithLessons: GeneratedModule = {
         ...m,

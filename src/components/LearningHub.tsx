@@ -1,7 +1,12 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Flame, Star, Target, CheckCircle2, Lock, BookOpen, ChevronRight, Trophy, Volume2, Plus, Heart, ChevronDown, ChevronUp, Trash2, RotateCcw, X, Award, Play, Sparkles } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, 
+  faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute,
+  faCircleCheck, faLock, faChevronRight, faChevronDown, faChevronUp,
+  faTrashCan, faRotateLeft, faXmark, faAward, faPlay, faWandMagicSparkles,
+  faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye
+} from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -342,7 +347,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white flex-shrink-0">
           <div className="flex items-center gap-3">
-            <BookOpen className="h-6 w-6 text-primary" />
+            <FontAwesomeIcon icon={faBookOpen} className="text-xl text-primary" />
             <h1 className="text-xl font-semibold">Learning Paths</h1>
           </div>
           
@@ -351,7 +356,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             {/* Level Icon */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                <Star className="h-3.5 w-3.5 text-yellow-300" fill="currentColor" />
+                <FontAwesomeIcon icon={faStar} className="text-sm text-yellow-300" />
               </div>
               <span className="text-[10px] font-medium text-gray-700">{progress.level}</span>
             </div>
@@ -359,7 +364,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             {/* Streak Icon */}
             <div className="flex flex-col items-center gap-0.5">
               <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center shadow-sm ${streakColor === 'text-orange-500' ? 'ring-1 ring-orange-300' : ''}`}>
-                <Flame className="h-3.5 w-3.5 text-white" fill="currentColor" />
+                <FontAwesomeIcon icon={faFire} className="text-sm text-white" />
               </div>
               <span className="text-[10px] font-medium text-gray-700">{progress.streak}</span>
             </div>
@@ -368,9 +373,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             <div className="flex flex-col items-center gap-0.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm">
                 {tier === 'free' ? (
-                  <Trophy className="h-3.5 w-3.5 text-white" fill="currentColor" />
+                  <FontAwesomeIcon icon={faTrophy} className="text-sm text-white" />
                 ) : (
-                  <Target className="h-3.5 w-3.5 text-white" fill="currentColor" />
+                  <FontAwesomeIcon icon={faBullseye} className="text-sm text-white" />
                 )}
               </div>
               <span className="text-[10px] font-medium text-gray-700">
@@ -384,7 +389,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               onClick={() => onOpenChange(false)}
               className="h-8 w-8 p-0 ml-2"
             >
-              <X className="h-5 w-5" />
+              <FontAwesomeIcon icon={faXmark} className="text-lg" />
             </Button>
           </div>
         </div>
@@ -424,7 +429,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 </div>
                 {displayedModules.length === 0 ? (
                   <div className="text-center py-12">
-                    <BookOpen className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <FontAwesomeIcon icon={faBookOpen} className="text-5xl mx-auto text-gray-300 mb-4" />
                     <p className="text-gray-500 text-lg">
                       {activeNav === 'learning' 
                         ? "You haven't started any courses yet. Browse Featured to get started!" 
@@ -456,7 +461,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                             />
                             {done && (
                               <div className="absolute top-2 right-2 z-10">
-                                <CheckCircle2 className="h-5 w-5 text-green-500 bg-white rounded-full" />
+                                <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-green-500 bg-white rounded-full" />
                               </div>
                             )}
                             <div className="absolute top-2 left-2 z-10">
@@ -517,7 +522,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               activeNav === 'featured' ? 'text-primary' : 'text-gray-600'
             }`}
           >
-            <Star className="h-5 w-5" fill={activeNav === 'featured' ? 'currentColor' : 'none'} />
+            <FontAwesomeIcon icon={faStar} className="text-lg" />
             <span className="text-xs font-medium">Featured</span>
           </button>
           <button
@@ -526,7 +531,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               activeNav === 'learning' ? 'text-primary' : 'text-gray-600'
             }`}
           >
-            <Play className="h-5 w-5" />
+            <FontAwesomeIcon icon={faPlay} className="text-lg" />
             <span className="text-xs font-medium">My Learning</span>
           </button>
           <button
@@ -535,7 +540,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               activeNav === 'certification' ? 'text-primary' : 'text-gray-600'
             }`}
           >
-            <Award className="h-5 w-5" />
+            <FontAwesomeIcon icon={faAward} className="text-lg" />
             <span className="text-xs font-medium">Certification</span>
           </button>
           <button
@@ -544,7 +549,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               activeNav === 'leaderboard' ? 'text-primary' : 'text-gray-600'
             }`}
           >
-            <Trophy className="h-5 w-5" />
+            <FontAwesomeIcon icon={faTrophy} className="text-lg" />
             <span className="text-xs font-medium">Leaderboard</span>
           </button>
         </div>
@@ -558,158 +563,230 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           />
         )}
 
-        {/* Full Course View Modal */}
+        {/* Full Course View Modal - Fullscreen */}
         {selectedCourse && (
-          <Dialog open={Boolean(selectedCourse)} onOpenChange={() => setSelectedCourse(null)}>
-            <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-[90vh] sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-              <DialogHeader className="pr-8">
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                    <FontAwesomeIcon
-                      icon={
-                        selectedCourse.icon === 'faScroll' ? faScroll :
-                          selectedCourse.icon === 'faGlobe' ? faGlobe :
-                            selectedCourse.icon === 'faScaleBalanced' ? faScaleBalanced :
-                              selectedCourse.icon === 'faLandmark' ? faLandmark :
-                                faBook
-                      }
-                      className="text-3xl text-primary"
-                    />
+          <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700">
+              <div className="max-w-5xl mx-auto px-4 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setSelectedCourse(null)}
+                      className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faXmark} className="text-slate-600 dark:text-slate-300" />
+                    </button>
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                      <FontAwesomeIcon
+                        icon={
+                          selectedCourse.icon === 'faScroll' ? faScroll :
+                            selectedCourse.icon === 'faGlobe' ? faGlobe :
+                              selectedCourse.icon === 'faScaleBalanced' ? faScaleBalanced :
+                                selectedCourse.icon === 'faLandmark' ? faLandmark :
+                                  faGraduationCap
+                        }
+                        className="text-xl text-primary"
+                      />
+                    </div>
+                    <div>
+                      <h1 className="text-lg font-bold text-slate-900 dark:text-white">{selectedCourse.title}</h1>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{selectedCourse.lessons.length} lessons</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <DialogTitle className="text-xl pr-4 break-words overflow-wrap-anywhere">{selectedCourse.title}</DialogTitle>
-                    <DialogDescription className="mt-1 break-words overflow-wrap-anywhere">{selectedCourse.description}</DialogDescription>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <div className="space-y-4 mt-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="capitalize">{selectedCourse.requiredTier}</Badge>
-                  <span className="text-sm text-muted-foreground">{selectedCourse.lessons.length} lessons</span>
+                  
+                  {/* Progress indicator */}
                   {(() => {
                     const { percent, done } = moduleStatus(selectedCourse);
-                    
                     return (
-                      <div className="flex-1">
-                        <Progress value={percent} className="h-2" />
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {percent === 100 && done 
-                            ? "100% complete - You can generate more lessons!" 
-                            : `${percent}% complete`}
+                      <div className="hidden sm:flex items-center gap-3">
+                        <div className="w-32">
+                          <Progress value={percent} className="h-2" />
                         </div>
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{percent}%</span>
                       </div>
                     );
                   })()}
                 </div>
-
-                <Separator />
-
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="max-w-5xl mx-auto px-4 py-6">
+              {/* Course description */}
+              <div className="mb-6">
+                <p className="text-slate-600 dark:text-slate-300">{selectedCourse.description}</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <Badge variant="outline" className="capitalize">{selectedCourse.requiredTier}</Badge>
+                  {(() => {
+                    const { percent, done } = moduleStatus(selectedCourse);
+                    if (done) {
+                      return <Badge className="bg-green-100 text-green-700 border-green-200">Completed</Badge>;
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+              
+              {/* Generate more lessons CTA */}
+              {(() => {
+                const { percent, done } = moduleStatus(selectedCourse);
+                if (percent === 100 && done) {
+                  return (
+                    <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-6 mb-6 text-white">
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
+                          <FontAwesomeIcon icon={faWandMagicSparkles} className="text-2xl" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-bold text-lg">Congratulations! 🎉</h3>
+                          <p className="text-purple-100 text-sm">You've mastered all lessons. Generate more to continue your journey.</p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            setModuleForGeneration({ id: selectedCourse.id, name: selectedCourse.title });
+                            setShowGenerateLessonsPopup(true);
+                          }}
+                          disabled={isRequestingLessons === selectedCourse.id}
+                          className="bg-white text-purple-600 hover:bg-purple-50"
+                        >
+                          {isRequestingLessons === selectedCourse.id ? (
+                            <>
+                              <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                              Generate More
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              
+              {/* Lessons Grid */}
+              <div className="space-y-3">
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-2">
+                  <FontAwesomeIcon icon={faListCheck} />
+                  Lessons
+                </h2>
+                
                 {(() => {
-                  const { percent, done } = moduleStatus(selectedCourse);
+                  // Sort lessons: incomplete first, completed last
+                  const sortedLessons = [...selectedCourse.lessons].sort((a, b) => {
+                    const aProgress = getLessonProgress(selectedCourse.id, a.id);
+                    const bProgress = getLessonProgress(selectedCourse.id, b.id);
+                    const aCompleted = aProgress?.completed === true;
+                    const bCompleted = bProgress?.completed === true;
+                    
+                    // Completed lessons go to the end
+                    if (aCompleted && !bCompleted) return 1;
+                    if (!aCompleted && bCompleted) return -1;
+                    return 0;
+                  });
                   
-                  // Show message when 100% complete - user can always generate more
-                  if (percent === 100 && done) {
+                  // Find first incomplete lesson to unlock
+                  let foundFirstIncomplete = false;
+                  
+                  return sortedLessons.map((lesson, index) => {
+                    const lp = getLessonProgress(selectedCourse.id, lesson.id);
+                    const isCompleted = lp?.completed === true && !lesson.locked;
+                    
+                    // Sequential unlock logic: only first incomplete lesson is unlocked
+                    let isSequentiallyLocked = false;
+                    if (!isCompleted && !lesson.locked) {
+                      if (!foundFirstIncomplete) {
+                        foundFirstIncomplete = true;
+                        isSequentiallyLocked = false; // First incomplete is unlocked
+                      } else {
+                        isSequentiallyLocked = true; // Others are locked
+                      }
+                    }
+                    
+                    const isLocked = lesson.locked || isSequentiallyLocked;
+
                     return (
-                      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0">
-                            <Sparkles className="h-6 w-6 text-purple-500" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-semibold text-purple-900 mb-1">Congratulations! You've completed all lessons!</p>
-                            <p className="text-sm text-purple-700">You can add and generate more lessons to continue learning.</p>
-                          </div>
-                          <Button
-                            onClick={() => {
-                              setModuleForGeneration({ id: selectedCourse.id, name: selectedCourse.title });
-                              setShowGenerateLessonsPopup(true);
-                            }}
-                            disabled={isRequestingLessons === selectedCourse.id}
-                            className="flex-shrink-0"
-                          >
-                            {isRequestingLessons === selectedCourse.id ? (
-                              <>
-                                <div className="animate-spin mr-2">⏳</div>
-                                Generating...
-                              </>
+                      <div 
+                        key={lesson.id} 
+                        className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 transition-all ${
+                          isLocked ? 'opacity-60' : 'hover:shadow-md hover:border-primary/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* Lesson number/status */}
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold ${
+                            isCompleted 
+                              ? 'bg-green-100 text-green-600' 
+                              : isLocked 
+                                ? 'bg-slate-100 dark:bg-slate-700 text-slate-400' 
+                                : 'bg-primary/10 text-primary'
+                          }`}>
+                            {isCompleted ? (
+                              <FontAwesomeIcon icon={faCircleCheck} />
+                            ) : isLocked ? (
+                              <FontAwesomeIcon icon={faLock} />
                             ) : (
-                              <>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add and generate more
-                              </>
+                              index + 1
                             )}
+                          </div>
+                          
+                          {/* Lesson info */}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-slate-900 dark:text-white">{lesson.title}</h3>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              <span className="flex items-center gap-1">
+                                <FontAwesomeIcon icon={faBolt} className="text-yellow-500" />
+                                {lesson.xpReward} XP
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <FontAwesomeIcon icon={faBookOpen} className="text-blue-500" />
+                                {lesson.quiz.length} Questions
+                              </span>
+                              {lesson.userGenerated && (
+                                <Badge variant="outline" className="text-xs py-0 px-1.5 bg-purple-50 text-purple-600 border-purple-200">
+                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-1" />
+                                  AI Generated
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Action button */}
+                          <Button
+                            size="sm"
+                            variant={isCompleted ? 'outline' : 'default'}
+                            onClick={() => handleStartLesson(selectedCourse, lesson)}
+                            disabled={isLocked}
+                            className={isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}
+                          >
+                            {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
+                            <FontAwesomeIcon icon={faArrowRight} className="ml-2" />
                           </Button>
                         </div>
                       </div>
                     );
-                  }
-                  return null;
+                  });
                 })()}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {selectedCourse.lessons.map((lesson) => {
-                    const lp = getLessonProgress(selectedCourse.id, lesson.id);
-                    const isLocked = lesson.locked;
-                    const isCompleted = lp?.completed === true && !isLocked;
-
-                    return (
-                      <Card key={lesson.id} className={`${isLocked ? 'opacity-70' : ''}`}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0 overflow-hidden">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-semibold text-sm break-words overflow-wrap-anywhere">{lesson.title}</span>
-                                {isCompleted && (
-                                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
-                                  {lesson.xpReward} XP
-                                </span>
-                                <span>• {lesson.quiz.length} Q</span>
-                              </div>
-                            </div>
-                            {isLocked && <Lock className="h-4 w-4 text-gray-400" />}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant={isCompleted ? 'outline' : 'default'}
-                            className="w-full"
-                            onClick={() => {
-                              handleStartLesson(selectedCourse, lesson);
-                              // Don't close the course view - it will reopen when lesson closes
-                            }}
-                            disabled={isLocked}
-                          >
-                            {isCompleted ? 'Review' : 'Start Lesson'}
-                            <ChevronRight className="h-4 w-4 ml-2" />
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
               </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </div>
         )}
 
         {/* Generate More Lessons Popup */}
         <Dialog open={showGenerateLessonsPopup} onOpenChange={setShowGenerateLessonsPopup}>
-          <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-auto sm:max-w-[550px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
-                Generate More Lessons?
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="text-purple-500" />
+                Generate More Lessons
               </DialogTitle>
               <DialogDescription>
-                You've completed 5 lessons! Choose a difficulty level and generate more interactive lessons for{' '}
+                Choose a difficulty level and generate more interactive lessons for{' '}
                 <span className="font-semibold">{moduleForGeneration?.name}</span>.
               </DialogDescription>
             </DialogHeader>
@@ -723,17 +800,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   {/* Simple */}
                   <button
                     onClick={() => setSelectedDifficulty('simple')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'simple'
-                        ? 'border-green-500 bg-green-50 shadow-md'
+                        ? 'border-green-500 bg-green-50 shadow-lg'
                         : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-3xl mb-2">🌱</div>
+                      <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
+                        selectedDifficulty === 'simple' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600'
+                      }`}>
+                        <FontAwesomeIcon icon={faPlay} className="text-lg" />
+                      </div>
                       <div className="font-semibold text-gray-900">Simple</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Auto-play conversations, basic cases
+                        Beginner friendly
                       </div>
                     </div>
                   </button>
@@ -741,17 +822,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   {/* Medium */}
                   <button
                     onClick={() => setSelectedDifficulty('medium')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'medium'
-                        ? 'border-yellow-500 bg-yellow-50 shadow-md'
-                        : 'border-gray-200 hover:border-yellow-300 hover:bg-yellow-50'
+                        ? 'border-amber-500 bg-amber-50 shadow-lg'
+                        : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-3xl mb-2">🔥</div>
+                      <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
+                        selectedDifficulty === 'medium' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-600'
+                      }`}>
+                        <FontAwesomeIcon icon={faFire} className="text-lg" />
+                      </div>
                       <div className="font-semibold text-gray-900">Medium</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Manual control, challenging cases
+                        Challenging
                       </div>
                     </div>
                   </button>
@@ -759,46 +844,52 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   {/* Hard */}
                   <button
                     onClick={() => setSelectedDifficulty('hard')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'hard'
-                        ? 'border-red-500 bg-red-50 shadow-md'
+                        ? 'border-red-500 bg-red-50 shadow-lg'
                         : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-3xl mb-2">⚡</div>
+                      <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
+                        selectedDifficulty === 'hard' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600'
+                      }`}>
+                        <FontAwesomeIcon icon={faBolt} className="text-lg" />
+                      </div>
                       <div className="font-semibold text-gray-900">Hard</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Audio-only, complex scenarios
+                        Expert level
                       </div>
                     </div>
                   </button>
                 </div>
               </div>
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
+                <p className="text-sm text-purple-800">
+                  <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2 text-purple-500" />
                   <strong>What you'll get:</strong>
                   {selectedDifficulty === 'simple' && ' Guided conversations with auto-play, basic legal case studies with multiple-choice answers.'}
                   {selectedDifficulty === 'medium' && ' Interactive dialogues you control, intermediate case scenarios requiring critical thinking.'}
                   {selectedDifficulty === 'hard' && ' Listening-only challenges (no text), complex legal cases with nuanced analysis required.'}
                 </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 py-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-900">
-                  <strong>What you'll get:</strong>
-                </p>
-                <ul className="text-sm text-blue-800 mt-2 space-y-1 list-disc list-inside">
-                  <li>5 new AI-generated lessons</li>
-                  <li>More practice questions</li>
-                  <li>Additional XP rewards</li>
+                <ul className="text-sm text-purple-700 mt-3 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    5 new AI-generated lessons
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    More practice questions
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    Additional XP rewards
+                  </li>
                 </ul>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <Button
                   variant="outline"
                   className="flex-1"
@@ -810,24 +901,23 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   Maybe Later
                 </Button>
                 <Button
-                  className="flex-1"
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                   onClick={handleGenerateMoreLessons}
                   disabled={isRequestingLessons === moduleForGeneration?.id}
                 >
                   {isRequestingLessons === moduleForGeneration?.id ? (
                     <>
-                      <div className="animate-spin mr-2">⏳</div>
+                      <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
                       Generating...
                     </>
                   ) : (
                     <>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add and generate more
+                      <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2" />
+                      Generate Lessons
                     </>
                   )}
                 </Button>
               </div>
-            </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -846,7 +936,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
         <DialogHeader className="space-y-2 pb-3 sm:pb-4 pr-8">
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl">
-            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-primary flex-shrink-0" />
+            <FontAwesomeIcon icon={faBookOpen} className="text-lg sm:text-xl md:text-2xl text-primary flex-shrink-0" />
             <span className="leading-tight">Learning Paths</span>
           </DialogTitle>
           <DialogDescription className="text-sm sm:text-base md:text-lg">
@@ -881,7 +971,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   <CardHeader className="pb-2 p-3 sm:p-4">
                     <CardDescription className="text-xs sm:text-sm text-blue-100">Level</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                      <Star className="h-5 w-5 text-yellow-300" />
+                      <FontAwesomeIcon icon={faStar} className="text-lg text-yellow-300" />
                       Level {progress.level}
                     </CardTitle>
                   </CardHeader>
@@ -896,7 +986,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   <CardHeader className="pb-2 p-3 sm:p-4">
                     <CardDescription className="text-xs sm:text-sm text-blue-100">Streak</CardDescription>
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                      <Flame className={`h-5 w-5 ${streakColor}`} />
+                      <FontAwesomeIcon icon={faFire} className={`text-lg ${streakColor}`} />
                       {progress.streak} days
                     </CardTitle>
                   </CardHeader>
@@ -913,12 +1003,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
                       {tier === 'free' ? (
                         <>
-                          <Trophy className="h-5 w-5 text-white" />
+                          <FontAwesomeIcon icon={faTrophy} className="text-lg text-white" />
                           {dailyLessonsRemaining}/2
                         </>
                       ) : (
                         <>
-                          <Target className="h-5 w-5 text-white" />
+                          <FontAwesomeIcon icon={faBullseye} className="text-lg text-white" />
                           {progress.dailyGoal} XP
                         </>
                       )}
@@ -1005,7 +1095,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                   className={`text-lg ${favorites.has(module.id) ? 'text-red-500' : 'text-gray-300'}`}
                                 />
                               </Button>
-                              {done ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 flex-shrink-0" /> : null}
+                              {done ? <FontAwesomeIcon icon={faCircleCheck} className="text-sm sm:text-lg text-green-500 flex-shrink-0" /> : null}
                             </div>
                           </CardTitle>
                           <CardDescription className="text-sm sm:text-base">{module.description}</CardDescription>
@@ -1059,7 +1149,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                               <span className="text-sm sm:text-base font-semibold leading-tight line-clamp-2">{lesson.title}</span>
                                               {isCompleted && (
                                                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
-                                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                                  <FontAwesomeIcon icon={faCircleCheck} className="text-sm" />
                                                   Done
                                                 </Badge>
                                               )}
@@ -1080,7 +1170,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                           </div>
                                           {isLocked && (
                                             <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
-                                              <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
+                                              <FontAwesomeIcon icon={faLock} className="text-sm" />
                                               <span className="hidden sm:inline">Locked</span>
                                             </Badge>
                                           )}
@@ -1100,7 +1190,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                           >
                                             <span className="hidden sm:inline">{isCompleted ? 'Review' : 'Start'}</span>
                                             <span className="sm:hidden">{isCompleted ? '✓' : '▶'}</span>
-                                            <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 sm:ml-1 hidden sm:inline" />
+                                            <FontAwesomeIcon icon={faChevronRight} className="text-sm sm:ml-1 hidden sm:inline" />
                                           </Button>
                                         </div>
                                       </CardContent>
@@ -1128,12 +1218,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 >
                                   {expandedLessons.has(module.id) ? (
                                     <>
-                                      <ChevronUp className="h-4 w-4 mr-2" />
+                                      <FontAwesomeIcon icon={faChevronUp} className="mr-2" />
                                       Show Less
                                     </>
                                   ) : (
                                     <>
-                                      <ChevronDown className="h-4 w-4 mr-2" />
+                                      <FontAwesomeIcon icon={faChevronDown} className="mr-2" />
                                       Show All {module.lessons.length} Lessons
                                     </>
                                   )}
@@ -1155,12 +1245,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                     >
                                       {isDeletingLessons === module.id ? (
                                         <>
-                                          <div className="animate-spin mr-2">⏳</div>
+                                          <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
                                           Deleting...
                                         </>
                                       ) : (
                                         <>
-                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          <FontAwesomeIcon icon={faTrashCan} className="mr-2" />
                                           Delete Last 5 Lessons
                                         </>
                                       )}
@@ -1175,12 +1265,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                       >
                                         {isDeletingLessons === module.id ? (
                                           <>
-                                            <div className="animate-spin mr-2">⏳</div>
+                                            <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
                                             Deleting...
                                           </>
                                         ) : (
                                           <>
-                                            <RotateCcw className="h-4 w-4 mr-2" />
+                                            <FontAwesomeIcon icon={faRotateLeft} className="mr-2" />
                                             Delete All Lessons
                                           </>
                                         )}
@@ -1203,13 +1293,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 >
                                   {isRequestingLessons === module.id ? (
                                     <>
-                                      <div className="animate-spin mr-2">⏳</div>
+                                      <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
                                       Generating...
                                     </>
                                   ) : (
                                     <>
-                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                        Add and generate more
+                                      <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2" />
+                                      Generate More
                                     </>
                                   )}
                                 </Button>
