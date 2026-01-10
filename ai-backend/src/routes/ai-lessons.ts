@@ -300,7 +300,26 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
       }
     });
 
+    // Generate unique IDs for new lessons to avoid conflicts with completed lessons
+    // Use timestamp-based IDs to ensure uniqueness
+    // Also add generationBatchId to track which lessons belong to the same generation set
+    const timestamp = Date.now();
+    const generationBatchId = `batch-${timestamp}`;
+    newLessons.forEach((lesson: any, index: number) => {
+      // Generate unique ID: user-generated-{timestamp}-{index}
+      lesson.id = `user-generated-${timestamp}-${index}`;
+      // Add generation batch ID to track which set this lesson belongs to
+      lesson.generationBatchId = generationBatchId;
+      // Also ensure quiz IDs are unique
+      if (Array.isArray(lesson.quiz)) {
+        lesson.quiz.forEach((q: any, qIndex: number) => {
+          q.id = `q-${timestamp}-${index}-${qIndex}`;
+        });
+      }
+    });
+
     // Store user-specific lessons in a separate collection
+    let totalUserLessons = 0;
     try {
       const userLessonsRef = db.collection('userLessons').doc(userId);
       const userLessonsDoc = await userLessonsRef.get();
@@ -309,25 +328,8 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
         ? (userLessonsDoc.data()?.modules?.[moduleId]?.lessons || [])
         : [];
       
-      // Generate unique IDs for new lessons to avoid conflicts with completed lessons
-      // Use timestamp-based IDs to ensure uniqueness
-      // Also add generationBatchId to track which lessons belong to the same generation set
-      const timestamp = Date.now();
-      const generationBatchId = `batch-${timestamp}`;
-      newLessons.forEach((lesson: any, index: number) => {
-        // Generate unique ID: user-generated-{timestamp}-{index}
-        lesson.id = `user-generated-${timestamp}-${index}`;
-        // Add generation batch ID to track which set this lesson belongs to
-        lesson.generationBatchId = generationBatchId;
-        // Also ensure quiz IDs are unique
-        if (Array.isArray(lesson.quiz)) {
-          lesson.quiz.forEach((q: any, qIndex: number) => {
-            q.id = `q-${timestamp}-${index}-${qIndex}`;
-          });
-        }
-      });
-      
       const updatedUserLessons = [...existingUserLessons, ...newLessons];
+      totalUserLessons = updatedUserLessons.length;
       
       // Update user's lessons
       await userLessonsRef.set({
@@ -365,7 +367,7 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
     return res.json({
       success: true,
       lessons: newLessons,
-      totalLessons: existingLessons.length + updatedUserLessons.length,
+      totalLessons: existingLessons.length + totalUserLessons,
       message: `Successfully generated ${newLessons.length} new lessons!`,
       requestCount: moduleRequests + 1,
       maxRequests: tier === 'premium' ? 'unlimited' : maxRequests
