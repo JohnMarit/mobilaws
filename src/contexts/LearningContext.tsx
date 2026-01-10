@@ -45,8 +45,7 @@ interface LearningContextValue {
   deductXp: (amount: number) => void;
   getModuleProgress: (moduleId: string) => ModuleProgress | undefined;
   getLessonProgress: (moduleId: string, lessonId: string) => LessonProgress | undefined;
-  refreshModules: () => Promise<void>;
-  modulesLoading: boolean;
+  reloadModules: () => Promise<void>;
 }
 
 const LearningContext = createContext<LearningContextValue | undefined>(undefined);
@@ -315,19 +314,13 @@ function convertGeneratedModuleToModule(
 }
 
 /**
- * Fetch user-specific lessons from backend with timeout
+ * Fetch user-specific lessons from backend
  */
-async function fetchUserLessons(userId: string, timeoutMs: number = 5000): Promise<Record<string, GeneratedLesson[]>> {
+async function fetchUserLessons(userId: string): Promise<Record<string, GeneratedLesson[]>> {
   try {
     const apiUrl = getApiUrl(`user-lessons/${userId}`);
     console.log(`📚 Fetching user lessons from: ${apiUrl}`);
-    
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(apiUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
       console.warn(`Failed to fetch user lessons for ${userId}:`, response.statusText);
@@ -348,59 +341,31 @@ async function fetchUserLessons(userId: string, timeoutMs: number = 5000): Promi
     console.log(`✅ Total user lessons loaded for ${Object.keys(normalized).length} modules`);
     return normalized;
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('⏱️ User lessons fetch timed out');
-    } else {
-      console.error('Error fetching user lessons:', error);
-    }
+    console.error('Error fetching user lessons:', error);
     return {};
   }
 }
 
-// Simple cache for modules to avoid repeated fetches
-let modulesCache: {
-  modules: Module[];
-  timestamp: number;
-  tier: Tier;
-  userId?: string;
-} | null = null;
-const CACHE_DURATION = 30000; // 30 seconds
-
 /**
- * Fetch published modules from backend API with caching and optimization
+ * Fetch published modules from backend API
  */
 async function fetchModulesFromBackend(
   accessLevel: Tier,
   progress?: Record<string, ModuleProgress>,
   userId?: string,
-  userLessons?: Record<string, GeneratedLesson[]>,
-  timeoutMs: number = 8000
+  userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
-  // Check cache first
-  if (modulesCache && 
-      modulesCache.tier === accessLevel && 
-      modulesCache.userId === userId &&
-      Date.now() - modulesCache.timestamp < CACHE_DURATION) {
-    console.log('📦 Using cached modules');
-    return modulesCache.modules;
-  }
-
   try {
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
     console.log(`📚 Fetching modules for tier: ${accessLevel} from ${apiUrl}`);
     
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    const response = await fetch(apiUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Failed to fetch modules for tier ${accessLevel}:`, response.status, response.statusText);
       console.error(`Error details:`, errorText);
-      return modulesCache?.modules || []; // Return cached data if available
+      return [];
     }
 
     const generatedModules: GeneratedModule[] = await response.json();
@@ -410,7 +375,7 @@ async function fetchModulesFromBackend(
     const publishedModules = generatedModules.filter(m => m.published === true);
     
     // Convert to frontend format with progress and merge user-specific lessons
-    const modules = publishedModules.map(m => {
+    return publishedModules.map(m => {
       const moduleProgress = progress?.[m.id];
       // Merge user-specific lessons with module lessons
       // Ensure both are arrays to prevent iteration errors
@@ -435,23 +400,9 @@ async function fetchModulesFromBackend(
       };
       return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, moduleLessons.length);
     });
-
-    // Update cache
-    modulesCache = {
-      modules,
-      timestamp: Date.now(),
-      tier: accessLevel,
-      userId
-    };
-
-    return modules;
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.warn('⏱️ Module fetch timed out, using cached data if available');
-    } else {
-      console.error('Error fetching modules from backend:', error);
-    }
-    return modulesCache?.modules || []; // Return cached data if available
+    console.error('Error fetching modules from backend:', error);
+    return [];
   }
 }
 
@@ -463,6 +414,25 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [modules, setModules] = useState<Module[]>([]);
   const [modulesLoading, setModulesLoading] = useState(true);
+
+  const loadModules = useCallback(async () => {
+    setModulesLoading(true);
+    try {
+      // Fetch user-specific lessons if user is logged in
+      let userLessons: Record<string, GeneratedLesson[]> = {};
+      if (user?.id) {
+        userLessons = await fetchUserLessons(user.id);
+      }
+      
+      const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, userLessons);
+      setModules(fetchedModules);
+    } catch (error) {
+      console.error('Failed to load modules:', error);
+      setModules([]);
+    } finally {
+      setModulesLoading(false);
+    }
+  }, [tier, state.modulesProgress, user?.id]);
 
   // Load state when user changes
   useEffect(() => {
@@ -547,40 +517,11 @@ export function LearningProvider({ children }: { children: ReactNode }) {
 
   // Fetch modules from backend when tier changes or progress updates
   useEffect(() => {
-    const loadModules = async () => {
-      setModulesLoading(true);
-      try {
-        // Fetch user lessons and modules in PARALLEL for better performance
-        let userLessons: Record<string, GeneratedLesson[]> = {};
-        if (user?.id) {
-          // Fetch both in parallel
-          const [fetchedUserLessons, fetchedModules] = await Promise.all([
-            fetchUserLessons(user.id),
-            fetchModulesFromBackend(tier, state.modulesProgress, user?.id, {})
-          ]);
-          userLessons = fetchedUserLessons;
-          
-          // Re-fetch modules with user lessons to merge them
-          const modulesWithUserLessons = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, userLessons);
-          setModules(modulesWithUserLessons);
-        } else {
-          // No user, just fetch modules
-          const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, {});
-          setModules(fetchedModules);
-        }
-      } catch (error) {
-        console.error('Failed to load modules:', error);
-        setModules([]);
-      } finally {
-        setModulesLoading(false);
-      }
-    };
-
     // Only fetch if we have user progress loaded (or if no user)
     if (!isLoading || !user?.id) {
       loadModules();
     }
-  }, [tier, state.modulesProgress, isLoading, user?.id]);
+  }, [loadModules, isLoading, user?.id]);
 
   const gatedModules = useMemo(() => modules, [modules]);
 
@@ -755,40 +696,6 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     [state.modulesProgress]
   );
 
-  const refreshModules = useCallback(async () => {
-    console.log('🔄 Refreshing modules...');
-    setModulesLoading(true);
-    // Clear cache to force fresh fetch
-    modulesCache = null;
-    
-    try {
-      // Fetch user lessons and modules in PARALLEL for better performance
-      let userLessons: Record<string, GeneratedLesson[]> = {};
-      if (user?.id) {
-        // Fetch both in parallel
-        const [fetchedUserLessons, fetchedModules] = await Promise.all([
-          fetchUserLessons(user.id),
-          fetchModulesFromBackend(tier, state.modulesProgress, user?.id, {})
-        ]);
-        userLessons = fetchedUserLessons;
-        
-        // Re-fetch modules with user lessons to merge them
-        const modulesWithUserLessons = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, userLessons);
-        setModules(modulesWithUserLessons);
-      } else {
-        // No user, just fetch modules
-        const fetchedModules = await fetchModulesFromBackend(tier, state.modulesProgress, user?.id, {});
-        setModules(fetchedModules);
-      }
-      console.log('✅ Modules refreshed successfully');
-    } catch (error) {
-      console.error('Failed to refresh modules:', error);
-      // Don't clear modules on error - keep existing ones
-    } finally {
-      setModulesLoading(false);
-    }
-  }, [tier, state.modulesProgress, user?.id]);
-
   const value: LearningContextValue = {
     tier,
     modules: gatedModules,
@@ -800,8 +707,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     deductXp,
     getModuleProgress,
     getLessonProgress,
-    refreshModules,
-    modulesLoading,
+    reloadModules: loadModules,
   };
 
   return <LearningContext.Provider value={value}>{children}</LearningContext.Provider>;

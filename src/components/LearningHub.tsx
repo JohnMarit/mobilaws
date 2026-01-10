@@ -35,7 +35,7 @@ interface LearningHubProps {
 
 export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
-  const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, refreshModules, modulesLoading } = useLearning();
+  const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules } = useLearning();
   const { showLoginModal, setShowLoginModal } = usePromptLimit();
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -203,16 +203,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       const data = await response.json();
       toast.success(`Generated ${data.lessons.length} new lessons! (${data.requestCount}/${data.maxRequests} requests used)`);
       
-      // Refresh modules to show new lessons without page reload
-      await refreshModules();
-      
-      // If we have a selected course, update it with the refreshed module
-      if (selectedCourse) {
-        const updatedModule = modules.find(m => m.id === selectedCourse.id);
-        if (updatedModule) {
-          setSelectedCourse(updatedModule);
-        }
-      }
+      // Refresh modules to show new lessons without kicking the user back home
+      await reloadModules();
     } catch (error) {
       console.error('Error requesting lessons:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate lessons. Please try again.';
@@ -266,16 +258,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       const data = await response.json();
       toast.success(data.message || `Deleted ${data.deletedCount} generated lesson${data.deletedCount !== 1 ? 's' : ''}. You can now generate new lessons!`);
       
-      // Refresh modules to reflect changes without page reload
-      await refreshModules();
-      
-      // If we have a selected course, update it with the refreshed module
-      if (selectedCourse) {
-        const updatedModule = modules.find(m => m.id === selectedCourse.id);
-        if (updatedModule) {
-          setSelectedCourse(updatedModule);
-        }
-      }
+      // Reload modules to reflect changes
+      window.location.reload();
     } catch (error) {
       console.error('Error deleting lessons:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete lessons. Please try again.';
