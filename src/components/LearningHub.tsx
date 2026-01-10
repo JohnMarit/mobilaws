@@ -563,115 +563,75 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           />
         )}
 
-        {/* Full Course View Modal - Fullscreen */}
+        {/* Course View Panel - Slides in from right, keeps header and bottom nav visible */}
         {selectedCourse && (
-          <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700">
-              <div className="max-w-5xl mx-auto px-4 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={() => setSelectedCourse(null)}
-                      className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
-                    >
-                      <FontAwesomeIcon icon={faXmark} className="text-slate-600 dark:text-slate-300" />
-                    </button>
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                      <FontAwesomeIcon
-                        icon={
-                          selectedCourse.icon === 'faScroll' ? faScroll :
-                            selectedCourse.icon === 'faGlobe' ? faGlobe :
-                              selectedCourse.icon === 'faScaleBalanced' ? faScaleBalanced :
-                                selectedCourse.icon === 'faLandmark' ? faLandmark :
-                                  faGraduationCap
-                        }
-                        className="text-xl text-primary"
-                      />
-                    </div>
-                    <div>
-                      <h1 className="text-lg font-bold text-slate-900 dark:text-white">{selectedCourse.title}</h1>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">{selectedCourse.lessons.length} lessons</p>
+          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-30 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
+            {/* Course Header - Fixed at top */}
+            <div className="flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setSelectedCourse(null)}
+                    className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faChevronDown} className="text-slate-600 dark:text-slate-300" />
+                  </button>
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                    <FontAwesomeIcon
+                      icon={
+                        selectedCourse.icon === 'faScroll' ? faScroll :
+                          selectedCourse.icon === 'faGlobe' ? faGlobe :
+                            selectedCourse.icon === 'faScaleBalanced' ? faScaleBalanced :
+                              selectedCourse.icon === 'faLandmark' ? faLandmark :
+                                faGraduationCap
+                      }
+                      className="text-lg text-primary"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-base font-bold text-slate-900 dark:text-white truncate">{selectedCourse.title}</h1>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span>{selectedCourse.lessons.length} lessons</span>
+                      {(() => {
+                        const { percent } = moduleStatus(selectedCourse);
+                        return <span>• {percent}% complete</span>;
+                      })()}
                     </div>
                   </div>
-                  
-                  {/* Progress indicator */}
-                  {(() => {
-                    const { percent, done } = moduleStatus(selectedCourse);
-                    return (
-                      <div className="hidden sm:flex items-center gap-3">
-                        <div className="w-32">
-                          <Progress value={percent} className="h-2" />
-                        </div>
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{percent}%</span>
-                      </div>
-                    );
-                  })()}
                 </div>
+                
+                {/* Progress bar */}
+                {(() => {
+                  const { percent } = moduleStatus(selectedCourse);
+                  return (
+                    <div className="hidden sm:block w-24">
+                      <Progress value={percent} className="h-2" />
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             
-            {/* Content */}
-            <div className="max-w-5xl mx-auto px-4 py-6">
+            {/* Scrollable Lessons Area */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
               {/* Course description */}
-              <div className="mb-6">
-                <p className="text-slate-600 dark:text-slate-300">{selectedCourse.description}</p>
-                <div className="flex items-center gap-3 mt-3">
-                  <Badge variant="outline" className="capitalize">{selectedCourse.requiredTier}</Badge>
+              <div className="mb-4">
+                <p className="text-sm text-slate-600 dark:text-slate-300">{selectedCourse.description}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="outline" className="capitalize text-xs">{selectedCourse.requiredTier}</Badge>
                   {(() => {
-                    const { percent, done } = moduleStatus(selectedCourse);
+                    const { done } = moduleStatus(selectedCourse);
                     if (done) {
-                      return <Badge className="bg-green-100 text-green-700 border-green-200">Completed</Badge>;
+                      return <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Completed</Badge>;
                     }
                     return null;
                   })()}
                 </div>
               </div>
               
-              {/* Generate more lessons CTA */}
-              {(() => {
-                const { percent, done } = moduleStatus(selectedCourse);
-                if (percent === 100 && done) {
-                  return (
-                    <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-6 mb-6 text-white">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-                          <FontAwesomeIcon icon={faWandMagicSparkles} className="text-2xl" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-lg">Congratulations! 🎉</h3>
-                          <p className="text-purple-100 text-sm">You've mastered all lessons. Generate more to continue your journey.</p>
-                        </div>
-                        <Button
-                          onClick={() => {
-                            setModuleForGeneration({ id: selectedCourse.id, name: selectedCourse.title });
-                            setShowGenerateLessonsPopup(true);
-                          }}
-                          disabled={isRequestingLessons === selectedCourse.id}
-                          className="bg-white text-purple-600 hover:bg-purple-50"
-                        >
-                          {isRequestingLessons === selectedCourse.id ? (
-                            <>
-                              <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                              Generate More
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              
-              {/* Lessons Grid */}
-              <div className="space-y-3">
-                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-2">
+              {/* Lessons List */}
+              <div className="space-y-2">
+                <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3">
                   <FontAwesomeIcon icon={faListCheck} />
                   Lessons
                 </h2>
@@ -684,27 +644,24 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     const aCompleted = aProgress?.completed === true;
                     const bCompleted = bProgress?.completed === true;
                     
-                    // Completed lessons go to the end
                     if (aCompleted && !bCompleted) return 1;
                     if (!aCompleted && bCompleted) return -1;
                     return 0;
                   });
                   
-                  // Find first incomplete lesson to unlock
                   let foundFirstIncomplete = false;
                   
                   return sortedLessons.map((lesson, index) => {
                     const lp = getLessonProgress(selectedCourse.id, lesson.id);
                     const isCompleted = lp?.completed === true && !lesson.locked;
                     
-                    // Sequential unlock logic: only first incomplete lesson is unlocked
                     let isSequentiallyLocked = false;
                     if (!isCompleted && !lesson.locked) {
                       if (!foundFirstIncomplete) {
                         foundFirstIncomplete = true;
-                        isSequentiallyLocked = false; // First incomplete is unlocked
+                        isSequentiallyLocked = false;
                       } else {
-                        isSequentiallyLocked = true; // Others are locked
+                        isSequentiallyLocked = true;
                       }
                     }
                     
@@ -713,13 +670,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     return (
                       <div 
                         key={lesson.id} 
-                        className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 transition-all ${
+                        className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 transition-all ${
                           isLocked ? 'opacity-60' : 'hover:shadow-md hover:border-primary/30'
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          {/* Lesson number/status */}
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold ${
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                             isCompleted 
                               ? 'bg-green-100 text-green-600' 
                               : isLocked 
@@ -735,37 +691,28 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                             )}
                           </div>
                           
-                          {/* Lesson info */}
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-slate-900 dark:text-white">{lesson.title}</h3>
-                            <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm text-slate-900 dark:text-white truncate">{lesson.title}</h3>
+                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                               <span className="flex items-center gap-1">
                                 <FontAwesomeIcon icon={faBolt} className="text-yellow-500" />
                                 {lesson.xpReward} XP
                               </span>
-                              <span className="flex items-center gap-1">
-                                <FontAwesomeIcon icon={faBookOpen} className="text-blue-500" />
-                                {lesson.quiz.length} Questions
-                              </span>
+                              <span>• {lesson.quiz.length} Q</span>
                               {lesson.userGenerated && (
-                                <Badge variant="outline" className="text-xs py-0 px-1.5 bg-purple-50 text-purple-600 border-purple-200">
-                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-1" />
-                                  AI Generated
-                                </Badge>
+                                <FontAwesomeIcon icon={faWandMagicSparkles} className="text-purple-500" />
                               )}
                             </div>
                           </div>
                           
-                          {/* Action button */}
                           <Button
                             size="sm"
                             variant={isCompleted ? 'outline' : 'default'}
                             onClick={() => handleStartLesson(selectedCourse, lesson)}
                             disabled={isLocked}
-                            className={isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}
+                            className={`h-8 px-3 text-xs flex-shrink-0 ${isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}`}
                           >
                             {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
-                            <FontAwesomeIcon icon={faArrowRight} className="ml-2" />
                           </Button>
                         </div>
                       </div>
@@ -774,6 +721,45 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 })()}
               </div>
             </div>
+            
+            {/* Generate More - Fixed at bottom (above bottom nav) */}
+            {(() => {
+              const { percent, done } = moduleStatus(selectedCourse);
+              if (percent === 100 && done) {
+                return (
+                  <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 border-t border-purple-700">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-lg text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm text-white">All lessons completed! 🎉</h3>
+                        <p className="text-purple-200 text-xs truncate">Generate more lessons to continue</p>
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setModuleForGeneration({ id: selectedCourse.id, name: selectedCourse.title });
+                          setShowGenerateLessonsPopup(true);
+                        }}
+                        disabled={isRequestingLessons === selectedCourse.id}
+                        size="sm"
+                        className="bg-white text-purple-600 hover:bg-purple-50 h-9 px-4 flex-shrink-0"
+                      >
+                        {isRequestingLessons === selectedCourse.id ? (
+                          <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faPlus} className="mr-1" />
+                            Generate
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         )}
 
