@@ -357,92 +357,114 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
     );
   };
 
+  // Panel layout - keeps header and bottom nav visible
+  const renderLessonPanel = (content: React.ReactNode) => {
+    if (!open) return null;
+    
+    return (
+      <>
+        <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-30 bg-white dark:bg-slate-900 flex flex-col">
+          {/* Lesson Header - Fixed */}
+          <div className="flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 py-3">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <button 
+                    onClick={onClose}
+                    className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">{lesson.title}</h1>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">{module.title}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                    <Award className="h-3 w-3" />
+                    {lesson.xpReward} XP
+                  </Badge>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                  <span>Step {currentStep + 1} of {totalSteps}</span>
+                  <span>{progressPercent}%</span>
+                </div>
+                <Progress value={progressPercent} className="h-2" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+              {content}
+            </div>
+          </div>
+        </div>
+
+        <QuizRequestDialog
+          open={showQuizRequest}
+          onOpenChange={setShowQuizRequest}
+          moduleId={module.id}
+          moduleName={module.title}
+          lessonId={lesson.id}
+          lessonName={lesson.title}
+        />
+
+        <MessageTutorDialog
+          open={showMessageTutor}
+          onOpenChange={setShowMessageTutor}
+          moduleId={module.id}
+          moduleName={module.title}
+          lessonId={lesson.id}
+          lessonName={lesson.title}
+        />
+      </>
+    );
+  };
+
   // Render new interactive lesson types
   if (currentPhase === 'conversation' && lesson.conversationalContent) {
-    return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
-          <ConversationalLesson
-            lesson={lesson.conversationalContent}
-            onComplete={handleConversationComplete}
-            difficulty={lesson.difficulty || 'medium'}
-            showScript={lesson.difficulty !== 'hard'}
-          />
-        </DialogContent>
-      </Dialog>
+    return renderLessonPanel(
+      <ConversationalLesson
+        lesson={lesson.conversationalContent}
+        onComplete={handleConversationComplete}
+        difficulty={lesson.difficulty || 'medium'}
+        showScript={lesson.difficulty !== 'hard'}
+      />
     );
   }
 
   if (currentPhase === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
-    return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
-          <CaseStudyLesson
-            caseStudies={lesson.caseStudies}
-            onComplete={handleCaseStudyComplete}
-          />
-        </DialogContent>
-      </Dialog>
+    return renderLessonPanel(
+      <CaseStudyLesson
+        caseStudies={lesson.caseStudies}
+        onComplete={handleCaseStudyComplete}
+      />
     );
   }
 
-  return (
-    <>
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto p-4 sm:p-6 overflow-x-hidden">
-        <DialogHeader className="space-y-2 pb-3 sm:pb-4 pr-8">
-          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words">
-            <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <span className="leading-tight break-words flex-1">{module.title}</span>
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words">{module.description}</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3 sm:space-y-4 w-full" style={{ maxWidth: '100%' }}>
-          <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground flex-wrap">
-            <Badge variant="outline" className="capitalize text-xs sm:text-sm">
-              {module.requiredTier}
-            </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
-              <Award className="h-3 w-3 sm:h-4 sm:w-4" />
-              {lesson.xpReward} XP
-            </Badge>
-            {lesson.difficulty && (
-              <Badge variant="outline" className={`text-xs sm:text-sm ${
-                lesson.difficulty === 'simple' ? 'border-green-500 text-green-700' :
-                lesson.difficulty === 'medium' ? 'border-yellow-500 text-yellow-700' :
-                'border-red-500 text-red-700'
-              }`}>
-                {lesson.difficulty.charAt(0).toUpperCase() + lesson.difficulty.slice(1)}
-              </Badge>
-            )}
-            <span className="ml-auto text-xs sm:text-sm">
-              Step {currentStep + 1}/{totalSteps}
-            </span>
-          </div>
-          <Progress value={progressPercent} className="h-2 sm:h-2.5" />
-          {currentPhase === 'content' ? renderContent() : renderQuiz()}
-        </div>
-      </DialogContent>
-    </Dialog>
-
-      <QuizRequestDialog
-        open={showQuizRequest}
-        onOpenChange={setShowQuizRequest}
-        moduleId={module.id}
-        moduleName={module.title}
-        lessonId={lesson.id}
-        lessonName={lesson.title}
-      />
-
-      <MessageTutorDialog
-        open={showMessageTutor}
-        onOpenChange={setShowMessageTutor}
-        moduleId={module.id}
-        moduleName={module.title}
-        lessonId={lesson.id}
-        lessonName={lesson.title}
-      />
-    </>
+  return renderLessonPanel(
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+        <Badge variant="outline" className="capitalize text-xs">
+          {module.requiredTier}
+        </Badge>
+        {lesson.difficulty && (
+          <Badge variant="outline" className={`text-xs ${
+            lesson.difficulty === 'simple' ? 'border-green-500 text-green-700' :
+            lesson.difficulty === 'medium' ? 'border-yellow-500 text-yellow-700' :
+            'border-red-500 text-red-700'
+          }`}>
+            {lesson.difficulty.charAt(0).toUpperCase() + lesson.difficulty.slice(1)}
+          </Badge>
+        )}
+      </div>
+      {currentPhase === 'content' ? renderContent() : renderQuiz()}
+    </div>
   );
 }
