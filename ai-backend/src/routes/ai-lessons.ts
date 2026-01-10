@@ -115,6 +115,8 @@ IMPORTANT: Each lesson MUST include BOTH:
 1. A conversational dialogue between two characters discussing the legal topic
 2. Real-world legal case studies with scenario-based questions
 
+You must respond with valid JSON in the following structure:
+
 Lesson Structure:
 {
   "lessons": [
@@ -217,7 +219,7 @@ CRITICAL REQUIREMENTS:
 5. Use South Sudan-specific examples and legal references
 6. Make dialogues feel like real conversations, not lectures
 
-Generate ${numberOfLessons} interactive lessons NOW!`;
+Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON format specified above!`;
 
     // Validate OpenAI API key
     if (!env.OPENAI_API_KEY) {
