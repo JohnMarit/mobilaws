@@ -12,6 +12,36 @@ const GENERATED_MODULES_COLLECTION = 'generatedModules';
 const QUIZ_REQUESTS_COLLECTION = 'quizRequests';
 const TUTOR_MESSAGES_COLLECTION = 'tutorMessages';
 
+export interface DialogueLine {
+  speaker: 'character1' | 'character2';
+  text: string;
+  audioUrl?: string;
+}
+
+export interface ConversationalLesson {
+  character1: {
+    name: string;
+    icon: string;
+    role: string;
+  };
+  character2: {
+    name: string;
+    icon: string;
+    role: string;
+  };
+  dialogue: DialogueLine[];
+  keyPoints: string[];
+}
+
+export interface CaseStudy {
+  scenario: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+  difficulty: 'simple' | 'medium' | 'hard';
+}
+
 export interface GeneratedLesson {
   id: string;
   title: string;
@@ -25,6 +55,12 @@ export interface GeneratedLesson {
   keyTerms: { term: string; definition: string }[]; // Vocabulary
   hasAudio: boolean; // Audio available for all tiers on tutor-uploaded content
   accessLevels?: ('free' | 'basic' | 'standard' | 'premium')[]; // Granular access control per lesson
+  
+  // New interactive lesson types
+  type?: 'traditional' | 'conversational' | 'case-study' | 'audio-only';
+  difficulty?: 'simple' | 'medium' | 'hard';
+  conversationalContent?: ConversationalLesson;
+  caseStudies?: CaseStudy[];
 }
 
 export interface GeneratedQuiz {

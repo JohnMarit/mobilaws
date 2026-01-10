@@ -14,6 +14,8 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import QuizRequestDialog from './QuizRequestDialog';
 import MessageTutorDialog from './MessageTutorDialog';
 import { renderHtmlContent } from '@/lib/htmlContentFormatter';
+import ConversationalLesson from './ConversationalLesson';
+import CaseStudyLesson from './CaseStudyLesson';
 
 interface LessonRunnerProps {
   open: boolean;
@@ -26,7 +28,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const { user } = useAuth();
   const { startLesson, completeLesson, deductXp, tier } = useLearning();
   const { userSubscription } = useSubscription();
-  const [currentPhase, setCurrentPhase] = useState<'content' | 'quiz'>('content');
+  const [currentPhase, setCurrentPhase] = useState<'conversation' | 'case-study' | 'quiz' | 'content'>('conversation');
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [quizAnswers, setQuizAnswers] = useState<boolean[]>([]);
@@ -36,6 +38,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [showQuizRequest, setShowQuizRequest] = useState(false);
   const [showMessageTutor, setShowMessageTutor] = useState(false);
+  const [caseStudyScore, setCaseStudyScore] = useState<number | null>(null);
   
   // Determine if audio is enabled for this lesson - available for all tiers
   const audioEnabled = useMemo(() => {
@@ -58,7 +61,17 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
         return;
       }
       startLesson(module.id, lesson.id);
-      setCurrentPhase('content');
+      
+      // Determine initial phase based on lesson type
+      const lessonType = lesson.type || 'traditional';
+      if (lessonType === 'conversational' && lesson.conversationalContent) {
+        setCurrentPhase('conversation');
+      } else if (lessonType === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
+        setCurrentPhase('case-study');
+      } else {
+        setCurrentPhase('content');
+      }
+      
       setCurrentQuizIndex(0);
       setQuizAnswers([]);
       setSelectedOption(null);
@@ -66,12 +79,44 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       setCurrentSentenceIndex(-1);
       setShowRetakeMessage(false);
       setFinalScore(null);
+      setCaseStudyScore(null);
       // Stop any playing audio when lesson changes
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
     }
-  }, [open, module.id, lesson.id, startLesson, user, onClose]);
+  }, [open, module.id, lesson.id, startLesson, user, onClose, lesson.type, lesson.conversationalContent, lesson.caseStudies]);
+
+  const handleConversationComplete = () => {
+    // After conversation, move to case studies if available
+    if (lesson.caseStudies && lesson.caseStudies.length > 0) {
+      setCurrentPhase('case-study');
+    } else if (lesson.quiz && lesson.quiz.length > 0) {
+      setCurrentPhase('quiz');
+      setCurrentQuizIndex(0);
+    } else {
+      // No quiz or case studies, complete the lesson
+      completeLesson(module.id, lesson.id, 100);
+      onClose();
+    }
+  };
+
+  const handleCaseStudyComplete = (score: number) => {
+    setCaseStudyScore(score);
+    // After case studies, move to quiz if available
+    if (lesson.quiz && lesson.quiz.length > 0) {
+      setCurrentPhase('quiz');
+      setCurrentQuizIndex(0);
+    } else {
+      // No quiz, complete the lesson with case study score
+      if (score >= 75) {
+        completeLesson(module.id, lesson.id, score);
+        onClose();
+      } else {
+        setShowRetakeMessage(true);
+      }
+    }
+  };
 
   const handleStartQuiz = () => {
     setCurrentPhase('quiz');
@@ -312,6 +357,35 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
     );
   };
 
+  // Render new interactive lesson types
+  if (currentPhase === 'conversation' && lesson.conversationalContent) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
+          <ConversationalLesson
+            lesson={lesson.conversationalContent}
+            onComplete={handleConversationComplete}
+            difficulty={lesson.difficulty || 'medium'}
+            showScript={lesson.difficulty !== 'hard'}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (currentPhase === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
+          <CaseStudyLesson
+            caseStudies={lesson.caseStudies}
+            onComplete={handleCaseStudyComplete}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <>
     <Dialog open={open} onOpenChange={onClose}>
@@ -333,6 +407,15 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
               <Award className="h-3 w-3 sm:h-4 sm:w-4" />
               {lesson.xpReward} XP
             </Badge>
+            {lesson.difficulty && (
+              <Badge variant="outline" className={`text-xs sm:text-sm ${
+                lesson.difficulty === 'simple' ? 'border-green-500 text-green-700' :
+                lesson.difficulty === 'medium' ? 'border-yellow-500 text-yellow-700' :
+                'border-red-500 text-red-700'
+              }`}>
+                {lesson.difficulty.charAt(0).toUpperCase() + lesson.difficulty.slice(1)}
+              </Badge>
+            )}
             <span className="ml-auto text-xs sm:text-sm">
               Step {currentStep + 1}/{totalSteps}
             </span>

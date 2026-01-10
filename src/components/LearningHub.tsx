@@ -43,6 +43,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const [selectedCourse, setSelectedCourse] = useState<Module | null>(null);
   const [showGenerateLessonsPopup, setShowGenerateLessonsPopup] = useState(false);
   const [moduleForGeneration, setModuleForGeneration] = useState<{ id: string; name: string } | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<'simple' | 'medium' | 'hard'>('medium');
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -101,9 +102,10 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
   const handleGenerateMoreLessons = async () => {
     if (!moduleForGeneration || !user) return;
-    await requestMoreLessons(moduleForGeneration.id, moduleForGeneration.name);
+    await requestMoreLessons(moduleForGeneration.id, moduleForGeneration.name, selectedDifficulty);
     setShowGenerateLessonsPopup(false);
     setModuleForGeneration(null);
+    setSelectedDifficulty('medium'); // Reset to default
   };
 
   const closeLesson = () => {
@@ -142,7 +144,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     });
   };
 
-  const requestMoreLessons = async (moduleId: string, moduleName: string) => {
+  const requestMoreLessons = async (moduleId: string, moduleName: string, difficulty: 'simple' | 'medium' | 'hard' = 'medium') => {
     if (!user) {
       toast.error('Please login to request more lessons');
       return;
@@ -158,6 +160,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.id,
+          difficulty,
           moduleId,
           moduleName,
           completedLessons,
@@ -695,17 +698,89 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Generate More Lessons Popup */}
         <Dialog open={showGenerateLessonsPopup} onOpenChange={setShowGenerateLessonsPopup}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
                 Generate More Lessons?
               </DialogTitle>
               <DialogDescription>
-                You've completed 5 lessons! Would you like to add and generate more lessons for{' '}
-                <span className="font-semibold">{moduleForGeneration?.name}</span>?
+                You've completed 5 lessons! Choose a difficulty level and generate more interactive lessons for{' '}
+                <span className="font-semibold">{moduleForGeneration?.name}</span>.
               </DialogDescription>
             </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-3 block">
+                  Select Difficulty Level
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Simple */}
+                  <button
+                    onClick={() => setSelectedDifficulty('simple')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedDifficulty === 'simple'
+                        ? 'border-green-500 bg-green-50 shadow-md'
+                        : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">🌱</div>
+                      <div className="font-semibold text-gray-900">Simple</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Auto-play conversations, basic cases
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Medium */}
+                  <button
+                    onClick={() => setSelectedDifficulty('medium')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedDifficulty === 'medium'
+                        ? 'border-yellow-500 bg-yellow-50 shadow-md'
+                        : 'border-gray-200 hover:border-yellow-300 hover:bg-yellow-50'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">🔥</div>
+                      <div className="font-semibold text-gray-900">Medium</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Manual control, challenging cases
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Hard */}
+                  <button
+                    onClick={() => setSelectedDifficulty('hard')}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      selectedDifficulty === 'hard'
+                        ? 'border-red-500 bg-red-50 shadow-md'
+                        : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">⚡</div>
+                      <div className="font-semibold text-gray-900">Hard</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Audio-only, complex scenarios
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>What you'll get:</strong>
+                  {selectedDifficulty === 'simple' && ' Guided conversations with auto-play, basic legal case studies with multiple-choice answers.'}
+                  {selectedDifficulty === 'medium' && ' Interactive dialogues you control, intermediate case scenarios requiring critical thinking.'}
+                  {selectedDifficulty === 'hard' && ' Listening-only challenges (no text), complex legal cases with nuanced analysis required.'}
+                </p>
+              </div>
+            </div>
 
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

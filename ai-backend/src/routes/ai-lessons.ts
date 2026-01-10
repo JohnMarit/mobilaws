@@ -14,6 +14,7 @@ interface LessonRequest {
   completedLessons: string[];
   tier: 'free' | 'basic' | 'standard' | 'premium';
   numberOfLessons?: number;
+  difficulty?: 'simple' | 'medium' | 'hard';
 }
 
 /**
@@ -22,7 +23,7 @@ interface LessonRequest {
  */
 router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
   try {
-    const { userId, moduleId, moduleName, completedLessons, tier, numberOfLessons = 5 }: LessonRequest = req.body;
+    const { userId, moduleId, moduleName, completedLessons, tier, numberOfLessons = 5, difficulty = 'medium' }: LessonRequest = req.body;
 
     if (!userId || !moduleId || !moduleName || !tier) {
       return res.status(400).json({ 
@@ -30,7 +31,7 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
       });
     }
 
-    console.log(`🤖 Generating ${numberOfLessons} lessons for module: ${moduleName} (tier: ${tier})`);
+    console.log(`🤖 Generating ${numberOfLessons} ${difficulty} lessons for module: ${moduleName} (tier: ${tier})`);
 
     const db = getFirestore();
     if (!db) {
@@ -101,30 +102,68 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
+    const difficultyDescriptions = {
+      simple: 'Simple mode with auto-play conversations, basic case studies, and guided learning',
+      medium: 'Medium difficulty with manual control, intermediate scenarios requiring critical thinking',
+      hard: 'Hard mode with audio-only challenges (no text initially), complex legal cases requiring deep analysis'
+    };
+
     const systemPrompt = `You are an expert educational content creator for South Sudan law. 
-Create engaging, progressive lessons that build on previous content.
+Create engaging, INTERACTIVE lessons using modern Duolingo-style pedagogy.
 
-Each lesson should:
-1. Be 5-10 minutes long
-2. Include rich HTML-formatted content with examples
-3. Have 3-5 quiz questions
-4. Award appropriate XP based on difficulty
-5. Include practical tips and real-world examples
-6. Define key legal terms
+IMPORTANT: Each lesson MUST include BOTH:
+1. A conversational dialogue between two characters discussing the legal topic
+2. Real-world legal case studies with scenario-based questions
 
-Format as valid JSON:
+Lesson Structure:
 {
   "lessons": [
     {
       "id": "lesson-${existingLessons.length + 1}",
       "title": "Lesson Title",
-      "content": "Rich HTML content with <strong>, <em>, <ul>, <li>, <p> tags",
+      "type": "conversational",
+      "difficulty": "${difficulty}",
+      "content": "Brief intro text (2-3 sentences)",
       "summary": "2-3 sentence summary",
-      "xpReward": 50,
-      "estimatedMinutes": 7,
-      "tips": ["Practical tip 1", "Practical tip 2"],
-      "examples": ["Real example 1", "Real example 2"],
-      "keyTerms": [{"term": "Legal Term", "definition": "Clear definition"}],
+      "xpReward": ${difficulty === 'hard' ? 100 : difficulty === 'medium' ? 75 : 50},
+      "estimatedMinutes": ${difficulty === 'hard' ? 15 : difficulty === 'medium' ? 10 : 7},
+      "conversationalContent": {
+        "character1": {
+          "name": "Character Name (e.g., Advocate Sarah)",
+          "icon": "👩‍⚖️",
+          "role": "Legal Expert"
+        },
+        "character2": {
+          "name": "Character Name (e.g., Student James)",
+          "icon": "👨‍🎓",
+          "role": "Law Student"
+        },
+        "dialogue": [
+          {
+            "speaker": "character1",
+            "text": "Natural conversational text explaining a legal concept"
+          },
+          {
+            "speaker": "character2",
+            "text": "Question or response showing understanding"
+          }
+        ],
+        "keyPoints": [
+          "Key takeaway 1",
+          "Key takeaway 2",
+          "Key takeaway 3"
+        ]
+      },
+      "caseStudies": [
+        {
+          "scenario": "Detailed real-world legal scenario (3-5 sentences) based on South Sudan law",
+          "question": "What should happen in this case?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": 0,
+          "explanation": "Detailed explanation with legal reasoning",
+          "difficulty": "${difficulty}"
+        }
+      ],
       "quiz": [
         {
           "id": "q1",
@@ -132,35 +171,53 @@ Format as valid JSON:
           "options": ["Option A", "Option B", "Option C", "Option D"],
           "correctAnswer": 0,
           "explanation": "Why this answer is correct",
-          "difficulty": "easy",
-          "points": 10
+          "difficulty": "${difficulty}",
+          "points": ${difficulty === 'hard' ? 25 : difficulty === 'medium' ? 20 : 15}
         }
       ]
     }
   ]
-}`;
+}
 
-    const userPrompt = `Create ${numberOfLessons} new lessons for the module: "${moduleName}"
+DIALOGUE REQUIREMENTS:
+- 8-12 exchanges for ${difficulty} difficulty
+- Natural, conversational tone
+- Character 1 (expert) teaches, Character 2 (learner) asks questions
+- Use emojis for character icons (👩‍⚖️, 👨‍⚖️, 👨‍🎓, 👩‍🎓, 👨‍💼, 👩‍💼, etc.)
+- Each dialogue line should be 1-3 sentences
+- Build concepts progressively through conversation
 
+CASE STUDY REQUIREMENTS:
+- 2-3 case studies per lesson
+- Real-world scenarios from South Sudan legal context
+- ${difficulty === 'hard' ? 'Complex scenarios requiring nuanced legal analysis' : difficulty === 'medium' ? 'Intermediate scenarios with multiple considerations' : 'Clear scenarios with straightforward applications'}
+- Options should all be plausible
+- Explanations must reference specific legal principles`;
+
+    const userPrompt = `Create ${numberOfLessons} new INTERACTIVE lessons for: "${moduleName}"
+
+Difficulty Level: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData?.description || 'South Sudan legal education'}
 Existing Lessons: ${existingLessons.length}
-Completed Lessons: ${completedLessons.length}
 User Tier: ${tier}
 
 Context from existing lessons:
-${existingLessons.slice(-2).map((l: any) => `- ${l.title}: ${l.summary}`).join('\n')}
+${existingLessons.slice(-2).map((l: any) => `- ${l.title}: ${l.summary || 'No summary'}`).join('\n')}
 
-${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse the following authoritative content from uploaded legal documents as the PRIMARY source for lesson content:\n\n${documentContext}\n\n=== END REFERENCE MATERIAL ===\n` : ''}
+${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse the following authoritative content from uploaded legal documents as the PRIMARY source:\n\n${documentContext}\n\n=== END REFERENCE MATERIAL ===\n` : ''}
 
-Create progressive lessons that:
-1. Build on the existing content
-2. ${documentContext ? 'Base content PRIMARILY on the reference material from uploaded documents above' : 'Introduce new concepts gradually'}
-3. Include South Sudan-specific legal examples
-4. Are appropriate for ${tier} tier users
-5. Have varied difficulty levels
-${documentContext ? '6. Cite specific sections from the reference material when applicable' : ''}
+CRITICAL REQUIREMENTS:
+1. Base ALL content on the reference material from uploaded documents above
+2. Create engaging character dialogues that teach the concepts naturally
+3. Design realistic case studies based on South Sudan legal scenarios
+4. Ensure ${difficulty} difficulty throughout:
+   ${difficulty === 'simple' ? '- Clear, straightforward concepts\n   - Basic yes/no or simple multiple choice\n   - Guided learning' : ''}
+   ${difficulty === 'medium' ? '- Intermediate complexity\n   - Requires critical thinking\n   - Multiple valid perspectives' : ''}
+   ${difficulty === 'hard' ? '- Complex legal analysis required\n   - Nuanced scenarios\n   - Deep understanding needed' : ''}
+5. Use South Sudan-specific examples and legal references
+6. Make dialogues feel like real conversations, not lectures
 
-Generate ${numberOfLessons} engaging lessons now!`;
+Generate ${numberOfLessons} interactive lessons NOW!`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -180,12 +237,24 @@ Generate ${numberOfLessons} engaging lessons now!`;
       return res.status(500).json({ error: 'Failed to generate lessons' });
     }
 
-    // Add hasAudio flag - available for all tiers (free, basic, standard, premium)
+    // Add metadata to lessons - available for all tiers (free, basic, standard, premium)
     newLessons.forEach((lesson: any, index: number) => {
       lesson.hasAudio = true; // Audio available for all tiers
+      lesson.type = lesson.type || 'conversational'; // Default to conversational
+      lesson.difficulty = difficulty;
       lesson.accessLevels = moduleData?.accessLevels || [tier];
       lesson.createdAt = admin.firestore.Timestamp.now();
       lesson.userGenerated = true; // Mark as user-generated
+      
+      // Ensure conversational content exists
+      if (!lesson.conversationalContent && lesson.type === 'conversational') {
+        console.warn(`⚠️ Lesson ${lesson.id} missing conversational content`);
+      }
+      
+      // Ensure case studies exist
+      if (!lesson.caseStudies || lesson.caseStudies.length === 0) {
+        console.warn(`⚠️ Lesson ${lesson.id} missing case studies`);
+      }
     });
 
     // Store user-specific lessons in a separate collection

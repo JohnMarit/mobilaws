@@ -17,7 +17,7 @@ import {
 const router = Router();
 
 // Initialize Paystack client
-const paystackClient = env.PAYSTACK_SECRET_KEY ? new Paystack(env.PAYSTACK_SECRET_KEY) : null;
+const paystackClient = env.PAYSTACK_SECRET_KEY ? new (Paystack as any)(env.PAYSTACK_SECRET_KEY) : null;
 
 /**
  * Diagnostic endpoint to check Paystack configuration
