@@ -69,6 +69,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       alert('You have reached your daily lesson limit. Come back tomorrow or upgrade for unlimited access!');
       return;
     }
+    // Close the course panel when starting a lesson
+    setSelectedCourse(null);
     setActiveLesson({ module, lesson });
   };
 
