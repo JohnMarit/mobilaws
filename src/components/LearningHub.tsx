@@ -5,7 +5,8 @@ import {
   faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute,
   faCircleCheck, faLock, faChevronRight, faChevronDown, faChevronUp,
   faTrashCan, faRotateLeft, faXmark, faAward, faPlay, faWandMagicSparkles,
-  faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye
+  faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye,
+  faHouse
 } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
@@ -515,10 +516,25 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         </div>
 
         {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-[60px] safe-area-inset-bottom z-40">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-[60px] safe-area-inset-bottom z-50">
           <button
-            onClick={() => setActiveNav('featured')}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+            onClick={() => {
+              setSelectedCourse(null);
+              setActiveLesson(null);
+              onOpenChange(false);
+            }}
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-gray-600 hover:text-primary"
+          >
+            <FontAwesomeIcon icon={faHouse} className="text-lg" />
+            <span className="text-xs font-medium">Home</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCourse(null);
+              setActiveLesson(null);
+              setActiveNav('featured');
+            }}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
               activeNav === 'featured' ? 'text-primary' : 'text-gray-600'
             }`}
           >
@@ -526,31 +542,43 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             <span className="text-xs font-medium">Featured</span>
           </button>
           <button
-            onClick={() => setActiveNav('learning')}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+            onClick={() => {
+              setSelectedCourse(null);
+              setActiveLesson(null);
+              setActiveNav('learning');
+            }}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
               activeNav === 'learning' ? 'text-primary' : 'text-gray-600'
             }`}
           >
             <FontAwesomeIcon icon={faPlay} className="text-lg" />
-            <span className="text-xs font-medium">My Learning</span>
+            <span className="text-xs font-medium">Learning</span>
           </button>
           <button
-            onClick={() => setActiveNav('certification')}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+            onClick={() => {
+              setSelectedCourse(null);
+              setActiveLesson(null);
+              setActiveNav('certification');
+            }}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
               activeNav === 'certification' ? 'text-primary' : 'text-gray-600'
             }`}
           >
             <FontAwesomeIcon icon={faAward} className="text-lg" />
-            <span className="text-xs font-medium">Certification</span>
+            <span className="text-xs font-medium">Certs</span>
           </button>
           <button
-            onClick={() => setActiveNav('leaderboard')}
-            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-colors ${
+            onClick={() => {
+              setSelectedCourse(null);
+              setActiveLesson(null);
+              setActiveNav('leaderboard');
+            }}
+            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
               activeNav === 'leaderboard' ? 'text-primary' : 'text-gray-600'
             }`}
           >
             <FontAwesomeIcon icon={faTrophy} className="text-lg" />
-            <span className="text-xs font-medium">Leaderboard</span>
+            <span className="text-xs font-medium">Top</span>
           </button>
         </div>
 
@@ -565,7 +593,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Course View Panel - Slides in from right, keeps header and bottom nav visible */}
         {selectedCourse && (
-          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-30 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
+          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
             {/* Course Header - Fixed at top */}
             <div className="flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 lg:px-8 py-3">
               <div className="max-w-4xl mx-auto">
@@ -711,8 +739,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                             <Button
                               size="sm"
                               variant={isCompleted ? 'outline' : 'default'}
-                              onClick={() => handleStartLesson(selectedCourse, lesson)}
-                              disabled={isLocked}
+                              onClick={() => {
+                                if (!isLocked || isCompleted) {
+                                  handleStartLesson(selectedCourse, lesson);
+                                }
+                              }}
+                              disabled={isLocked && !isCompleted}
                               className={`h-8 px-3 text-xs flex-shrink-0 ${isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}`}
                             >
                               {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
