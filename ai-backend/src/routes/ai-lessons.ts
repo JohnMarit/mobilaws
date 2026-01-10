@@ -219,7 +219,18 @@ CRITICAL REQUIREMENTS:
 
 Generate ${numberOfLessons} interactive lessons NOW!`;
 
-    const completion = await openai.chat.completions.create({
+    // Validate OpenAI API key
+    if (!env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY is not configured');
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured',
+        message: 'Please configure OPENAI_API_KEY environment variable'
+      });
+    }
+
+    let completion;
+    try {
+      completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -229,12 +240,44 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
       max_tokens: 4000,
       response_format: { type: 'json_object' }
     });
+    } catch (openaiError) {
+      console.error('❌ OpenAI API error:', openaiError);
+      return res.status(500).json({ 
+        error: 'OpenAI API error',
+        message: openaiError instanceof Error ? openaiError.message : 'Failed to generate lessons with AI'
+      });
+    }
 
-    const result = JSON.parse(completion.choices[0].message.content || '{}');
-    const newLessons = result.lessons || [];
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) {
+      console.error('❌ OpenAI returned empty response');
+      return res.status(500).json({ 
+        error: 'Empty response from AI',
+        message: 'The AI did not return any content. Please try again.'
+      });
+    }
+
+    let result;
+    let newLessons;
+    try {
+      result = JSON.parse(responseContent);
+      newLessons = result.lessons || [];
+    } catch (parseError) {
+      console.error('❌ Failed to parse AI response:', parseError);
+      console.error('Response content:', responseContent.substring(0, 500));
+      return res.status(500).json({ 
+        error: 'Failed to parse AI response',
+        message: 'The AI response was not in the expected format. Please try again.'
+      });
+    }
 
     if (newLessons.length === 0) {
-      return res.status(500).json({ error: 'Failed to generate lessons' });
+      console.error('❌ No lessons generated from AI response');
+      console.error('AI response structure:', Object.keys(result));
+      return res.status(500).json({ 
+        error: 'Failed to generate lessons',
+        message: 'The AI did not generate any lessons. Please try again.'
+      });
     }
 
     // Add metadata to lessons - available for all tiers (free, basic, standard, premium)
@@ -258,56 +301,64 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
     });
 
     // Store user-specific lessons in a separate collection
-    const userLessonsRef = db.collection('userLessons').doc(userId);
-    const userLessonsDoc = await userLessonsRef.get();
-    
-    const existingUserLessons = userLessonsDoc.exists 
-      ? (userLessonsDoc.data()?.modules?.[moduleId]?.lessons || [])
-      : [];
-    
-    // Generate unique IDs for new lessons to avoid conflicts with completed lessons
-    // Use timestamp-based IDs to ensure uniqueness
-    // Also add generationBatchId to track which lessons belong to the same generation set
-    const timestamp = Date.now();
-    const generationBatchId = `batch-${timestamp}`;
-    newLessons.forEach((lesson: any, index: number) => {
-      // Generate unique ID: user-generated-{timestamp}-{index}
-      lesson.id = `user-generated-${timestamp}-${index}`;
-      // Add generation batch ID to track which set this lesson belongs to
-      lesson.generationBatchId = generationBatchId;
-      // Also ensure quiz IDs are unique
-      if (Array.isArray(lesson.quiz)) {
-        lesson.quiz.forEach((q: any, qIndex: number) => {
-          q.id = `q-${timestamp}-${index}-${qIndex}`;
-        });
-      }
-    });
-    
-    const updatedUserLessons = [...existingUserLessons, ...newLessons];
-    
-    // Update user's lessons
-    await userLessonsRef.set({
-      userId,
-      modules: {
-        [moduleId]: {
-          lessons: updatedUserLessons,
-          lastUpdated: admin.firestore.Timestamp.now()
+    try {
+      const userLessonsRef = db.collection('userLessons').doc(userId);
+      const userLessonsDoc = await userLessonsRef.get();
+      
+      const existingUserLessons = userLessonsDoc.exists 
+        ? (userLessonsDoc.data()?.modules?.[moduleId]?.lessons || [])
+        : [];
+      
+      // Generate unique IDs for new lessons to avoid conflicts with completed lessons
+      // Use timestamp-based IDs to ensure uniqueness
+      // Also add generationBatchId to track which lessons belong to the same generation set
+      const timestamp = Date.now();
+      const generationBatchId = `batch-${timestamp}`;
+      newLessons.forEach((lesson: any, index: number) => {
+        // Generate unique ID: user-generated-{timestamp}-{index}
+        lesson.id = `user-generated-${timestamp}-${index}`;
+        // Add generation batch ID to track which set this lesson belongs to
+        lesson.generationBatchId = generationBatchId;
+        // Also ensure quiz IDs are unique
+        if (Array.isArray(lesson.quiz)) {
+          lesson.quiz.forEach((q: any, qIndex: number) => {
+            q.id = `q-${timestamp}-${index}-${qIndex}`;
+          });
         }
-      },
-      updatedAt: admin.firestore.Timestamp.now()
-    }, { merge: true });
+      });
+      
+      const updatedUserLessons = [...existingUserLessons, ...newLessons];
+      
+      // Update user's lessons
+      await userLessonsRef.set({
+        userId,
+        modules: {
+          [moduleId]: {
+            lessons: updatedUserLessons,
+            lastUpdated: admin.firestore.Timestamp.now()
+          }
+        },
+        updatedAt: admin.firestore.Timestamp.now()
+      }, { merge: true });
 
-    // Update request count
-    await userRequestsRef.set({
-      userId,
-      modules: {
-        [moduleId]: {
-          requestCount: moduleRequests + 1,
-          lastRequestAt: admin.firestore.Timestamp.now()
-        }
-      },
-      updatedAt: admin.firestore.Timestamp.now()
-    }, { merge: true });
+      // Update request count
+      await userRequestsRef.set({
+        userId,
+        modules: {
+          [moduleId]: {
+            requestCount: moduleRequests + 1,
+            lastRequestAt: admin.firestore.Timestamp.now()
+          }
+        },
+        updatedAt: admin.firestore.Timestamp.now()
+      }, { merge: true });
+    } catch (firestoreError) {
+      console.error('❌ Firestore error saving lessons:', firestoreError);
+      return res.status(500).json({ 
+        error: 'Database error',
+        message: 'Failed to save lessons to database. Please try again.'
+      });
+    }
 
     console.log(`✅ Generated and saved ${newLessons.length} user-specific lessons for user ${userId}, module ${moduleId}`);
 
@@ -322,9 +373,39 @@ Generate ${numberOfLessons} interactive lessons NOW!`;
 
   } catch (error) {
     console.error('❌ Error generating lessons:', error);
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // Check for specific error types
+      if (error.message.includes('API key')) {
+        return res.status(500).json({ 
+          error: 'OpenAI API key not configured',
+          message: 'Please configure OPENAI_API_KEY environment variable'
+        });
+      }
+      
+      if (error.message.includes('JSON')) {
+        return res.status(500).json({ 
+          error: 'Failed to parse AI response',
+          message: 'The AI response was not in the expected format. Please try again.'
+        });
+      }
+      
+      if (error.message.includes('Firebase') || error.message.includes('Firestore')) {
+        return res.status(500).json({ 
+          error: 'Database error',
+          message: 'Failed to connect to database. Please try again later.'
+        });
+      }
+    }
+    
     return res.status(500).json({ 
       error: 'Failed to generate lessons',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error occurred. Please try again later.'
     });
   }
 });

@@ -361,13 +361,15 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   if (currentPhase === 'conversation' && lesson.conversationalContent) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
-          <ConversationalLesson
-            lesson={lesson.conversationalContent}
-            onComplete={handleConversationComplete}
-            difficulty={lesson.difficulty || 'medium'}
-            showScript={lesson.difficulty !== 'hard'}
-          />
+        <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-[90vh] sm:max-w-5xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+            <ConversationalLesson
+              lesson={lesson.conversationalContent}
+              onComplete={handleConversationComplete}
+              difficulty={lesson.difficulty || 'medium'}
+              showScript={lesson.difficulty !== 'hard'}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -376,11 +378,13 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   if (currentPhase === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto p-6">
-          <CaseStudyLesson
-            caseStudies={lesson.caseStudies}
-            onComplete={handleCaseStudyComplete}
-          />
+        <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-[90vh] sm:max-w-5xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+            <CaseStudyLesson
+              caseStudies={lesson.caseStudies}
+              onComplete={handleCaseStudyComplete}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -389,13 +393,14 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   return (
     <>
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] sm:max-h-[95vh] overflow-y-auto p-4 sm:p-6 overflow-x-hidden">
+      <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-[90vh] sm:max-w-3xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader className="space-y-2 pb-3 sm:pb-4 pr-8">
-          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl md:text-2xl break-words overflow-wrap-anywhere">
             <HelpCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
-            <span className="leading-tight break-words flex-1">{module.title}</span>
+            <span className="leading-tight break-words overflow-wrap-anywhere flex-1 min-w-0">{module.title}</span>
           </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words">{module.description}</DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words overflow-wrap-anywhere">{module.description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 sm:space-y-4 w-full" style={{ maxWidth: '100%' }}>
@@ -422,6 +427,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
           </div>
           <Progress value={progressPercent} className="h-2 sm:h-2.5" />
           {currentPhase === 'content' ? renderContent() : renderQuiz()}
+        </div>
         </div>
       </DialogContent>
     </Dialog>

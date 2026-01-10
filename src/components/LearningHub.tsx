@@ -561,7 +561,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         {/* Full Course View Modal */}
         {selectedCourse && (
           <Dialog open={Boolean(selectedCourse)} onOpenChange={() => setSelectedCourse(null)}>
-            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+            <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-[90vh] sm:max-w-4xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
               <DialogHeader className="pr-8">
                 <div className="flex items-start gap-3 mb-2">
                   <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
@@ -576,9 +577,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       className="text-3xl text-primary"
                     />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <DialogTitle className="text-xl pr-4 break-words">{selectedCourse.title}</DialogTitle>
-                    <DialogDescription className="mt-1">{selectedCourse.description}</DialogDescription>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <DialogTitle className="text-xl pr-4 break-words overflow-wrap-anywhere">{selectedCourse.title}</DialogTitle>
+                    <DialogDescription className="mt-1 break-words overflow-wrap-anywhere">{selectedCourse.description}</DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
@@ -622,7 +623,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                           </div>
                           <Button
                             onClick={() => {
-                              requestMoreLessons(selectedCourse.id, selectedCourse.title);
+                              setModuleForGeneration({ id: selectedCourse.id, name: selectedCourse.title });
+                              setShowGenerateLessonsPopup(true);
                             }}
                             disabled={isRequestingLessons === selectedCourse.id}
                             className="flex-shrink-0"
@@ -656,9 +658,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       <Card key={lesson.id} className={`${isLocked ? 'opacity-70' : ''}`}>
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0 overflow-hidden">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="font-semibold text-sm">{lesson.title}</span>
+                                <span className="font-semibold text-sm break-words overflow-wrap-anywhere">{lesson.title}</span>
                                 {isCompleted && (
                                   <CheckCircle2 className="h-4 w-4 text-green-500" />
                                 )}
@@ -692,13 +694,15 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   })}
                 </div>
               </div>
+              </div>
             </DialogContent>
           </Dialog>
         )}
 
         {/* Generate More Lessons Popup */}
         <Dialog open={showGenerateLessonsPopup} onOpenChange={setShowGenerateLessonsPopup}>
-          <DialogContent className="sm:max-w-[550px]">
+          <DialogContent className="inset-0 w-screen h-screen max-w-none translate-x-0 translate-y-0 rounded-none sm:inset-[5%] sm:w-[90vw] sm:h-auto sm:max-w-[550px] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg flex flex-col overflow-hidden p-0">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-500" />
@@ -823,6 +827,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   )}
                 </Button>
               </div>
+            </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -1190,7 +1195,10 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 <Button
                                   variant="outline"
                                   className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
-                                  onClick={() => requestMoreLessons(module.id, module.title)}
+                                  onClick={() => {
+                                    setModuleForGeneration({ id: module.id, name: module.title });
+                                    setShowGenerateLessonsPopup(true);
+                                  }}
                                   disabled={isRequestingLessons === module.id}
                                 >
                                   {isRequestingLessons === module.id ? (
