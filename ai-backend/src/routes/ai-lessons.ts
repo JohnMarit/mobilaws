@@ -108,12 +108,22 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
       hard: 'Hard mode with audio-only challenges (no text initially), complex legal cases requiring deep analysis'
     };
 
+    // Determine quiz count based on difficulty
+    const quizCounts = {
+      simple: 3,
+      medium: 5,
+      hard: 8
+    };
+    const quizCount = quizCounts[difficulty];
+
     const systemPrompt = `You are an expert educational content creator for South Sudan law. 
 Create engaging, INTERACTIVE lessons using modern Duolingo-style pedagogy.
 
-IMPORTANT: Each lesson MUST include BOTH:
-1. A conversational dialogue between two characters discussing the legal topic
-2. Real-world legal case studies with scenario-based questions
+IMPORTANT: Each lesson MUST include ALL of these components:
+1. DETAILED educational content explaining the legal concepts (NOT just a brief intro)
+2. A conversational dialogue between two characters discussing the legal topic
+3. Real-world legal case studies with scenario-based questions
+4. EXACTLY ${quizCount} quiz questions to test understanding
 
 You must respond with valid JSON in the following structure:
 
@@ -125,7 +135,7 @@ Lesson Structure:
       "title": "Lesson Title",
       "type": "conversational",
       "difficulty": "${difficulty}",
-      "content": "Brief intro text (2-3 sentences)",
+      "content": "DETAILED educational content here (5-8 paragraphs). This should be comprehensive lesson content that teaches the legal concepts in depth, including definitions, explanations, examples, and South Sudan-specific applications. DO NOT just write a brief intro - write substantial educational material that a student can learn from.",
       "summary": "2-3 sentence summary",
       "xpReward": ${difficulty === 'hard' ? 100 : difficulty === 'medium' ? 75 : 50},
       "estimatedMinutes": ${difficulty === 'hard' ? 15 : difficulty === 'medium' ? 10 : 7},
@@ -181,6 +191,14 @@ Lesson Structure:
   ]
 }
 
+CONTENT REQUIREMENTS (MOST IMPORTANT):
+- The "content" field must contain 5-8 FULL PARAGRAPHS of detailed educational material
+- Explain legal concepts thoroughly with definitions, principles, and applications
+- Include specific references to South Sudan law and legal provisions
+- Provide multiple examples to illustrate each concept
+- This is the PRIMARY learning material - make it comprehensive and educational
+- DO NOT just write 2-3 sentences - students need substantial content to learn from
+
 DIALOGUE REQUIREMENTS:
 - 8-12 exchanges for ${difficulty} difficulty
 - Natural, conversational tone
@@ -194,7 +212,14 @@ CASE STUDY REQUIREMENTS:
 - Real-world scenarios from South Sudan legal context
 - ${difficulty === 'hard' ? 'Complex scenarios requiring nuanced legal analysis' : difficulty === 'medium' ? 'Intermediate scenarios with multiple considerations' : 'Clear scenarios with straightforward applications'}
 - Options should all be plausible
-- Explanations must reference specific legal principles`;
+- Explanations must reference specific legal principles
+
+QUIZ REQUIREMENTS:
+- EXACTLY ${quizCount} quiz questions (${difficulty} difficulty requires ${quizCount} questions)
+- Questions should test understanding of the lesson content
+- Mix of different question types (definitions, applications, scenarios, analysis)
+- All options must be plausible to make students think
+- Provide detailed explanations for correct answers`;
 
     const userPrompt = `Create ${numberOfLessons} new INTERACTIVE lessons for: "${moduleName}"
 
@@ -210,16 +235,20 @@ ${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse t
 
 CRITICAL REQUIREMENTS:
 1. Base ALL content on the reference material from uploaded documents above
-2. Create engaging character dialogues that teach the concepts naturally
-3. Design realistic case studies based on South Sudan legal scenarios
-4. Ensure ${difficulty} difficulty throughout:
-   ${difficulty === 'simple' ? '- Clear, straightforward concepts\n   - Basic yes/no or simple multiple choice\n   - Guided learning' : ''}
-   ${difficulty === 'medium' ? '- Intermediate complexity\n   - Requires critical thinking\n   - Multiple valid perspectives' : ''}
-   ${difficulty === 'hard' ? '- Complex legal analysis required\n   - Nuanced scenarios\n   - Deep understanding needed' : ''}
-5. Use South Sudan-specific examples and legal references
-6. Make dialogues feel like real conversations, not lectures
+2. Write DETAILED "content" field with 5-8 FULL PARAGRAPHS that thoroughly explain the legal concepts - this is the main educational material students will learn from
+3. Create engaging character dialogues (8-12 exchanges) that teach the concepts naturally through conversation
+4. Design 2-3 realistic case studies based on South Sudan legal scenarios
+5. Include EXACTLY ${quizCount} quiz questions (${difficulty} difficulty = ${quizCount} questions)
+6. Ensure ${difficulty} difficulty throughout:
+   ${difficulty === 'simple' ? '- Clear, straightforward concepts\n   - Basic yes/no or simple multiple choice\n   - Guided learning\n   - 3 quiz questions' : ''}
+   ${difficulty === 'medium' ? '- Intermediate complexity\n   - Requires critical thinking\n   - Multiple valid perspectives\n   - 5 quiz questions' : ''}
+   ${difficulty === 'hard' ? '- Complex legal analysis required\n   - Nuanced scenarios\n   - Deep understanding needed\n   - 8 quiz questions' : ''}
+7. Use South Sudan-specific examples and legal references throughout
+8. Make dialogues feel like real conversations, not lectures
 
-Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON format specified above!`;
+REMEMBER: The "content" field is NOT just an introduction! It should contain substantial educational material (5-8 paragraphs) that teaches the legal topic in depth. Students should be able to learn the entire concept from reading the content alone.
+
+Generate ${numberOfLessons} interactive lessons NOW with comprehensive content and return them in the JSON format specified above!`;
 
     // Validate OpenAI API key
     if (!env.OPENAI_API_KEY) {
