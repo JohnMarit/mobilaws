@@ -684,25 +684,31 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     
                     return sortedLessons.map((lesson, index) => {
                       const lp = getLessonProgress(selectedCourse.id, lesson.id);
-                      const isCompleted = lp?.completed === true && !lesson.locked;
+                      // A lesson is completed if the progress says so, regardless of tier locking
+                      const isCompleted = lp?.completed === true;
+                      // Tier-based locking
+                      const isTierLocked = lesson.locked === true;
                       
+                      // Sequential locking: only first incomplete, non-tier-locked lesson is unlocked
                       let isSequentiallyLocked = false;
-                      if (!isCompleted && !lesson.locked) {
+                      if (!isCompleted && !isTierLocked) {
                         if (!foundFirstIncomplete) {
                           foundFirstIncomplete = true;
-                          isSequentiallyLocked = false;
+                          isSequentiallyLocked = false; // First incomplete is available
                         } else {
-                          isSequentiallyLocked = true;
+                          isSequentiallyLocked = true; // Others are sequentially locked
                         }
                       }
                       
-                      const isLocked = lesson.locked || isSequentiallyLocked;
+                      // A lesson is locked if: tier locked OR sequentially locked
+                      // BUT completed lessons are NEVER locked (always reviewable)
+                      const isLocked = !isCompleted && (isTierLocked || isSequentiallyLocked);
 
                       return (
                         <div 
                           key={lesson.id} 
                           className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-4 transition-all ${
-                            isLocked ? 'opacity-60' : 'hover:shadow-md hover:border-primary/30'
+                            isLocked && !isCompleted ? 'opacity-60' : 'hover:shadow-md hover:border-primary/30'
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -739,12 +745,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                             <Button
                               size="sm"
                               variant={isCompleted ? 'outline' : 'default'}
-                              onClick={() => {
-                                if (!isLocked || isCompleted) {
-                                  handleStartLesson(selectedCourse, lesson);
-                                }
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('Lesson clicked:', lesson.title, 'isLocked:', isLocked, 'isCompleted:', isCompleted);
+                                handleStartLesson(selectedCourse, lesson);
                               }}
-                              disabled={isLocked && !isCompleted}
+                              disabled={isLocked}
                               className={`h-8 px-3 text-xs flex-shrink-0 ${isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}`}
                             >
                               {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
