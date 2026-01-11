@@ -27,6 +27,33 @@ import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { getApiUrl } from '@/lib/api';
 
+// Category name mapping - maps icon names to readable category names
+const categoryMap: Record<string, string> = {
+  'faScroll': 'Constitution',
+  'faGlobe': 'International Law',
+  'faScaleBalanced': 'Criminal Law',
+  'faLandmark': 'Public Law',
+  'faBook': 'General'
+};
+
+// Get category name from icon
+const getCategoryName = (icon: string): string => {
+  return categoryMap[icon] || icon.replace('fa', '');
+};
+
+// Format numbers with K, M suffixes (e.g., 2000 -> "2K", 1500000 -> "1.5M")
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    const millions = num / 1000000;
+    return millions % 1 === 0 ? `${millions}M` : `${millions.toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    const thousands = num / 1000;
+    return thousands % 1 === 0 ? `${thousands}K` : `${thousands.toFixed(1)}K`;
+  }
+  return num.toString();
+};
+
 interface LearningHubProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -306,15 +333,25 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(m => m.icon === selectedCategory);
+      // Find the icon name from the selected category name
+      const iconName = Object.keys(categoryMap).find(key => categoryMap[key] === selectedCategory) || selectedCategory;
+      filtered = filtered.filter(m => {
+        // Check both icon name and category name for compatibility
+        return m.icon === iconName || getCategoryName(m.icon) === selectedCategory;
+      });
     }
 
-    // Sort: favorites first, then by completion
+    // Sort: favorites first, then by name (alphabetically), then by completion
     return filtered.sort((a, b) => {
       const aFav = favorites.has(a.id) ? 1 : 0;
       const bFav = favorites.has(b.id) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
       
+      // Sort by name alphabetically
+      const nameCompare = a.title.localeCompare(b.title);
+      if (nameCompare !== 0) return nameCompare;
+      
+      // Then by completion
       const aStatus = moduleStatus(a);
       const bStatus = moduleStatus(b);
       return bStatus.percent - aStatus.percent;
@@ -322,8 +359,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   }, [modules, selectedCategory, favorites]);
 
   const categories = useMemo(() => {
-    const cats = new Set(modules.map(m => m.icon));
-    return Array.from(cats);
+    const catNames = new Set(modules.map(m => getCategoryName(m.icon)));
+    return Array.from(catNames).sort(); // Sort alphabetically
   }, [modules]);
 
   // Filter modules based on navigation
@@ -357,33 +394,33 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           </div>
           
           {/* Stats as Round Icons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Level Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faStar} className="text-sm text-white" />
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+                <FontAwesomeIcon icon={faStar} className="text-xs text-white" />
               </div>
-              <span className="text-[11px] font-semibold text-blue-700">{progress.level}</span>
+              <span className="text-[10px] font-semibold text-blue-700">{progress.level}</span>
             </div>
             
             {/* Streak Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-md ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faFire} className="text-sm text-white" />
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+                <FontAwesomeIcon icon={faFire} className="text-xs text-white" />
               </div>
-              <span className="text-[11px] font-semibold text-blue-700">{progress.streak}</span>
+              <span className="text-[10px] font-semibold text-blue-700">{progress.streak}</span>
             </div>
             
             {/* Daily Lessons/Goal Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md ring-1 ring-white/60">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm ring-1 ring-white/60">
                 {tier === 'free' ? (
-                  <FontAwesomeIcon icon={faTrophy} className="text-sm text-white" />
+                  <FontAwesomeIcon icon={faTrophy} className="text-xs text-white" />
                 ) : (
-                  <FontAwesomeIcon icon={faBullseye} className="text-sm text-white" />
+                  <FontAwesomeIcon icon={faBullseye} className="text-xs text-white" />
                 )}
               </div>
-              <span className="text-[11px] font-semibold text-blue-700">
+              <span className="text-[10px] font-semibold text-blue-700">
                 {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
               </span>
             </div>
@@ -392,9 +429,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-9 w-9 p-0 ml-2 rounded-full hover:bg-blue-50 text-slate-600"
+              className="h-7 w-7 p-0 ml-1 rounded-full hover:bg-blue-50 text-slate-600"
             >
-              <FontAwesomeIcon icon={faXmark} className="text-lg" />
+              <FontAwesomeIcon icon={faXmark} className="text-sm" />
             </Button>
           </div>
         </div>
@@ -416,17 +453,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        {categories.map(cat => (
-                          <SelectItem key={cat} value={cat}>
-                            <FontAwesomeIcon icon={
-                              cat === 'faScroll' ? faScroll :
-                              cat === 'faGlobe' ? faGlobe :
-                              cat === 'faScaleBalanced' ? faScaleBalanced :
-                              cat === 'faLandmark' ? faLandmark : faBook
-                            } className="mr-2" />
-                            {cat.replace('fa', '')}
-                          </SelectItem>
-                        ))}
+                        {categories.map(catName => {
+                          // Find the icon name for this category
+                          const iconName = Object.keys(categoryMap).find(key => categoryMap[key] === catName) || 'faBook';
+                          return (
+                            <SelectItem key={catName} value={catName}>
+                              <FontAwesomeIcon icon={
+                                iconName === 'faScroll' ? faScroll :
+                                iconName === 'faGlobe' ? faGlobe :
+                                iconName === 'faScaleBalanced' ? faScaleBalanced :
+                                iconName === 'faLandmark' ? faLandmark : faBook
+                              } className="mr-2" />
+                              {catName}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
@@ -1010,7 +1051,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                    <div className="text-sm sm:text-base text-slate-600">{progress.xp} XP total</div>
+                    <div className="text-sm sm:text-base text-slate-600">{formatNumber(progress.xp)} XP</div>
                     <Progress value={xpPercent} className="h-1.5 bg-blue-50" />
                     <div className="text-xs sm:text-sm text-slate-500">Next level at +{120 - (progress.xp % 120)} XP</div>
                   </CardContent>
@@ -1075,17 +1116,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        {categories.map(cat => (
-                          <SelectItem key={cat} value={cat}>
-                            <FontAwesomeIcon icon={
-                              cat === 'faScroll' ? faScroll :
-                              cat === 'faGlobe' ? faGlobe :
-                              cat === 'faScaleBalanced' ? faScaleBalanced :
-                              cat === 'faLandmark' ? faLandmark : faBook
-                            } className="mr-2" />
-                            {cat.replace('fa', '')}
-                          </SelectItem>
-                        ))}
+                        {categories.map(catName => {
+                          // Find the icon name for this category
+                          const iconName = Object.keys(categoryMap).find(key => categoryMap[key] === catName) || 'faBook';
+                          return (
+                            <SelectItem key={catName} value={catName}>
+                              <FontAwesomeIcon icon={
+                                iconName === 'faScroll' ? faScroll :
+                                iconName === 'faGlobe' ? faGlobe :
+                                iconName === 'faScaleBalanced' ? faScaleBalanced :
+                                iconName === 'faLandmark' ? faLandmark : faBook
+                              } className="mr-2" />
+                              {catName}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
