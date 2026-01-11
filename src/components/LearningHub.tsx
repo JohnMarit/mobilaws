@@ -56,7 +56,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     return Math.min(100, Math.round((remainder / 120) * 100));
   }, [progress.xp]);
 
-  const streakColor = progress.streak >= 7 ? 'text-orange-500' : 'text-orange-400';
+  const streakColor = progress.streak >= 7 ? 'text-blue-600' : 'text-blue-500';
 
   const handleStartLesson = (module: Module, lesson: Lesson) => {
     // Require authentication to take lessons
@@ -345,42 +345,45 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
     return (
-      <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-gradient-to-b from-blue-50 via-white to-white flex flex-col overflow-hidden text-slate-900">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-gray-200 bg-white flex-shrink-0 h-[60px]">
+        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-blue-100/70 bg-white/80 backdrop-blur-md flex-shrink-0 h-[60px] shadow-sm">
           <div className="flex items-center gap-3">
             <FontAwesomeIcon icon={faBookOpen} className="text-xl text-primary" />
-            <h1 className="text-lg sm:text-xl font-semibold">Learning Paths</h1>
+            <div>
+              <h1 className="text-lg sm:text-xl font-semibold leading-tight">Learning Hub</h1>
+              <p className="text-xs text-slate-500 hidden sm:block">Curated courses with a clean, blue-first experience</p>
+            </div>
           </div>
           
           {/* Stats as Round Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Level Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                <FontAwesomeIcon icon={faStar} className="text-sm text-yellow-300" />
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md ring-1 ring-white/60">
+                <FontAwesomeIcon icon={faStar} className="text-sm text-white" />
               </div>
-              <span className="text-[10px] font-medium text-gray-700">{progress.level}</span>
+              <span className="text-[11px] font-semibold text-blue-700">{progress.level}</span>
             </div>
             
             {/* Streak Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className={`w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center shadow-sm ${streakColor === 'text-orange-500' ? 'ring-1 ring-orange-300' : ''}`}>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-md ring-1 ring-white/60">
                 <FontAwesomeIcon icon={faFire} className="text-sm text-white" />
               </div>
-              <span className="text-[10px] font-medium text-gray-700">{progress.streak}</span>
+              <span className="text-[11px] font-semibold text-blue-700">{progress.streak}</span>
             </div>
             
             {/* Daily Lessons/Goal Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-sm">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md ring-1 ring-white/60">
                 {tier === 'free' ? (
                   <FontAwesomeIcon icon={faTrophy} className="text-sm text-white" />
                 ) : (
                   <FontAwesomeIcon icon={faBullseye} className="text-sm text-white" />
                 )}
               </div>
-              <span className="text-[10px] font-medium text-gray-700">
+              <span className="text-[11px] font-semibold text-blue-700">
                 {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
               </span>
             </div>
@@ -389,7 +392,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               variant="ghost"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-8 w-8 p-0 ml-2"
+              className="h-9 w-9 p-0 ml-2 rounded-full hover:bg-blue-50 text-slate-600"
             >
               <FontAwesomeIcon icon={faXmark} className="text-lg" />
             </Button>
@@ -445,12 +448,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       return (
                         <Card 
                           key={module.id} 
-                          className={`group cursor-pointer h-full flex flex-col transition-all duration-300 hover:shadow-lg hover:scale-[1.02] ${favorites.has(module.id) ? 'ring-2 ring-yellow-400' : 'border-gray-200'}`}
+                          className={`group cursor-pointer h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 bg-white/80 border border-blue-100 ${favorites.has(module.id) ? 'ring-2 ring-blue-400 shadow-lg' : ''}`}
                           onClick={() => handleCourseClick(module)}
                         >
                           {/* Course Image/Icon - Rectangular Header */}
-                          <div className="relative h-32 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 flex items-center justify-center overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent"></div>
+                          <div className="relative h-32 bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center overflow-hidden text-white">
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.14),transparent_30%)]" />
                             <FontAwesomeIcon
                               icon={
                                 module.icon === 'faScroll' ? faScroll :
@@ -459,18 +462,18 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                       module.icon === 'faLandmark' ? faLandmark :
                                         faBook
                               }
-                              className="text-5xl text-primary relative z-10"
+                              className="text-5xl relative z-10 drop-shadow-sm"
                             />
                             {done && (
                               <div className="absolute top-2 right-2 z-10">
-                                <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-green-500 bg-white rounded-full" />
+                                <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-white bg-blue-500/80 rounded-full p-1 shadow-sm" />
                               </div>
                             )}
                             <div className="absolute top-2 left-2 z-10">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 bg-white/80 hover:bg-white"
+                                className="h-7 w-7 p-0 bg-white/80 hover:bg-white text-blue-600"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleFavorite(module.id);
@@ -478,28 +481,28 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               >
                                 <FontAwesomeIcon 
                                   icon={faHeart} 
-                                  className={`text-sm ${favorites.has(module.id) ? 'text-red-500' : 'text-gray-400'}`}
+                                  className={`text-sm ${favorites.has(module.id) ? 'text-blue-600' : 'text-blue-300'}`}
                                 />
                               </Button>
                             </div>
                           </div>
                           
                           <CardHeader className="pb-3 p-4">
-                            <CardTitle className="text-base font-semibold line-clamp-2 mb-2">{module.title}</CardTitle>
-                            <CardDescription className="text-xs text-muted-foreground line-clamp-2">{module.description}</CardDescription>
+                            <CardTitle className="text-base font-semibold line-clamp-2 mb-2 text-slate-900">{module.title}</CardTitle>
+                            <CardDescription className="text-xs text-slate-500 line-clamp-2">{module.description}</CardDescription>
                           </CardHeader>
                           
                           <CardContent className="flex-1 flex flex-col gap-3 p-4 pt-0">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Badge variant="outline" className="capitalize text-[10px]">
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <Badge variant="outline" className="capitalize text-[10px] border-blue-200 text-blue-700 bg-blue-50">
                                 {module.requiredTier}
                               </Badge>
                               <span>•</span>
                               <span>{module.lessons.length} lessons</span>
                             </div>
                             <div>
-                              <Progress value={percent} className="h-1.5" />
-                              <div className="text-xs text-muted-foreground mt-1">{percent}% complete</div>
+                              <Progress value={percent} className="h-1.5 bg-blue-50" />
+                              <div className="text-xs text-slate-500 mt-1">{percent}% complete</div>
                             </div>
                           </CardContent>
                         </Card>
@@ -517,14 +520,14 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         </div>
 
         {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex items-center justify-around h-[60px] safe-area-inset-bottom z-50">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-blue-100 flex items-center justify-around h-[60px] safe-area-inset-bottom z-50 shadow-2xl shadow-blue-50/70">
           <button
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               onOpenChange(false);
             }}
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-gray-600 hover:text-primary"
+            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-slate-500 hover:text-blue-600"
           >
             <FontAwesomeIcon icon={faHouse} className="text-lg" />
             <span className="text-xs font-medium">Home</span>
@@ -536,7 +539,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               setActiveNav('featured');
             }}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'featured' ? 'text-primary' : 'text-gray-600'
+              activeNav === 'featured' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
             }`}
           >
             <FontAwesomeIcon icon={faStar} className="text-lg" />
@@ -549,7 +552,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               setActiveNav('learning');
             }}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'learning' ? 'text-primary' : 'text-gray-600'
+              activeNav === 'learning' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
             }`}
           >
             <FontAwesomeIcon icon={faPlay} className="text-lg" />
@@ -562,7 +565,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               setActiveNav('certification');
             }}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'certification' ? 'text-primary' : 'text-gray-600'
+              activeNav === 'certification' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
             }`}
           >
             <FontAwesomeIcon icon={faAward} className="text-lg" />
@@ -575,7 +578,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               setActiveNav('leaderboard');
             }}
             className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'leaderboard' ? 'text-primary' : 'text-gray-600'
+              activeNav === 'leaderboard' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
             }`}
           >
             <FontAwesomeIcon icon={faTrophy} className="text-lg" />
@@ -594,19 +597,19 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Course View Panel - Slides in from right, keeps header and bottom nav visible */}
         {selectedCourse && (
-          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
+          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
             {/* Course Header - Fixed at top */}
-            <div className="flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex-shrink-0 bg-white/90 dark:bg-slate-900/95 backdrop-blur-md border-b border-blue-100 dark:border-slate-700 px-4 sm:px-6 lg:px-8 py-3 shadow-sm">
               <div className="max-w-4xl mx-auto">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <button 
                       onClick={() => setSelectedCourse(null)}
-                      className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5"
+                      className="w-9 h-9 rounded-full bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 border border-blue-100"
                     >
                       <FontAwesomeIcon icon={faChevronDown} className="text-slate-600 dark:text-slate-300" />
                     </button>
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
                       <FontAwesomeIcon
                         icon={
                           selectedCourse.icon === 'faScroll' ? faScroll :
@@ -615,7 +618,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 selectedCourse.icon === 'faLandmark' ? faLandmark :
                                   faGraduationCap
                         }
-                        className="text-lg text-primary"
+                        className="text-lg text-blue-700"
                       />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -635,7 +638,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     const { percent } = moduleStatus(selectedCourse);
                     return (
                       <div className="hidden sm:block w-24 flex-shrink-0">
-                        <Progress value={percent} className="h-2" />
+                        <Progress value={percent} className="h-2 bg-blue-50" />
                       </div>
                     );
                   })()}
@@ -650,11 +653,11 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 <div className="mb-4">
                   <p className="text-sm text-slate-600 dark:text-slate-300">{selectedCourse.description}</p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <Badge variant="outline" className="capitalize text-xs">{selectedCourse.requiredTier}</Badge>
+                    <Badge variant="outline" className="capitalize text-xs border-blue-200 text-blue-700 bg-blue-50">{selectedCourse.requiredTier}</Badge>
                     {(() => {
                       const { done } = moduleStatus(selectedCourse);
                       if (done) {
-                        return <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">Completed</Badge>;
+                        return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Completed</Badge>;
                       }
                       return null;
                     })()}
@@ -708,17 +711,17 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       return (
                         <div 
                           key={lesson.id} 
-                          className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3 sm:p-4 transition-all ${
-                            isLocked && !isCompleted ? 'opacity-60' : 'hover:shadow-md hover:border-primary/30'
+                          className={`bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-slate-700 p-3 sm:p-4 transition-all ${
+                            isLocked && !isCompleted ? 'opacity-60' : 'hover:shadow-lg hover:border-blue-200'
                           }`}
                         >
                           <div className="flex items-start gap-3">
                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
                               isCompleted 
-                                ? 'bg-green-100 text-green-600' 
+                                ? 'bg-blue-100 text-blue-800' 
                                 : isLocked 
                                   ? 'bg-slate-100 dark:bg-slate-700 text-slate-400' 
-                                  : 'bg-primary/10 text-primary'
+                                  : 'bg-blue-50 text-blue-700'
                             }`}>
                               {isCompleted ? (
                                 <FontAwesomeIcon icon={faCircleCheck} />
@@ -733,12 +736,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               <h3 className="font-medium text-sm text-slate-900 dark:text-white leading-tight">{lesson.title}</h3>
                               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
                                 <span className="flex items-center gap-1">
-                                  <FontAwesomeIcon icon={faBolt} className="text-yellow-500" />
+                                  <FontAwesomeIcon icon={faBolt} className="text-blue-600" />
                                   {lesson.xpReward} XP
                                 </span>
                                 <span>• {lesson.quiz.length} Q</span>
                                 {lesson.userGenerated && (
-                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-purple-500" />
+                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-blue-500" />
                                 )}
                               </div>
                             </div>
@@ -753,7 +756,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 handleStartLesson(selectedCourse, lesson);
                               }}
                               disabled={isLocked}
-                              className={`h-8 px-3 text-xs flex-shrink-0 ${isCompleted ? 'border-green-200 text-green-600 hover:bg-green-50' : ''}`}
+                              className={`h-8 px-3 text-xs flex-shrink-0 rounded-full ${isCompleted ? 'border-blue-200 text-blue-700 hover:bg-blue-50' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
                             >
                               {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
                             </Button>
@@ -771,14 +774,14 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               const { percent, done } = moduleStatus(selectedCourse);
               if (percent === 100 && done) {
                 return (
-                  <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 sm:px-6 lg:px-8 py-3 border-t border-purple-700">
+                  <div className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-500 px-4 sm:px-6 lg:px-8 py-3 border-t border-blue-600/60">
                     <div className="max-w-4xl mx-auto flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-lg text-white" />
+                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0 border border-white/30">
+                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-lg text-white drop-shadow" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-sm text-white">All lessons completed! 🎉</h3>
-                        <p className="text-purple-200 text-xs">Generate more lessons to continue</p>
+                        <p className="text-blue-100 text-xs">Generate more lessons to continue</p>
                       </div>
                       <Button
                         onClick={() => {
@@ -787,7 +790,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                         }}
                         disabled={isRequestingLessons === selectedCourse.id}
                         size="sm"
-                        className="bg-white text-purple-600 hover:bg-purple-50 h-9 px-4 flex-shrink-0"
+                        className="bg-white text-blue-700 hover:bg-blue-50 h-9 px-4 flex-shrink-0 rounded-full shadow-sm"
                       >
                         {isRequestingLessons === selectedCourse.id ? (
                           <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
@@ -812,7 +815,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <FontAwesomeIcon icon={faWandMagicSparkles} className="text-purple-500" />
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="text-blue-600" />
                 Generate More Lessons
               </DialogTitle>
               <DialogDescription>
@@ -832,13 +835,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     onClick={() => setSelectedDifficulty('simple')}
                     className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'simple'
-                        ? 'border-green-500 bg-green-50 shadow-lg'
-                        : 'border-gray-200 hover:border-green-300 hover:bg-green-50'
+                        ? 'border-blue-400 bg-blue-50 shadow-lg'
+                        : 'border-blue-100 hover:border-blue-200 hover:bg-blue-50'
                     }`}
                   >
                     <div className="text-center">
                       <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
-                        selectedDifficulty === 'simple' ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600'
+                        selectedDifficulty === 'simple' ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'
                       }`}>
                         <FontAwesomeIcon icon={faPlay} className="text-lg" />
                       </div>
@@ -854,13 +857,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     onClick={() => setSelectedDifficulty('medium')}
                     className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'medium'
-                        ? 'border-amber-500 bg-amber-50 shadow-lg'
-                        : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50'
+                        ? 'border-blue-500 bg-blue-100 shadow-lg'
+                        : 'border-blue-100 hover:border-blue-200 hover:bg-blue-50'
                     }`}
                   >
                     <div className="text-center">
                       <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
-                        selectedDifficulty === 'medium' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-600'
+                        selectedDifficulty === 'medium' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
                       }`}>
                         <FontAwesomeIcon icon={faFire} className="text-lg" />
                       </div>
@@ -876,13 +879,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     onClick={() => setSelectedDifficulty('hard')}
                     className={`p-4 rounded-xl border-2 transition-all ${
                       selectedDifficulty === 'hard'
-                        ? 'border-red-500 bg-red-50 shadow-lg'
-                        : 'border-gray-200 hover:border-red-300 hover:bg-red-50'
+                        ? 'border-blue-600 bg-blue-50 shadow-lg'
+                        : 'border-blue-100 hover:border-blue-200 hover:bg-blue-50'
                     }`}
                   >
                     <div className="text-center">
                       <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
-                        selectedDifficulty === 'hard' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-600'
+                        selectedDifficulty === 'hard' ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-700'
                       }`}>
                         <FontAwesomeIcon icon={faBolt} className="text-lg" />
                       </div>
@@ -895,25 +898,25 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 </div>
               </div>
               
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4">
-                <p className="text-sm text-purple-800">
-                  <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2 text-purple-500" />
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
+                <p className="text-sm text-blue-800">
+                  <FontAwesomeIcon icon={faWandMagicSparkles} className="mr-2 text-blue-600" />
                   <strong>What you'll get:</strong>
                   {selectedDifficulty === 'simple' && ' Guided conversations with auto-play, basic legal case studies with multiple-choice answers.'}
                   {selectedDifficulty === 'medium' && ' Interactive dialogues you control, intermediate case scenarios requiring critical thinking.'}
                   {selectedDifficulty === 'hard' && ' Listening-only challenges (no text), complex legal cases with nuanced analysis required.'}
                 </p>
-                <ul className="text-sm text-purple-700 mt-3 space-y-1">
+                <ul className="text-sm text-blue-700 mt-3 space-y-1">
                   <li className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-blue-600" />
                     5 new AI-generated lessons
                   </li>
                   <li className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-blue-600" />
                     More practice questions
                   </li>
                   <li className="flex items-center gap-2">
-                    <FontAwesomeIcon icon={faCircleCheck} className="text-green-500" />
+                    <FontAwesomeIcon icon={faCircleCheck} className="text-blue-600" />
                     Additional XP rewards
                   </li>
                 </ul>
@@ -922,7 +925,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               <div className="flex gap-3 pt-2">
                 <Button
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 border-blue-200 text-blue-700"
                   onClick={() => {
                     setShowGenerateLessonsPopup(false);
                     setModuleForGeneration(null);
@@ -931,7 +934,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   Maybe Later
                 </Button>
                 <Button
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-sm"
                   onClick={handleGenerateMoreLessons}
                   disabled={isRequestingLessons === moduleForGeneration?.id}
                 >
@@ -975,19 +978,19 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         </DialogHeader>
 
         <Tabs defaultValue="lessons" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4 h-auto">
-            <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2 sm:py-2.5">
+          <TabsList className="grid w-full grid-cols-3 mb-4 h-auto bg-blue-50 border border-blue-100 rounded-xl">
+            <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2 sm:py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 rounded-lg">
               <FontAwesomeIcon icon={faRoute} className="mr-2 text-primary" />
               <span className="hidden sm:inline">Learning Path</span>
               <span className="sm:hidden">Path</span>
             </TabsTrigger>
-            <TabsTrigger value="certifications" className="text-xs sm:text-sm py-2 sm:py-2.5">
-              <FontAwesomeIcon icon={faCertificate} className="mr-2 text-amber-500" />
+            <TabsTrigger value="certifications" className="text-xs sm:text-sm py-2 sm:py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 rounded-lg">
+              <FontAwesomeIcon icon={faCertificate} className="mr-2 text-blue-500" />
               <span className="hidden sm:inline">Certifications</span>
               <span className="sm:hidden">Certs</span>
             </TabsTrigger>
-            <TabsTrigger value="leaderboard" className="text-xs sm:text-sm py-2 sm:py-2.5">
-              <FontAwesomeIcon icon={faTrophy} className="mr-2 text-yellow-500" />
+            <TabsTrigger value="leaderboard" className="text-xs sm:text-sm py-2 sm:py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 rounded-lg">
+              <FontAwesomeIcon icon={faTrophy} className="mr-2 text-blue-500" />
               <span className="hidden sm:inline">Leaderboard</span>
               <span className="sm:hidden">Top</span>
             </TabsTrigger>
@@ -997,55 +1000,58 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             <div className="grid gap-4 sm:gap-6">
               {/* Stats */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                <Card className="touch-manipulation relative overflow-hidden bg-white border border-blue-100 shadow-sm rounded-2xl">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
                   <CardHeader className="pb-2 p-3 sm:p-4">
-                    <CardDescription className="text-xs sm:text-sm text-blue-100">Level</CardDescription>
-                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
-                      <FontAwesomeIcon icon={faStar} className="text-lg text-yellow-300" />
+                    <CardDescription className="text-xs sm:text-sm text-slate-500">Level</CardDescription>
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-blue-700">
+                      <FontAwesomeIcon icon={faStar} className="text-lg text-blue-500" />
                       Level {progress.level}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                    <div className="text-sm sm:text-base text-blue-50">{progress.xp} XP total</div>
-                    <Progress value={xpPercent} className="h-1.5 bg-white/30" />
-                    <div className="text-xs sm:text-sm text-blue-100">Next level at +{120 - (progress.xp % 120)} XP</div>
+                    <div className="text-sm sm:text-base text-slate-600">{progress.xp} XP total</div>
+                    <Progress value={xpPercent} className="h-1.5 bg-blue-50" />
+                    <div className="text-xs sm:text-sm text-slate-500">Next level at +{120 - (progress.xp % 120)} XP</div>
                   </CardContent>
                 </Card>
 
-                <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                <Card className="touch-manipulation relative overflow-hidden bg-white border border-blue-100 shadow-sm rounded-2xl">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
                   <CardHeader className="pb-2 p-3 sm:p-4">
-                    <CardDescription className="text-xs sm:text-sm text-blue-100">Streak</CardDescription>
-                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                    <CardDescription className="text-xs sm:text-sm text-slate-500">Streak</CardDescription>
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-blue-700">
                       <FontAwesomeIcon icon={faFire} className={`text-lg ${streakColor}`} />
                       {progress.streak} days
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                    <div className="text-sm sm:text-base text-blue-50">Keep the fire alive daily.</div>
+                    <div className="text-sm sm:text-base text-slate-600">Stay consistent to keep your streak.</div>
                   </CardContent>
                 </Card>
 
-                <Card className="touch-manipulation bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-md border-none">
+                <Card className="touch-manipulation relative overflow-hidden bg-white border border-blue-100 shadow-sm rounded-2xl">
+                  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
                   <CardHeader className="pb-2 p-3 sm:p-4">
-                    <CardDescription className="text-xs sm:text-sm text-blue-100">
+                    <CardDescription className="text-xs sm:text-sm text-slate-500">
                       {tier === 'free' ? 'Daily Lessons' : 'Daily Goal'}
                     </CardDescription>
-                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                    <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-blue-700">
                       {tier === 'free' ? (
                         <>
-                          <FontAwesomeIcon icon={faTrophy} className="text-lg text-white" />
+                          <FontAwesomeIcon icon={faTrophy} className="text-lg text-blue-500" />
                           {dailyLessonsRemaining}/2
                         </>
                       ) : (
                         <>
-                          <FontAwesomeIcon icon={faBullseye} className="text-lg text-white" />
+                          <FontAwesomeIcon icon={faBullseye} className="text-lg text-blue-500" />
                           {progress.dailyGoal} XP
                         </>
                       )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-3 sm:p-4 pt-0 space-y-2">
-                    <div className="text-sm sm:text-base text-blue-50">
+                    <div className="text-sm sm:text-base text-slate-600">
                       {tier === 'free'
                         ? dailyLessonsRemaining > 0
                           ? `${dailyLessonsRemaining} lesson${dailyLessonsRemaining === 1 ? '' : 's'} left today`
@@ -1092,11 +1098,11 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
                     const isSelected = selectedModuleId === module.id;
                     return (
-                      <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 ${favorites.has(module.id) ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
+                      <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 bg-white border border-blue-100 rounded-2xl shadow-sm ${favorites.has(module.id) ? 'ring-2 ring-blue-400 shadow-lg' : ''}`}>
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
                           {/* Course Image/Icon */}
                           <div className="mb-3 flex justify-center">
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shadow-md">
+                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shadow-md border border-blue-100">
                               <FontAwesomeIcon
                                 icon={
                                   module.icon === 'faScroll' ? faScroll :
@@ -1105,45 +1111,45 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                         module.icon === 'faLandmark' ? faLandmark :
                                           faBook
                                 }
-                                className="text-4xl sm:text-5xl text-primary"
+                                className="text-4xl sm:text-5xl text-blue-600"
                               />
                             </div>
                           </div>
                           <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 sm:gap-2 w-full justify-center">
-                              <span className="leading-tight text-center">{module.title}</span>
+                              <span className="leading-tight text-center text-slate-900">{module.title}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 p-0 text-blue-600"
                                 onClick={() => toggleFavorite(module.id)}
                               >
                                 <FontAwesomeIcon 
                                   icon={faHeart} 
-                                  className={`text-lg ${favorites.has(module.id) ? 'text-red-500' : 'text-gray-300'}`}
+                                  className={`text-lg ${favorites.has(module.id) ? 'text-blue-600' : 'text-blue-200'}`}
                                 />
                               </Button>
-                              {done ? <FontAwesomeIcon icon={faCircleCheck} className="text-sm sm:text-lg text-green-500 flex-shrink-0" /> : null}
+                              {done ? <FontAwesomeIcon icon={faCircleCheck} className="text-sm sm:text-lg text-blue-600 flex-shrink-0" /> : null}
                             </div>
                           </CardTitle>
-                          <CardDescription className="text-sm sm:text-base">{module.description}</CardDescription>
+                          <CardDescription className="text-sm sm:text-base text-slate-600">{module.description}</CardDescription>
                         </CardHeader>
                         <CardContent className="flex-1 flex flex-col gap-3 sm:gap-4 p-3 sm:p-6 pt-0">
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-                            <Badge variant="outline" className="capitalize text-xs sm:text-sm">
+                          <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 flex-wrap">
+                            <Badge variant="outline" className="capitalize text-xs sm:text-sm border-blue-200 text-blue-700 bg-blue-50">
                               {module.requiredTier}
                             </Badge>
                             <span>{module.lessons.length} lessons</span>
                           </div>
                           <div>
-                            <Progress value={percent} className="h-2 sm:h-2.5" />
-                            <div className="text-xs sm:text-sm text-muted-foreground mt-1">{percent}% complete</div>
+                            <Progress value={percent} className="h-2 sm:h-2.5 bg-blue-50" />
+                            <div className="text-xs sm:text-sm text-slate-500 mt-1">{percent}% complete</div>
                           </div>
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                              <Badge variant="outline" className="capitalize text-[11px] sm:text-xs">
+                            <div className="text-xs text-slate-500 flex items-center gap-2">
+                              <Badge variant="outline" className="capitalize text-[11px] sm:text-xs border-blue-200 text-blue-700 bg-blue-50">
                                 {module.requiredTier}
                               </Badge>
                             </div>
@@ -1151,7 +1157,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               <Button
                                 size="sm"
                                 variant="secondary"
-                                className="text-sm"
+                                className="text-sm border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100"
                                 onClick={() => setSelectedModuleId(prev => prev === module.id ? null : module.id)}
                               >
                                 {isSelected ? 'Hide lessons' : 'View lessons'}
@@ -1170,23 +1176,23 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                   return (
                                     <Card
                                       key={lesson.id}
-                                      className={`h-full flex flex-col justify-between border shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-70' : ''}`}
+                                      className={`h-full flex flex-col justify-between border border-blue-100 shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-70' : ''}`}
                                     >
                                       <CardContent className="flex-1 flex flex-col gap-3 p-3 sm:p-4">
                                         <div className="flex items-start justify-between gap-2">
                                           <div className="space-y-1">
                                             <div className="flex items-center gap-2">
-                                              <span className="text-sm sm:text-base font-semibold leading-tight line-clamp-2">{lesson.title}</span>
+                                              <span className="text-sm sm:text-base font-semibold leading-tight line-clamp-2 text-slate-900">{lesson.title}</span>
                                               {isCompleted && (
-                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
                                                   <FontAwesomeIcon icon={faCircleCheck} className="text-sm" />
                                                   Done
                                                 </Badge>
                                               )}
                                             </div>
-                                            <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                                            <div className="text-xs sm:text-sm text-slate-500 flex items-center gap-2 flex-wrap">
                                               <span className="flex items-center gap-1">
-                                                <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-yellow-500" />
+                                                <FontAwesomeIcon icon={faBolt} className="h-3 w-3 text-blue-600" />
                                                 {lesson.xpReward} XP
                                               </span>
                                               <span>• {lesson.quiz.length} Q</span>
@@ -1199,22 +1205,22 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                             </div>
                                           </div>
                                           {isLocked && (
-                                            <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm">
+                                            <Badge variant="secondary" className="flex items-center gap-1 text-xs sm:text-sm bg-blue-50 text-blue-700 border border-blue-100">
                                               <FontAwesomeIcon icon={faLock} className="text-sm" />
                                               <span className="hidden sm:inline">Locked</span>
                                             </Badge>
                                           )}
                                         </div>
                                         <div className="flex items-center justify-between pt-1">
-                                          <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                            <Badge variant="outline" className="capitalize text-[11px] sm:text-xs">
+                                          <div className="text-xs text-slate-500 flex items-center gap-2">
+                                            <Badge variant="outline" className="capitalize text-[11px] sm:text-xs border-blue-200 text-blue-700 bg-blue-50">
                                               {lesson.tier || 'basic'}
                                             </Badge>
                                           </div>
                                           <Button
                                             size="sm"
                                             variant={isCompleted ? 'outline' : 'default'}
-                                            className="h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[70px] sm:min-w-[90px]"
+                                            className={`h-9 sm:h-10 px-3 sm:px-4 text-sm flex-shrink-0 min-w-[70px] sm:min-w-[90px] ${isCompleted ? 'border-blue-200 text-blue-700 hover:bg-blue-50' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
                                             onClick={() => handleStartLesson(module, lesson)}
                                             disabled={isLocked}
                                           >
@@ -1233,7 +1239,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               {module.lessons.length > 5 && (
                                 <Button
                                   variant="ghost"
-                                  className="w-full mt-1 text-sm"
+                                  className="w-full mt-1 text-sm text-blue-700 hover:bg-blue-50"
                                   onClick={() => {
                                     setExpandedLessons(prev => {
                                       const newSet = new Set(prev);
@@ -1269,7 +1275,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                   <div className="w-full mt-2 space-y-2">
                                     <Button
                                       variant="outline"
-                                      className="w-full border-dashed border-2 border-orange-200 hover:border-orange-400 hover:bg-orange-50 transition-all text-orange-700"
+                                      className="w-full border-dashed border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-blue-700"
                                       onClick={() => deleteGeneratedLessons(module.id, module.title, false)}
                                       disabled={isDeletingLessons === module.id}
                                     >
@@ -1289,7 +1295,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                     {hasMoreThan5Sets && (
                                       <Button
                                         variant="outline"
-                                        className="w-full border-dashed border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all text-red-700"
+                                        className="w-full border-dashed border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-blue-700"
                                         onClick={() => deleteGeneratedLessons(module.id, module.title, true)}
                                         disabled={isDeletingLessons === module.id}
                                       >
@@ -1314,7 +1320,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               {done && (
                                 <Button
                                   variant="outline"
-                                  className="w-full mt-2 border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-all"
+                                  className="w-full mt-2 border-dashed border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all text-blue-700"
                                   onClick={() => {
                                     setModuleForGeneration({ id: module.id, name: module.title });
                                     setShowGenerateLessonsPopup(true);
