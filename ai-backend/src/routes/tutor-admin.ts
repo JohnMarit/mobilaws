@@ -37,7 +37,8 @@ import {
   updateModule,
   updateLessonAccessLevels,
   updateQuizAccessLevels,
-  bulkUpdateModuleAccessLevels
+  bulkUpdateModuleAccessLevels,
+  updateModuleImageUrl
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
 import { admin, getFirestore } from '../lib/firebase-admin';
@@ -76,6 +77,41 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error(`Invalid file type. Allowed: ${allowedExts.join(', ')}`));
+    }
+  },
+});
+
+// Configure multer for image uploads
+const imageUploadDir = process.env.VERCEL ? '/tmp/tutor-images' : './storage/tutor-images';
+if (!fs.existsSync(imageUploadDir)) {
+  fs.mkdirSync(imageUploadDir, { recursive: true });
+}
+
+const imageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, imageUploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const basename = path.basename(file.originalname, ext);
+    cb(null, `${basename}-${uniqueSuffix}${ext}`);
+  },
+});
+
+const imageUpload = multer({
+  storage: imageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max for images
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid image type. Allowed: ${allowedExts.join(', ')}`));
     }
   },
 });
@@ -925,6 +961,69 @@ router.post('/tutor-admin/cleanup-modules', async (req: Request, res: Response) 
     console.error('❌ Error during cleanup:', error);
     res.status(500).json({
       error: 'Cleanup failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Upload course profile image
+ * POST /api/tutor-admin/modules/:moduleId/image
+ */
+router.post('/tutor-admin/modules/:moduleId/image', imageUpload.single('image'), async (req: Request, res: Response) => {
+  try {
+    const { moduleId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ error: 'No image file provided' });
+      return;
+    }
+
+    // Read the image file and convert to base64 data URL
+    const imageBuffer = fs.readFileSync(file.path);
+    const imageBase64 = imageBuffer.toString('base64');
+    const imageDataUrl = `data:${file.mimetype};base64,${imageBase64}`;
+
+    // Delete temporary file
+    fs.unlinkSync(file.path);
+
+    // Update module with image URL
+    const success = await updateModuleImageUrl(moduleId, imageDataUrl);
+
+    if (success) {
+      res.json({ success: true, imageUrl: imageDataUrl });
+    } else {
+      res.status(500).json({ error: 'Failed to update module image' });
+    }
+  } catch (error) {
+    console.error('❌ Error uploading image:', error);
+    res.status(500).json({
+      error: 'Failed to upload image',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Delete course profile image
+ * DELETE /api/tutor-admin/modules/:moduleId/image
+ */
+router.delete('/tutor-admin/modules/:moduleId/image', async (req: Request, res: Response) => {
+  try {
+    const { moduleId } = req.params;
+
+    const success = await updateModuleImageUrl(moduleId, null);
+
+    if (success) {
+      res.json({ success: true, message: 'Image deleted successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete module image' });
+    }
+  } catch (error) {
+    console.error('❌ Error deleting image:', error);
+    res.status(500).json({
+      error: 'Failed to delete image',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

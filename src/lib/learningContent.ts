@@ -79,6 +79,7 @@ export interface Module {
   title: string;
   description: string;
   icon: string;
+  imageUrl?: string; // Optional course profile image
   lessons: Lesson[];
   locked: boolean;
   requiredTier: 'free' | 'basic' | 'standard' | 'premium';

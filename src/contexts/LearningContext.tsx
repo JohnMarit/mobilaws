@@ -307,6 +307,7 @@ function convertGeneratedModuleToModule(
     title: generatedModule.title,
     description: generatedModule.description,
     icon: generatedModule.icon,
+    imageUrl: generatedModule.imageUrl, // Include course profile image
     lessons,
     locked: isModuleLocked,
     requiredTier,

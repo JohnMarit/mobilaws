@@ -514,6 +514,35 @@ export async function publishModule(moduleId: string): Promise<boolean> {
 }
 
 /**
+ * Update module image URL
+ */
+export async function updateModuleImageUrl(moduleId: string, imageUrl: string | null): Promise<boolean> {
+  const db = getFirestore();
+  if (!db) return false;
+
+  try {
+    const updateData: any = {
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+    
+    if (imageUrl === null) {
+      // Delete the imageUrl field
+      updateData.imageUrl = admin.firestore.FieldValue.delete();
+    } else {
+      updateData.imageUrl = imageUrl;
+    }
+
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update(updateData);
+
+    console.log(`✅ Updated module image: ${moduleId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating module image:', error);
+    return false;
+  }
+}
+
+/**
  * Delete module and all its content
  */
 export async function deleteModule(moduleId: string): Promise<boolean> {

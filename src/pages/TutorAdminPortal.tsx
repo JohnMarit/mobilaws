@@ -48,7 +48,9 @@ import {
   Trash2,
   Settings,
   RotateCcw,
-  Trash
+  Trash,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ModuleManager from '@/components/admin/ModuleManager';
@@ -132,6 +134,15 @@ export default function TutorAdminPortal() {
   
   // Restore state
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Image management state
+  const [imageDialogModuleId, setImageDialogModuleId] = useState<string | null>(null);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isTutorAdmin) {
@@ -430,6 +441,99 @@ export default function TutorAdminPortal() {
     } catch (error) {
       console.error('Publish error:', error);
       toast.error('Failed to publish module');
+    }
+  };
+
+  const handleImageClick = async (moduleId: string) => {
+    setImageDialogModuleId(moduleId);
+    setSelectedImage(null);
+    setImagePreview(null);
+    setCurrentImageUrl(null);
+    setIsImageDialogOpen(true);
+
+    // Fetch module to get current image
+    try {
+      const modulesResponse = await fetch(getApiUrl(`tutor-admin/modules/tutor/${tutor?.id}`));
+      const modules = await modulesResponse.json();
+      const module = modules.find((m: any) => m.id === moduleId);
+      if (module?.imageUrl) {
+        setCurrentImageUrl(module.imageUrl);
+      }
+    } catch (error) {
+      console.error('Error fetching module:', error);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleImageUpload = async () => {
+    if (!imageDialogModuleId || !selectedImage) {
+      toast.error('Please select an image');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      const response = await fetch(getApiUrl(`tutor-admin/modules/${imageDialogModuleId}/image`), {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Course image uploaded successfully!');
+        setCurrentImageUrl(data.imageUrl);
+        setSelectedImage(null);
+        setImagePreview(null);
+        loadTutorData();
+      } else {
+        toast.error('Failed to upload image: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleImageDelete = async () => {
+    if (!imageDialogModuleId) return;
+
+    setIsDeletingImage(true);
+    try {
+      const response = await fetch(getApiUrl(`tutor-admin/modules/${imageDialogModuleId}/image`), {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('✅ Course image deleted successfully!');
+        setCurrentImageUrl(null);
+        loadTutorData();
+      } else {
+        toast.error('Failed to delete image: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Image delete error:', error);
+      toast.error('Failed to delete image. Please try again.');
+    } finally {
+      setIsDeletingImage(false);
     }
   };
 
@@ -907,6 +1011,14 @@ export default function TutorAdminPortal() {
                                   <Button
                                     size="sm"
                                     variant="outline"
+                                    onClick={() => handleImageClick(content.generatedModuleId!)}
+                                    title="Manage course image"
+                                  >
+                                    <ImageIcon className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
                                     onClick={() => {
                                       // TODO: Preview module
                                       toast.info('Module preview coming soon!');
@@ -1272,6 +1384,90 @@ export default function TutorAdminPortal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Management Dialog */}
+      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Course Profile Image</DialogTitle>
+            <DialogDescription>
+              Upload, update, or delete the course profile image
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Current Image */}
+            {currentImageUrl && (
+              <div className="space-y-2">
+                <Label>Current Image</Label>
+                <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden border">
+                  <img
+                    src={currentImageUrl}
+                    alt="Course image"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="space-y-2">
+                <Label>New Image Preview</Label>
+                <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden border">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Upload Input */}
+            <div className="space-y-2">
+              <Label htmlFor="image-upload">Select Image</Label>
+              <Input
+                id="image-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                disabled={isUploadingImage || isDeletingImage}
+              />
+              <p className="text-xs text-muted-foreground">
+                Supported formats: JPG, PNG, GIF, WEBP (Max 5MB)
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex justify-between">
+            <Button
+              variant="destructive"
+              onClick={handleImageDelete}
+              disabled={!currentImageUrl || isUploadingImage || isDeletingImage}
+            >
+              {isDeletingImage ? 'Deleting...' : 'Delete Image'}
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsImageDialogOpen(false);
+                  setSelectedImage(null);
+                  setImagePreview(null);
+                }}
+                disabled={isUploadingImage || isDeletingImage}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleImageUpload}
+                disabled={!selectedImage || isUploadingImage || isDeletingImage}
+              >
+                {isUploadingImage ? 'Uploading...' : 'Upload Image'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

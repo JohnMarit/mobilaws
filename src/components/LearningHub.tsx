@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
@@ -67,6 +68,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isRequestingLessons, setIsRequestingLessons] = useState<string | null>(null);
   const [isDeletingLessons, setIsDeletingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
@@ -331,6 +333,15 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const filteredModules = useMemo(() => {
     let filtered = modules;
     
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(m => 
+        m.title.toLowerCase().includes(query) || 
+        m.description.toLowerCase().includes(query)
+      );
+    }
+    
     // Filter by category
     if (selectedCategory !== 'all') {
       // Find the icon name from the selected category name
@@ -356,7 +367,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       const bStatus = moduleStatus(b);
       return bStatus.percent - aStatus.percent;
     });
-  }, [modules, selectedCategory, favorites]);
+  }, [modules, selectedCategory, favorites, searchQuery]);
 
   const categories = useMemo(() => {
     const catNames = new Set(modules.map(m => getCategoryName(m.icon)));
@@ -1136,6 +1147,16 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
                   </div>
                 </div>
+                {/* Search Input */}
+                <div className="w-full">
+                  <Input
+                    type="text"
+                    placeholder="Search courses..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {filteredModules.map((module) => {
                     const { percent, done } = moduleStatus(module);
@@ -1147,18 +1168,28 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">
                           {/* Course Image/Icon */}
                           <div className="mb-3 flex justify-center">
-                            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shadow-md border border-blue-100">
-                              <FontAwesomeIcon
-                                icon={
-                                  module.icon === 'faScroll' ? faScroll :
-                                    module.icon === 'faGlobe' ? faGlobe :
-                                      module.icon === 'faScaleBalanced' ? faScaleBalanced :
-                                        module.icon === 'faLandmark' ? faLandmark :
-                                          faBook
-                                }
-                                className="text-4xl sm:text-5xl text-blue-600"
-                              />
-                            </div>
+                            {module.imageUrl ? (
+                              <div className="w-24 h-24 rounded-full overflow-hidden shadow-md border border-blue-100 bg-gradient-to-br from-blue-100 to-blue-50">
+                                <img
+                                  src={module.imageUrl}
+                                  alt={module.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shadow-md border border-blue-100">
+                                <FontAwesomeIcon
+                                  icon={
+                                    module.icon === 'faScroll' ? faScroll :
+                                      module.icon === 'faGlobe' ? faGlobe :
+                                        module.icon === 'faScaleBalanced' ? faScaleBalanced :
+                                          module.icon === 'faLandmark' ? faLandmark :
+                                            faBook
+                                  }
+                                  className="text-4xl sm:text-5xl text-blue-600"
+                                />
+                              </div>
+                            )}
                           </div>
                           <CardTitle className="text-base sm:text-lg flex items-start justify-between gap-2">
                             <div className="flex items-center gap-1.5 sm:gap-2 w-full justify-center">
