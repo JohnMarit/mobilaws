@@ -525,18 +525,30 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                           onClick={() => handleCourseClick(module)}
                         >
                           {/* Course Image/Icon - Rectangular Header */}
-                          <div className="relative h-32 bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center overflow-hidden text-white">
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.14),transparent_30%)]" />
-                            <FontAwesomeIcon
-                              icon={
-                                module.icon === 'faScroll' ? faScroll :
-                                  module.icon === 'faGlobe' ? faGlobe :
-                                    module.icon === 'faScaleBalanced' ? faScaleBalanced :
-                                      module.icon === 'faLandmark' ? faLandmark :
-                                        faBook
-                              }
-                              className="text-5xl relative z-10 drop-shadow-sm"
-                            />
+                          <div className="relative h-32 overflow-hidden">
+                            {module.imageUrl ? (
+                              <img 
+                                src={module.imageUrl} 
+                                alt={module.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <>
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center text-white">
+                                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.14),transparent_30%)]" />
+                                  <FontAwesomeIcon
+                                    icon={
+                                      module.icon === 'faScroll' ? faScroll :
+                                        module.icon === 'faGlobe' ? faGlobe :
+                                          module.icon === 'faScaleBalanced' ? faScaleBalanced :
+                                            module.icon === 'faLandmark' ? faLandmark :
+                                              faBook
+                                    }
+                                    className="text-5xl relative z-10 drop-shadow-sm"
+                                  />
+                                </div>
+                              </>
+                            )}
                             {done && (
                               <div className="absolute top-2 right-2 z-10">
                                 <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-white bg-blue-500/80 rounded-full p-1 shadow-sm" />
@@ -1199,11 +1211,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     const isExpanded = expandedLessons.has(module.id);
                     const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
                     const isSelected = selectedModuleId === module.id;
-                    
-                    // Debug: Log modules with images
-                    if (module.imageUrl) {
-                      console.log(`📸 Module "${module.title}" has imageUrl:`, module.imageUrl.substring(0, 50) + '...');
-                    }
                     
                     return (
                       <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 bg-white border border-blue-100 rounded-2xl shadow-sm ${favorites.has(module.id) ? 'ring-2 ring-blue-400 shadow-lg' : ''}`}>

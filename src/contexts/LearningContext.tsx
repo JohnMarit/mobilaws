@@ -372,8 +372,7 @@ async function fetchModulesFromBackend(
     }
 
     const generatedModules: GeneratedModule[] = await response.json();
-    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier`);
-    console.log('🖼️ Modules with images:', generatedModules.filter(m => m.imageUrl).map(m => ({ id: m.id, title: m.title, hasImage: !!m.imageUrl })));
+    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier (${generatedModules.filter(m => m.imageUrl).length} with images)`);
     
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);
@@ -530,19 +529,14 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   // Listen for module updates from tutor admin
   useEffect(() => {
     const handleModulesUpdated = () => {
-      console.log('📢 Modules updated event received, reloading modules...');
+      console.log('📢 Modules updated, reloading...');
       loadModules().then(() => {
-        console.log('✅ Modules reloaded after update event');
         toast.success('📚 Course content has been updated!');
       });
     };
 
-    console.log('👂 LearningContext listening for modules-updated events');
     window.addEventListener('modules-updated', handleModulesUpdated);
-    return () => {
-      console.log('👋 LearningContext stopped listening for modules-updated events');
-      window.removeEventListener('modules-updated', handleModulesUpdated);
-    };
+    return () => window.removeEventListener('modules-updated', handleModulesUpdated);
   }, [loadModules]);
 
   const gatedModules = useMemo(() => modules, [modules]);

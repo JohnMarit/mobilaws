@@ -989,14 +989,12 @@ router.post('/tutor-admin/modules/:moduleId/image', imageUpload.single('image'),
     fs.unlinkSync(file.path);
 
     // Update module with image URL
-    console.log(`📤 Updating module ${moduleId} with image (size: ${imageDataUrl.length} chars)`);
     const success = await updateModuleImageUrl(moduleId, imageDataUrl);
 
     if (success) {
-      console.log(`✅ Image successfully saved to module ${moduleId}`);
+      console.log(`✅ Image uploaded for module ${moduleId}`);
       res.json({ success: true, imageUrl: imageDataUrl });
     } else {
-      console.error(`❌ Failed to save image to module ${moduleId}`);
       res.status(500).json({ error: 'Failed to update module image' });
     }
   } catch (error) {
