@@ -524,6 +524,17 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     }
   }, [loadModules, isLoading, user?.id]);
 
+  // Listen for module updates from tutor admin
+  useEffect(() => {
+    const handleModulesUpdated = () => {
+      console.log('📢 Modules updated event received, reloading...');
+      loadModules();
+    };
+
+    window.addEventListener('modules-updated', handleModulesUpdated);
+    return () => window.removeEventListener('modules-updated', handleModulesUpdated);
+  }, [loadModules]);
+
   const gatedModules = useMemo(() => modules, [modules]);
 
   const dailyLessonsRemaining = useMemo(() => getDailyLessonsRemaining(state, tier), [state, tier]);

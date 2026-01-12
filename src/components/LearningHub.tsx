@@ -64,6 +64,17 @@ interface LearningHubProps {
 export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules } = useLearning();
+
+  // Add refresh button handler
+  useEffect(() => {
+    const handleModulesUpdated = () => {
+      toast.info('📚 Course content has been updated!');
+      reloadModules();
+    };
+
+    window.addEventListener('modules-updated', handleModulesUpdated);
+    return () => window.removeEventListener('modules-updated', handleModulesUpdated);
+  }, [reloadModules]);
   const { showLoginModal, setShowLoginModal } = usePromptLimit();
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());

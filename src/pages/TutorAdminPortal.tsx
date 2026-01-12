@@ -235,20 +235,29 @@ export default function TutorAdminPortal() {
         }
       }
 
-      // Load quiz requests
-      const quizRes = await fetch(getApiUrl('tutor-admin/quiz-requests'));
-      const quizData = await quizRes.json();
-      console.log('📝 Quiz requests response:', quizData);
-      
-      // Validate it's an array before setting
-      if (Array.isArray(quizData)) {
-        setQuizRequests(quizData);
-      } else {
-        console.error('❌ Quiz data is not an array:', quizData);
-        setQuizRequests([]);
-        if (quizData?.error) {
-          toast.error(`Failed to load quiz requests: ${quizData.error}`);
+      // Load quiz requests - Don't show error toast, just log
+      try {
+        const quizRes = await fetch(getApiUrl('tutor-admin/quiz-requests'));
+        console.log('📝 Quiz requests response status:', quizRes.status);
+        
+        if (quizRes.ok) {
+          const quizData = await quizRes.json();
+          console.log('📝 Quiz requests response:', quizData);
+          
+          // Validate it's an array before setting
+          if (Array.isArray(quizData)) {
+            setQuizRequests(quizData);
+          } else {
+            console.error('❌ Quiz data is not an array:', quizData);
+            setQuizRequests([]);
+          }
+        } else {
+          console.warn('⚠️ Failed to load quiz requests:', quizRes.status, quizRes.statusText);
+          setQuizRequests([]);
         }
+      } catch (quizError) {
+        console.error('❌ Error fetching quiz requests:', quizError);
+        setQuizRequests([]);
       }
       
       console.log('✅ Tutor data loaded successfully');
@@ -495,11 +504,14 @@ export default function TutorAdminPortal() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Course image uploaded successfully!');
+        toast.success('✅ Course image uploaded successfully! Users will see it when they refresh.');
         setCurrentImageUrl(data.imageUrl);
         setSelectedImage(null);
         setImagePreview(null);
         loadTutorData();
+        
+        // Trigger module reload in Learning Context for all users
+        window.dispatchEvent(new CustomEvent('modules-updated'));
       } else {
         toast.error('Failed to upload image: ' + (data.error || 'Unknown error'));
       }
@@ -523,9 +535,12 @@ export default function TutorAdminPortal() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Course image deleted successfully!');
+        toast.success('✅ Course image deleted successfully! Users will see changes when they refresh.');
         setCurrentImageUrl(null);
         loadTutorData();
+        
+        // Trigger module reload in Learning Context for all users
+        window.dispatchEvent(new CustomEvent('modules-updated'));
       } else {
         toast.error('Failed to delete image: ' + (data.error || 'Unknown error'));
       }
