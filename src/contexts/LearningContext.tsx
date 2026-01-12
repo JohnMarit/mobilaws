@@ -40,6 +40,7 @@ interface LearningContextValue {
   progress: LearningState;
   dailyLessonsRemaining: number;
   canTakeLesson: boolean;
+  modulesLoading: boolean; // Expose loading state
   startLesson: (moduleId: string, lessonId: string) => void;
   completeLesson: (moduleId: string, lessonId: string, score: number) => void;
   deductXp: (amount: number) => void;
@@ -177,6 +178,7 @@ interface GeneratedModule {
   title: string;
   description: string;
   icon: string;
+  imageUrl?: string; // Course profile image
   lessons: GeneratedLesson[];
   accessLevels: ('free' | 'basic' | 'standard' | 'premium')[];
   tutorId: string;
@@ -371,6 +373,7 @@ async function fetchModulesFromBackend(
 
     const generatedModules: GeneratedModule[] = await response.json();
     console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier`);
+    console.log('🖼️ Modules with images:', generatedModules.filter(m => m.imageUrl).map(m => ({ id: m.id, title: m.title, hasImage: !!m.imageUrl })));
     
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);
@@ -714,6 +717,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
     progress: state,
     dailyLessonsRemaining,
     canTakeLesson,
+    modulesLoading,
     startLesson,
     completeLesson,
     deductXp,

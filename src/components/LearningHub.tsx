@@ -63,7 +63,7 @@ interface LearningHubProps {
 
 export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
-  const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules } = useLearning();
+  const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules, modulesLoading } = useLearning();
 
   // Add refresh button handler
   useEffect(() => {
@@ -495,7 +495,17 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
                   </div>
                 </div>
-                {displayedModules.length === 0 ? (
+                {modulesLoading ? (
+                  <div className="text-center py-12">
+                    <FontAwesomeIcon icon={faSpinner} className="text-5xl mx-auto text-blue-400 mb-4 animate-spin" />
+                    <p className="text-gray-600 text-lg font-medium">
+                      Loading courses...
+                    </p>
+                    <p className="text-gray-500 text-sm mt-2">
+                      Please wait while we fetch the latest courses
+                    </p>
+                  </div>
+                ) : displayedModules.length === 0 ? (
                   <div className="text-center py-12">
                     <FontAwesomeIcon icon={faBookOpen} className="text-5xl mx-auto text-gray-300 mb-4" />
                     <p className="text-gray-500 text-lg">

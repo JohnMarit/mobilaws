@@ -468,7 +468,7 @@ export async function getModulesByAccessLevel(
     
     const modules = snapshot.docs.map(doc => {
       const data = doc.data();
-      console.log(`  - Module: ${data.title} (ID: ${doc.id}, Published: ${data.published}, AccessLevels: ${JSON.stringify(data.accessLevels)})`);
+      console.log(`  - Module: ${data.title} (ID: ${doc.id}, Published: ${data.published}, AccessLevels: ${JSON.stringify(data.accessLevels)}, HasImage: ${!!data.imageUrl})`);
       return {
         id: doc.id,
         ...data
@@ -534,7 +534,13 @@ export async function updateModuleImageUrl(moduleId: string, imageUrl: string | 
 
     await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update(updateData);
 
-    console.log(`✅ Updated module image: ${moduleId}`);
+    console.log(`✅ Updated module image: ${moduleId} (has imageUrl: ${!!imageUrl})`);
+    
+    // Verify the update by reading back
+    const docRef = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    const updatedData = docRef.data();
+    console.log(`🔍 Verification - Module ${moduleId} imageUrl exists: ${!!updatedData?.imageUrl}`);
+    
     return true;
   } catch (error) {
     console.error('❌ Error updating module image:', error);
