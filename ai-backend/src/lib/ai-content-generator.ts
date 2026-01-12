@@ -7,6 +7,7 @@ import OpenAI from 'openai';
 import { env } from '../env';
 import { admin, getFirebaseAuth } from './firebase-admin';
 import fs from 'fs';
+import { saveDocumentPages, DocumentPage } from './document-page-storage';
 
 const GENERATED_MODULES_COLLECTION = 'generatedModules';
 const QUIZ_REQUESTS_COLLECTION = 'quizRequests';
@@ -164,6 +165,113 @@ async function extractDocumentText(filePath: string): Promise<string> {
 }
 
 /**
+ * Extract document text with page information preserved
+ * Returns array of pages with content
+ */
+async function extractDocumentPages(filePath: string): Promise<DocumentPage[]> {
+  const ext = filePath.toLowerCase().split('.').pop();
+  const pages: DocumentPage[] = [];
+  
+  if (ext === 'txt') {
+    // For text files, split by form feed or every ~500 words as a "page"
+    const content = fs.readFileSync(filePath, 'utf-8');
+    
+    // Try to split by form feed characters first
+    let splits = content.split('\f');
+    
+    // If no form feeds, split by approximate page length (2000 characters)
+    if (splits.length === 1) {
+      const CHARS_PER_PAGE = 2000;
+      splits = [];
+      for (let i = 0; i < content.length; i += CHARS_PER_PAGE) {
+        splits.push(content.slice(i, i + CHARS_PER_PAGE));
+      }
+    }
+    
+    splits.forEach((pageContent, index) => {
+      if (pageContent.trim()) {
+        pages.push({
+          pageNumber: index + 1,
+          content: pageContent.trim(),
+          totalPages: splits.length
+        });
+      }
+    });
+    
+    return pages;
+  }
+  
+  if (ext === 'pdf') {
+    // For PDFs, extract page by page if possible
+    const pdfParse = await import('pdf-parse');
+    const dataBuffer = fs.readFileSync(filePath);
+    const data = await pdfParse.default(dataBuffer);
+    
+    // pdf-parse doesn't provide per-page text directly, so we approximate
+    // by dividing the text evenly based on number of pages
+    if (data.numpages && data.numpages > 1) {
+      const avgCharsPerPage = Math.ceil(data.text.length / data.numpages);
+      
+      for (let i = 0; i < data.numpages; i++) {
+        const start = i * avgCharsPerPage;
+        const end = (i + 1) * avgCharsPerPage;
+        const pageContent = data.text.slice(start, end).trim();
+        
+        if (pageContent) {
+          pages.push({
+            pageNumber: i + 1,
+            content: pageContent,
+            totalPages: data.numpages
+          });
+        }
+      }
+    } else {
+      // Single page PDF
+      pages.push({
+        pageNumber: 1,
+        content: data.text.trim(),
+        totalPages: 1
+      });
+    }
+    
+    return pages;
+  }
+  
+  if (ext === 'docx' || ext === 'doc') {
+    // For DOCX, extract and split by page breaks if present
+    const mammoth = await import('mammoth');
+    const result = await mammoth.extractRawText({ path: filePath });
+    const content = result.value;
+    
+    // Split by page break characters or approximate page size
+    let splits = content.split(/\f|\x0C/); // Form feed character
+    
+    // If no page breaks, split by approximate page length (2000 characters)
+    if (splits.length === 1) {
+      const CHARS_PER_PAGE = 2000;
+      splits = [];
+      for (let i = 0; i < content.length; i += CHARS_PER_PAGE) {
+        splits.push(content.slice(i, i + CHARS_PER_PAGE));
+      }
+    }
+    
+    splits.forEach((pageContent, index) => {
+      if (pageContent.trim()) {
+        pages.push({
+          pageNumber: index + 1,
+          content: pageContent.trim(),
+          totalPages: splits.length
+        });
+      }
+    });
+    
+    return pages;
+  }
+  
+  throw new Error(`Unsupported file type: ${ext}`);
+}
+
+/**
  * Generate learning module from document using AI
  */
 export async function generateLearningModule(
@@ -182,6 +290,10 @@ export async function generateLearningModule(
     // Extract text from document
     const documentText = await extractDocumentText(filePath);
     console.log(`📄 Extracted ${documentText.length} characters from document`);
+    
+    // ALSO extract and save document pages for sequential lesson generation
+    const documentPages = await extractDocumentPages(filePath);
+    console.log(`📄 Extracted ${documentPages.length} pages from document`);
     
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -295,6 +407,24 @@ Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educationa
       const docRef = await db.collection(GENERATED_MODULES_COLLECTION).add(module);
       module.id = docRef.id;
       console.log(`✅ Saved generated module: ${module.id}`);
+      
+      // Save document pages for sequential lesson generation
+      if (documentPages.length > 0 && module.id) {
+        const pageStorageId = await saveDocumentPages({
+          moduleId: module.id,
+          contentId: sourceContentId,
+          tutorId,
+          title,
+          totalPages: documentPages.length,
+          pages: documentPages,
+        });
+        
+        if (pageStorageId) {
+          console.log(`✅ Saved ${documentPages.length} document pages for sequential learning`);
+        } else {
+          console.warn('⚠️ Failed to save document pages, but module was saved successfully');
+        }
+      }
     }
 
     return module;

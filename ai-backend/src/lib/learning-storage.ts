@@ -33,6 +33,7 @@ export interface LearningState {
   dailyGoal: number;
   modulesProgress: Record<string, ModuleProgress>;
   dailyLimit: DailyLimitTracking;
+  streakReactivationsRemaining?: number; // Number of reactivations left (0-3)
   updatedAt: admin.firestore.Timestamp;
   createdAt: admin.firestore.Timestamp;
 }

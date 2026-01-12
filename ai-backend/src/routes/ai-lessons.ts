@@ -4,6 +4,7 @@ import { env } from '../env';
 import { admin, getFirestore } from '../lib/firebase-admin';
 import { getRetriever } from '../rag/vectorstore';
 import { Document } from '@langchain/core/documents';
+import { getNextPagesForLessons, updateUserPageProgress, getDocumentProgressPercentage } from '../lib/document-page-storage';
 
 const router = Router();
 
@@ -79,24 +80,58 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
     const moduleData = moduleDoc.data();
     const existingLessons = moduleData?.lessons || [];
 
-    // Retrieve relevant context from uploaded documents using RAG
+    // Get sequential pages for this user (ensures no repetition and complete coverage)
     let documentContext = '';
+    let progressInfo: { startPage: number; endPage: number } | null = null;
+    let currentProgress = 0;
+    
     try {
-      const retriever = await getRetriever();
-      const relevantDocs = await retriever.getRelevantDocuments(
-        `${moduleName} ${moduleData?.description || ''} South Sudan law legal education`
-      );
+      // Get next pages sequentially from where user left off
+      const pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons);
       
-      if (relevantDocs.length > 0) {
-        documentContext = relevantDocs
-          .slice(0, 5) // Use top 5 most relevant documents
-          .map((doc: Document) => doc.pageContent)
-          .join('\n\n');
-        console.log(`📚 Retrieved ${relevantDocs.length} relevant documents from uploaded content`);
+      if (pagesResult && pagesResult.pages.length > 0) {
+        documentContext = pagesResult.pages
+          .map(p => `[Page ${p.pageNumber}]\n${p.content}`)
+          .join('\n\n---\n\n');
+        progressInfo = pagesResult.progressUpdate;
+        currentProgress = await getDocumentProgressPercentage(userId, moduleId);
+        
+        console.log(`📖 Retrieved pages ${progressInfo.startPage}-${progressInfo.endPage} for user ${userId}`);
+        console.log(`📊 User progress: ${currentProgress}% through document`);
+      } else {
+        // Fallback to RAG if no sequential pages available (for older modules)
+        console.log('⚠️ No sequential pages available, falling back to RAG');
+        const retriever = await getRetriever();
+        const relevantDocs = await retriever.getRelevantDocuments(
+          `${moduleName} ${moduleData?.description || ''} South Sudan law legal education`
+        );
+        
+        if (relevantDocs.length > 0) {
+          documentContext = relevantDocs
+            .slice(0, 5)
+            .map((doc: Document) => doc.pageContent)
+            .join('\n\n');
+          console.log(`📚 Retrieved ${relevantDocs.length} relevant documents from RAG (fallback)`);
+        }
       }
     } catch (error) {
-      console.warn('⚠️ Could not retrieve documents from RAG:', error);
-      // Continue without document context
+      console.warn('⚠️ Could not retrieve sequential pages, using RAG fallback:', error);
+      // Fallback to RAG on error
+      try {
+        const retriever = await getRetriever();
+        const relevantDocs = await retriever.getRelevantDocuments(
+          `${moduleName} ${moduleData?.description || ''} South Sudan law legal education`
+        );
+        
+        if (relevantDocs.length > 0) {
+          documentContext = relevantDocs
+            .slice(0, 5)
+            .map((doc: Document) => doc.pageContent)
+            .join('\n\n');
+        }
+      } catch (ragError) {
+        console.error('❌ RAG fallback also failed:', ragError);
+      }
     }
 
     // Initialize OpenAI
@@ -214,29 +249,35 @@ QUIZ REQUIREMENTS:
 - Vary stems and avoid repeating the same wording
 - Keep difficulty aligned with ${difficulty} mode`;
 
+    const progressMessage = progressInfo 
+      ? `\n📖 SEQUENTIAL LEARNING PATH: You are creating lessons from pages ${progressInfo.startPage}-${progressInfo.endPage} of the document. User has covered ${currentProgress}% of the material so far. Focus ONLY on the content from these specific pages to ensure comprehensive, non-repetitive coverage.\n`
+      : '';
+
     const userPrompt = `Create ${numberOfLessons} new INTERACTIVE lessons for: "${moduleName}"
 
 Difficulty Level: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData?.description || 'South Sudan legal education'}
 Existing Lessons: ${existingLessons.length}
 User Tier: ${tier}
-
+${progressMessage}
 Context from existing lessons:
 ${existingLessons.slice(-2).map((l: any) => `- ${l.title}: ${l.summary || 'No summary'}`).join('\n')}
 
-${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse the following authoritative content from uploaded legal documents as the PRIMARY source:\n\n${documentContext}\n\n=== END REFERENCE MATERIAL ===\n` : ''}
+${documentContext ? `\n=== REFERENCE MATERIAL FROM UPLOADED DOCUMENTS ===\nUse the following authoritative content from uploaded legal documents as the PRIMARY source.\n${progressInfo ? `These are pages ${progressInfo.startPage}-${progressInfo.endPage} in sequential order. Create lessons that progress through this material systematically without skipping content.\n` : ''}\n${documentContext}\n\n=== END REFERENCE MATERIAL ===\n` : ''}
 
 CRITICAL REQUIREMENTS:
 1. Base ALL content on the reference material from uploaded documents above
-2. Create engaging character dialogues that teach the concepts naturally
-3. Design realistic case studies based on South Sudan legal scenarios
-4. Ensure ${difficulty} difficulty throughout:
+2. ${progressInfo ? `IMPORTANT: Cover the material SEQUENTIALLY from the pages provided. Do not skip content or jump around. Each lesson should naturally progress from the previous one, following the document's flow.` : 'Create comprehensive lessons covering different aspects of the topic'}
+3. Create engaging character dialogues that teach the concepts naturally
+4. Design realistic case studies based on South Sudan legal scenarios
+5. Ensure ${difficulty} difficulty throughout:
    ${difficulty === 'simple' ? '- Clear, straightforward concepts\n   - Basic yes/no or simple multiple choice\n   - Guided learning' : ''}
    ${difficulty === 'medium' ? '- Intermediate complexity\n   - Requires critical thinking\n   - Multiple valid perspectives' : ''}
    ${difficulty === 'hard' ? '- Complex legal analysis required\n   - Nuanced scenarios\n   - Deep understanding needed' : ''}
-5. Use South Sudan-specific examples and legal references
-6. Make dialogues feel like real conversations, not lectures
-7. Provide substantial lesson content (not just introductions) and ensure every quiz question can be answered directly from the lesson content or case studies
+6. Use South Sudan-specific examples and legal references
+7. Make dialogues feel like real conversations, not lectures
+8. Provide substantial lesson content (not just introductions) and ensure every quiz question can be answered directly from the lesson content or case studies
+9. ${progressInfo ? `Remember: This is part of a sequential learning journey. The user will see the next set of pages in their next request, so cover everything in these pages thoroughly.` : ''}
 
 Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON format specified above!`;
 
@@ -383,6 +424,22 @@ Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON 
         },
         updatedAt: admin.firestore.Timestamp.now()
       }, { merge: true });
+
+      // Update user's page progress if we used sequential pages
+      if (progressInfo) {
+        const progressUpdateSuccess = await updateUserPageProgress(
+          userId,
+          moduleId,
+          progressInfo.endPage,
+          true
+        );
+        
+        if (progressUpdateSuccess) {
+          console.log(`✅ Updated user page progress to page ${progressInfo.endPage}`);
+        } else {
+          console.warn('⚠️ Failed to update user page progress');
+        }
+      }
     } catch (firestoreError) {
       console.error('❌ Firestore error saving lessons:', firestoreError);
       return res.status(500).json({ 
@@ -393,14 +450,26 @@ Generate ${numberOfLessons} interactive lessons NOW and return them in the JSON 
 
     console.log(`✅ Generated and saved ${newLessons.length} user-specific lessons for user ${userId}, module ${moduleId}`);
 
-    return res.json({
+    // Build response with progress information
+    const response: any = {
       success: true,
       lessons: newLessons,
       totalLessons: existingLessons.length + totalUserLessons,
       message: `Successfully generated ${newLessons.length} new lessons!`,
       requestCount: moduleRequests + 1,
       maxRequests: tier === 'premium' ? 'unlimited' : maxRequests
-    });
+    };
+
+    // Add document progress information if available
+    if (progressInfo) {
+      response.documentProgress = {
+        pagesCompleted: progressInfo.endPage,
+        currentProgress: currentProgress,
+        message: `You've covered ${currentProgress}% of the document (up to page ${progressInfo.endPage}). Keep learning to see more!`
+      };
+    }
+
+    return res.json(response);
 
   } catch (error) {
     console.error('❌ Error generating lessons:', error);

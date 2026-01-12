@@ -4,6 +4,7 @@ import { useAuth } from './FirebaseAuthContext';
 import { type Module, type Lesson, type QuizQuestion } from '@/lib/learningContent';
 import { updateLeaderboardEntry, initLeaderboardEntry, calculateLessonsCompleted } from '@/lib/leaderboard';
 import { getApiUrl } from '@/lib/api';
+import { toast } from 'sonner';
 
 type Tier = 'free' | 'basic' | 'standard' | 'premium';
 
@@ -32,6 +33,7 @@ interface LearningState {
   dailyGoal: number;
   modulesProgress: Record<string, ModuleProgress>;
   dailyLimit: DailyLimitTracking;
+  streakReactivationsRemaining?: number; // Number of reactivations left (0-3)
 }
 
 interface LearningContextValue {
@@ -146,7 +148,8 @@ const defaultState: LearningState = {
   dailyLimit: {
     date: new Date().toISOString().split('T')[0],
     lessonsCompleted: 0
-  }
+  },
+  streakReactivationsRemaining: 3 // Start with 3 reactivations
 };
 
 function getTodayString(): string {
@@ -547,16 +550,45 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   const touchActivity = useCallback(() => {
     setState((prev) => {
       const today = new Date().toDateString();
+      const reactivationsRemaining = prev.streakReactivationsRemaining ?? 3;
+      
       if (!prev.lastActiveDate) {
-        return { ...prev, streak: 1, lastActiveDate: today };
+        return { ...prev, streak: 1, lastActiveDate: today, streakReactivationsRemaining: 3 };
       }
       const diff = daysBetween(prev.lastActiveDate, today);
       if (diff === 0) return prev; // already active today
       if (diff === 1) {
+        // Consecutive day - increment streak
         return { ...prev, streak: prev.streak + 1, lastActiveDate: today };
       }
-      // missed a day - reset streak but mark active
-      return { ...prev, streak: 1, lastActiveDate: today };
+      
+      // Missed a day or more
+      if (reactivationsRemaining > 0) {
+        // Use a reactivation to maintain the streak
+        const newReactivationsRemaining = reactivationsRemaining - 1;
+        const remainingText = newReactivationsRemaining === 0 
+          ? 'This was your last reactivation!' 
+          : `You have ${newReactivationsRemaining} reactivation${newReactivationsRemaining !== 1 ? 's' : ''} remaining.`;
+        
+        toast.warning(`🔥 Streak Reactivated!`, {
+          description: `Your ${prev.streak}-day streak has been saved. ${remainingText}`,
+          duration: 5000,
+        });
+        
+        return { 
+          ...prev, 
+          streak: prev.streak, // Keep the streak
+          lastActiveDate: today,
+          streakReactivationsRemaining: newReactivationsRemaining
+        };
+      } else {
+        // No reactivations left - reset streak
+        toast.error('🔥 Streak Lost', {
+          description: `Your ${prev.streak}-day streak has been reset. Start a new one today!`,
+          duration: 5000,
+        });
+        return { ...prev, streak: 1, lastActiveDate: today, streakReactivationsRemaining: 3 };
+      }
     });
   }, []);
 

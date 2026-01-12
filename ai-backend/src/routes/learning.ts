@@ -29,7 +29,8 @@ router.get('/learning/progress/:userId', async (req: Request, res: Response) => 
         dailyLimit: {
           date: new Date().toISOString().split('T')[0],
           lessonsCompleted: 0
-        }
+        },
+        streakReactivationsRemaining: 3
       });
     }
 
@@ -43,11 +44,11 @@ router.get('/learning/progress/:userId', async (req: Request, res: Response) => 
 /**
  * Save user's learning progress
  * POST /api/learning/progress
- * Body: { userId, xp, level, streak, modulesProgress, dailyGoal, dailyLimit, lastActiveDate? }
+ * Body: { userId, xp, level, streak, modulesProgress, dailyGoal, dailyLimit, lastActiveDate?, streakReactivationsRemaining? }
  */
 router.post('/learning/progress', async (req: Request, res: Response) => {
   try {
-    const { userId, xp, level, streak, modulesProgress, dailyGoal, dailyLimit, lastActiveDate } = req.body;
+    const { userId, xp, level, streak, modulesProgress, dailyGoal, dailyLimit, lastActiveDate, streakReactivationsRemaining } = req.body;
 
     if (!userId || typeof xp !== 'number' || typeof level !== 'number') {
       return res.status(400).json({ error: 'Missing required fields: userId, xp, level' });
@@ -64,7 +65,8 @@ router.post('/learning/progress', async (req: Request, res: Response) => {
       dailyLimit: dailyLimit || {
         date: new Date().toISOString().split('T')[0],
         lessonsCompleted: 0
-      }
+      },
+      streakReactivationsRemaining: streakReactivationsRemaining !== undefined ? streakReactivationsRemaining : 3
     };
 
     const success = await saveLearningProgress(progress);
