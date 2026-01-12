@@ -26,7 +26,7 @@ interface LessonRunnerProps {
 
 export default function LessonRunner({ open, onClose, module, lesson }: LessonRunnerProps) {
   const { user } = useAuth();
-  const { startLesson, completeLesson, deductXp, tier } = useLearning();
+  const { startLesson, completeLesson, tier } = useLearning();
   const { userSubscription } = useSubscription();
   const [currentPhase, setCurrentPhase] = useState<'conversation' | 'case-study' | 'quiz' | 'content'>('conversation');
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
@@ -148,8 +148,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
         completeLesson(module.id, lesson.id, score);
         onClose();
       } else {
-        // Score is below 75% - deduct 20 points and show retake message
-        deductXp(20);
+        // Score is below 75% - show retake message
         setShowRetakeMessage(true);
       }
     }
@@ -317,7 +316,7 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
                     Score: {finalScore}% - Retake Required
                   </div>
                   <AlertDescription className="text-sm sm:text-base leading-relaxed break-words">
-                    You scored {finalScore}%, but you need at least 75% to complete this lesson. 20 points have been deducted from your total. Please review the content and retake the quiz.
+                    You scored {finalScore}%, but you need at least 75% to complete this lesson. Please review the content and retake the quiz.
                   </AlertDescription>
                 </div>
               </div>
