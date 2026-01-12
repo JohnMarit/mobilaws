@@ -7,6 +7,13 @@ import {
   getUserComprehensiveProgress
 } from '../lib/document-migration';
 import { getDocumentProgressPercentage } from '../lib/document-page-storage';
+import {
+  calculateModuleProgress,
+  calculateAllModulesProgress,
+  detectAndFixProgress,
+  getCorrectProgressPercentage,
+  fixAllModulesProgress
+} from '../lib/progress-calculator';
 
 const router = Router();
 
@@ -240,6 +247,169 @@ router.post('/migration/refresh-user-progress', async (req: Request, res: Respon
     console.error('❌ Error refreshing user progress:', error);
     return res.status(500).json({
       error: 'Failed to refresh user progress',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * Get CORRECT page-based progress for a module
+ * GET /api/migration/correct-progress/:userId/:moduleId
+ */
+router.get('/migration/correct-progress/:userId/:moduleId', async (req: Request, res: Response) => {
+  try {
+    const { userId, moduleId } = req.params;
+
+    if (!userId || !moduleId) {
+      return res.status(400).json({ error: 'userId and moduleId are required' });
+    }
+
+    const progress = await calculateModuleProgress(userId, moduleId);
+
+    if (!progress) {
+      return res.status(404).json({ error: 'Module progress not found' });
+    }
+
+    return res.json({
+      success: true,
+      moduleId: progress.moduleId,
+      moduleName: progress.moduleName,
+      pageProgress: {
+        currentPage: progress.currentPage,
+        totalPages: progress.totalPages,
+        percentage: progress.pageProgressPercentage
+      },
+      lessonInfo: {
+        completed: progress.completedLessons,
+        total: progress.totalLessons
+      },
+      hasPageData: progress.hasPageData,
+      lastUpdated: progress.lastUpdated
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting correct progress:', error);
+    return res.status(500).json({
+      error: 'Failed to get progress',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * Get CORRECT progress for all user's modules
+ * GET /api/migration/all-correct-progress/:userId
+ */
+router.get('/migration/all-correct-progress/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const progressList = await calculateAllModulesProgress(userId);
+
+    return res.json({
+      success: true,
+      userId,
+      totalModules: progressList.length,
+      modules: progressList.map(p => ({
+        moduleId: p.moduleId,
+        moduleName: p.moduleName,
+        progress: p.pageProgressPercentage,
+        currentPage: p.currentPage,
+        totalPages: p.totalPages,
+        hasPageData: p.hasPageData,
+        lessons: {
+          completed: p.completedLessons,
+          total: p.totalLessons
+        }
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting all correct progress:', error);
+    return res.status(500).json({
+      error: 'Failed to get progress',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * Detect and fix incorrect progress for a module
+ * POST /api/migration/detect-fix-progress
+ * Body: { userId: string, moduleId: string }
+ */
+router.post('/migration/detect-fix-progress', async (req: Request, res: Response) => {
+  try {
+    const { userId, moduleId } = req.body;
+
+    if (!userId || !moduleId) {
+      return res.status(400).json({ error: 'userId and moduleId are required' });
+    }
+
+    console.log(`🔍 Detecting and fixing progress for user ${userId}, module ${moduleId}`);
+
+    const result = await detectAndFixProgress(userId, moduleId);
+
+    return res.json({
+      success: true,
+      needsFix: result.needsFix,
+      fixed: result.fixed,
+      before: {
+        progress: result.oldProgress,
+        type: 'lesson-based'
+      },
+      after: {
+        progress: result.newProgress,
+        type: 'page-based'
+      },
+      message: result.message
+    });
+
+  } catch (error) {
+    console.error('❌ Error detecting/fixing progress:', error);
+    return res.status(500).json({
+      error: 'Failed to detect/fix progress',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * Fix ALL modules for a user - convert to page-based progress
+ * POST /api/migration/fix-all-progress
+ * Body: { userId: string }
+ */
+router.post('/migration/fix-all-progress', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    console.log(`🔧 Fixing all module progress for user ${userId}`);
+
+    const results = await fixAllModulesProgress(userId);
+
+    return res.json({
+      success: true,
+      summary: {
+        total: results.total,
+        fixed: results.fixed,
+        alreadyCorrect: results.alreadyCorrect,
+        failed: results.failed
+      },
+      details: results.details
+    });
+
+  } catch (error) {
+    console.error('❌ Error fixing all progress:', error);
+    return res.status(500).json({
+      error: 'Failed to fix progress',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
