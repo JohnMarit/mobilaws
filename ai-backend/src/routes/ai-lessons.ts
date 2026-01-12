@@ -5,6 +5,7 @@ import { admin, getFirestore } from '../lib/firebase-admin';
 import { getRetriever } from '../rag/vectorstore';
 import { Document } from '@langchain/core/documents';
 import { getNextPagesForLessons, updateUserPageProgress, getDocumentProgressPercentage } from '../lib/document-page-storage';
+import { migrateModuleDocument, initializeUserPageProgress } from '../lib/document-migration';
 
 const router = Router();
 
@@ -86,8 +87,22 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
     let currentProgress = 0;
     
     try {
-      // Get next pages sequentially from where user left off
-      const pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons);
+      // First, try to get sequential pages
+      let pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons);
+      
+      // If no pages found, try to migrate the module (for old uploads)
+      if (!pagesResult || pagesResult.pages.length === 0) {
+        console.log('📦 No pages found - attempting to migrate old module...');
+        const migrationResult = await migrateModuleDocument(moduleId);
+        
+        if (migrationResult.success || migrationResult.message.includes('already exist')) {
+          // Initialize user progress based on completed lessons
+          await initializeUserPageProgress(userId, moduleId);
+          
+          // Try getting pages again after migration
+          pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons);
+        }
+      }
       
       if (pagesResult && pagesResult.pages.length > 0) {
         documentContext = pagesResult.pages
@@ -99,8 +114,8 @@ router.post('/ai-lessons/generate', async (req: Request, res: Response) => {
         console.log(`📖 Retrieved pages ${progressInfo.startPage}-${progressInfo.endPage} for user ${userId}`);
         console.log(`📊 User progress: ${currentProgress}% through document`);
       } else {
-        // Fallback to RAG if no sequential pages available (for older modules)
-        console.log('⚠️ No sequential pages available, falling back to RAG');
+        // Fallback to RAG if migration failed or no source file available
+        console.log('⚠️ No sequential pages available after migration attempt, falling back to RAG');
         const retriever = await getRetriever();
         const relevantDocs = await retriever.getRelevantDocuments(
           `${moduleName} ${moduleData?.description || ''} South Sudan law legal education`
