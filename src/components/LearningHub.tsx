@@ -1168,15 +1168,30 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
                   </div>
                 </div>
-                {/* Search Input */}
-                <div className="w-full">
+                {/* Search Input with Refresh Button */}
+                <div className="w-full flex gap-2">
                   <Input
                     type="text"
                     placeholder="Search courses..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full"
+                    className="flex-1"
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      reloadModules();
+                      toast.info('🔄 Refreshing courses...');
+                    }}
+                    disabled={modulesLoading}
+                    className="px-3"
+                  >
+                    <FontAwesomeIcon 
+                      icon={faRotateLeft} 
+                      className={modulesLoading ? 'animate-spin' : ''} 
+                    />
+                  </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {filteredModules.map((module) => {
@@ -1184,6 +1199,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     const isExpanded = expandedLessons.has(module.id);
                     const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
                     const isSelected = selectedModuleId === module.id;
+                    
+                    // Debug: Log modules with images
+                    if (module.imageUrl) {
+                      console.log(`📸 Module "${module.title}" has imageUrl:`, module.imageUrl.substring(0, 50) + '...');
+                    }
+                    
                     return (
                       <Card key={module.id} className={`h-full flex flex-col touch-manipulation transition-all duration-300 bg-white border border-blue-100 rounded-2xl shadow-sm ${favorites.has(module.id) ? 'ring-2 ring-blue-400 shadow-lg' : ''}`}>
                         <CardHeader className="pb-2 sm:pb-3 p-3 sm:p-6">

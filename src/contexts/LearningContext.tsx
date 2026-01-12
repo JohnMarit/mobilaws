@@ -530,12 +530,19 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   // Listen for module updates from tutor admin
   useEffect(() => {
     const handleModulesUpdated = () => {
-      console.log('📢 Modules updated event received, reloading...');
-      loadModules();
+      console.log('📢 Modules updated event received, reloading modules...');
+      loadModules().then(() => {
+        console.log('✅ Modules reloaded after update event');
+        toast.success('📚 Course content has been updated!');
+      });
     };
 
+    console.log('👂 LearningContext listening for modules-updated events');
     window.addEventListener('modules-updated', handleModulesUpdated);
-    return () => window.removeEventListener('modules-updated', handleModulesUpdated);
+    return () => {
+      console.log('👋 LearningContext stopped listening for modules-updated events');
+      window.removeEventListener('modules-updated', handleModulesUpdated);
+    };
   }, [loadModules]);
 
   const gatedModules = useMemo(() => modules, [modules]);

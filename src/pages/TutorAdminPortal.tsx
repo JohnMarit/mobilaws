@@ -504,14 +504,19 @@ export default function TutorAdminPortal() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Course image uploaded successfully! Users will see it when they refresh.');
+        console.log('✅ Image upload successful, dispatching event...');
+        toast.success('✅ Course image uploaded successfully!');
         setCurrentImageUrl(data.imageUrl);
         setSelectedImage(null);
         setImagePreview(null);
-        loadTutorData();
+        setIsImageDialogOpen(false);
+        
+        // Reload tutor data first
+        await loadTutorData();
         
         // Trigger module reload in Learning Context for all users
-        window.dispatchEvent(new CustomEvent('modules-updated'));
+        console.log('📢 Dispatching modules-updated event');
+        window.dispatchEvent(new Event('modules-updated'));
       } else {
         toast.error('Failed to upload image: ' + (data.error || 'Unknown error'));
       }
@@ -535,12 +540,17 @@ export default function TutorAdminPortal() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('✅ Course image deleted successfully! Users will see changes when they refresh.');
+        console.log('✅ Image delete successful, dispatching event...');
+        toast.success('✅ Course image deleted successfully!');
         setCurrentImageUrl(null);
-        loadTutorData();
+        setIsImageDialogOpen(false);
+        
+        // Reload tutor data first
+        await loadTutorData();
         
         // Trigger module reload in Learning Context for all users
-        window.dispatchEvent(new CustomEvent('modules-updated'));
+        console.log('📢 Dispatching modules-updated event');
+        window.dispatchEvent(new Event('modules-updated'));
       } else {
         toast.error('Failed to delete image: ' + (data.error || 'Unknown error'));
       }
