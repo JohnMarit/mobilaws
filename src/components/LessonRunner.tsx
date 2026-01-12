@@ -1,11 +1,11 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, XCircle, HelpCircle, ArrowLeft, Award, BookOpen, Sparkles, MessageSquare } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, ArrowLeft, Award, BookOpen, Sparkles, MessageSquare, Volume2 } from 'lucide-react';
 import { Lesson, Module } from '@/lib/learningContent';
 import { useLearning } from '@/contexts/LearningContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
@@ -39,6 +39,10 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const [showQuizRequest, setShowQuizRequest] = useState(false);
   const [showMessageTutor, setShowMessageTutor] = useState(false);
   const [caseStudyScore, setCaseStudyScore] = useState<number | null>(null);
+  
+  // Refs for speech synthesis utterances
+  const questionUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const explanationUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
   // Determine if audio is enabled for this lesson - available for all tiers
   const audioEnabled = useMemo(() => {
@@ -84,6 +88,8 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
+      questionUtteranceRef.current = null;
+      explanationUtteranceRef.current = null;
     }
   }, [open, module.id, lesson.id, startLesson, user, onClose, lesson.type, lesson.conversationalContent, lesson.caseStudies]);
 
@@ -163,6 +169,81 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
     setShowRetakeMessage(false);
     setFinalScore(null);
   };
+
+  // Function to play quiz question audio
+  const playQuestionAudio = (questionText: string) => {
+    if (!('speechSynthesis' in window)) return;
+    
+    // Cancel any existing question audio
+    if (questionUtteranceRef.current) {
+      window.speechSynthesis.cancel();
+    }
+    
+    const utterance = new SpeechSynthesisUtterance(questionText);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    questionUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Function to play explanation audio
+  const playExplanationAudio = (explanationText: string) => {
+    if (!('speechSynthesis' in window)) return;
+    
+    // Cancel any existing explanation audio
+    if (explanationUtteranceRef.current) {
+      window.speechSynthesis.cancel();
+    }
+    
+    const utterance = new SpeechSynthesisUtterance(explanationText);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    explanationUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Auto-play quiz question when quiz index changes
+  useEffect(() => {
+    if (currentPhase === 'quiz' && currentQuizIndex < lesson.quiz.length && !lesson.quiz[currentQuizIndex].locked) {
+      const currentQuiz = lesson.quiz[currentQuizIndex];
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        playQuestionAudio(currentQuiz.question);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPhase, currentQuizIndex, lesson.quiz]);
+
+  // Auto-play explanation when it's shown
+  useEffect(() => {
+    if (showExplanation && currentPhase === 'quiz' && currentQuizIndex < lesson.quiz.length) {
+      const currentQuiz = lesson.quiz[currentQuizIndex];
+      if (!currentQuiz.locked) {
+        // Small delay to ensure UI is ready
+        const timer = setTimeout(() => {
+          playExplanationAudio(currentQuiz.explanation);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [showExplanation, currentPhase, currentQuizIndex, lesson.quiz]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      questionUtteranceRef.current = null;
+      explanationUtteranceRef.current = null;
+    };
+  }, []);
 
   const renderContent = () => {
     return (
@@ -263,7 +344,20 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
             Question {currentQuizIndex + 1} of {lesson.quiz.length}
             {isQuizLocked && <Badge variant="secondary" className="text-xs flex-shrink-0">🔒 Locked</Badge>}
           </CardTitle>
-          <CardDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words">{currentQuiz.question}</CardDescription>
+          <div className="flex items-start gap-2 mt-2">
+            <CardDescription className="text-xs sm:text-sm md:text-base leading-relaxed break-words flex-1">{currentQuiz.question}</CardDescription>
+            {!isQuizLocked && 'speechSynthesis' in window && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => playQuestionAudio(currentQuiz.question)}
+                className="flex-shrink-0 h-8 w-8 p-0"
+                title="Replay question"
+              >
+                <Volume2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6 pt-0 overflow-x-hidden w-full">
           {isQuizLocked ? (
@@ -298,8 +392,19 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
                   <XCircle className="h-5 w-5 sm:h-6 sm:w-6 mt-0.5 flex-shrink-0" />
                 )}
                 <div className="flex-1 min-w-0 break-words">
-                  <div className="font-semibold mb-1 text-sm sm:text-base break-words">
-                    {isCorrect ? 'Correct!' : 'Not quite.'}
+                  <div className="font-semibold mb-1 text-sm sm:text-base break-words flex items-center gap-2">
+                    <span>{isCorrect ? 'Correct!' : 'Not quite.'}</span>
+                    {!isQuizLocked && 'speechSynthesis' in window && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => playExplanationAudio(currentQuiz.explanation)}
+                        className="h-6 w-6 p-0 flex-shrink-0"
+                        title="Replay explanation"
+                      >
+                        <Volume2 className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                   <AlertDescription className="text-sm sm:text-base leading-relaxed break-words">{currentQuiz.explanation}</AlertDescription>
                 </div>
