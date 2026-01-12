@@ -74,9 +74,11 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
     const fetchPageProgress = async () => {
       try {
-        // Fetch correct page-based progress from backend
-        const apiUrl = import.meta.env.VITE_API_URL || 'https://mobilaws-ai-backend.vercel.app';
-        const response = await fetch(`${apiUrl}/api/migration/all-correct-progress/${user.id}`);
+        // Use getApiUrl helper to avoid double /api/ issue
+        const apiUrl = getApiUrl(`migration/all-correct-progress/${user.id}`);
+        console.log(`📊 Fetching page-based progress from: ${apiUrl}`);
+        
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
           console.warn('⚠️ Could not fetch page-based progress, using lesson-based fallback');
@@ -93,6 +95,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             if (moduleData.hasPageData) {
               // Use page-based progress (CORRECT - based on pages covered)
               progressMap[moduleData.moduleId] = moduleData.progress || 0;
+              console.log(`  ✓ ${moduleData.moduleName}: ${moduleData.progress}% (page ${moduleData.currentPage}/${moduleData.totalPages})`);
             }
           });
           

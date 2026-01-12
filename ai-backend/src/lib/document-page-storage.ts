@@ -133,11 +133,21 @@ export async function getDocumentPagesByContentId(contentId: string): Promise<St
 export async function getUserPageProgress(userId: string, moduleId: string): Promise<UserPageProgress | null> {
   try {
     const db = getFirestore();
-    if (!db) return null;
+    if (!db) {
+      console.warn('⚠️ Firestore not available');
+      return null;
+    }
 
     const progressId = `${userId}_${moduleId}`;
     const docRef = db.collection('userPageProgress').doc(progressId);
-    const doc = await docRef.get();
+    
+    let doc;
+    try {
+      doc = await docRef.get();
+    } catch (firestoreError) {
+      console.error(`❌ Error fetching progress document for ${progressId}:`, firestoreError);
+      return null;
+    }
 
     if (doc.exists) {
       return {
@@ -146,35 +156,47 @@ export async function getUserPageProgress(userId: string, moduleId: string): Pro
       } as UserPageProgress;
     }
 
-    // Get document to find total pages
-    const documentPages = await getDocumentPagesByModuleId(moduleId);
+    // Document doesn't exist - try to get page data to create it
+    let documentPages;
+    try {
+      documentPages = await getDocumentPagesByModuleId(moduleId);
+    } catch (pageError) {
+      console.warn(`⚠️ Could not get page data for module ${moduleId}:`, pageError);
+      return null;
+    }
+    
     if (!documentPages) {
-      console.warn(`⚠️ No document found for module: ${moduleId}`);
+      console.warn(`⚠️ No document pages found for module: ${moduleId} (module needs migration)`);
       return null;
     }
 
     // Create new progress tracker starting at page 0
-    const now = admin.firestore.Timestamp.now();
-    const newProgress: Omit<UserPageProgress, 'id'> = {
-      userId,
-      moduleId,
-      contentId: documentPages.contentId,
-      lastPageCovered: 0,
-      totalPagesInDocument: documentPages.totalPages,
-      lessonsGenerated: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
+    try {
+      const now = admin.firestore.Timestamp.now();
+      const newProgress: Omit<UserPageProgress, 'id'> = {
+        userId,
+        moduleId,
+        contentId: documentPages.contentId,
+        lastPageCovered: 0,
+        totalPagesInDocument: documentPages.totalPages,
+        lessonsGenerated: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    await docRef.set(newProgress);
-    
-    console.log(`✅ Created page progress tracker for user ${userId}, module ${moduleId}`);
-    return {
-      id: progressId,
-      ...newProgress,
-    };
+      await docRef.set(newProgress);
+      
+      console.log(`✅ Created page progress tracker for user ${userId}, module ${moduleId}`);
+      return {
+        id: progressId,
+        ...newProgress,
+      };
+    } catch (createError) {
+      console.error(`❌ Error creating progress tracker for ${progressId}:`, createError);
+      return null;
+    }
   } catch (error) {
-    console.error('❌ Error getting user page progress:', error);
+    console.error('❌ Error in getUserPageProgress:', error);
     return null;
   }
 }
