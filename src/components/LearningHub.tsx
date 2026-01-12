@@ -64,6 +64,54 @@ interface LearningHubProps {
 export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules, modulesLoading } = useLearning();
+  
+  // State to store page-based progress for modules
+  const [pageBasedProgress, setPageBasedProgress] = useState<Record<string, number>>({});
+
+  // Fetch CORRECT page-based progress for all modules
+  useEffect(() => {
+    if (!user?.id || modules.length === 0) return;
+
+    const fetchPageProgress = async () => {
+      try {
+        // Fetch correct page-based progress from backend
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://mobilaws-ai-backend.vercel.app';
+        const response = await fetch(`${apiUrl}/api/migration/all-correct-progress/${user.id}`);
+        
+        if (!response.ok) {
+          console.warn('⚠️ Could not fetch page-based progress, using lesson-based fallback');
+          return;
+        }
+
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.modules)) {
+          // Build progress map: moduleId -> percentage
+          const progressMap: Record<string, number> = {};
+          
+          data.modules.forEach((moduleData: any) => {
+            if (moduleData.hasPageData) {
+              // Use page-based progress (CORRECT - based on pages covered)
+              progressMap[moduleData.moduleId] = moduleData.progress || 0;
+            }
+          });
+          
+          setPageBasedProgress(progressMap);
+          console.log(`✅ Loaded page-based progress for ${Object.keys(progressMap).length} modules`);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching page-based progress:', error);
+        // Silently fail - will use lesson-based fallback
+      }
+    };
+
+    fetchPageProgress();
+    
+    // Refresh progress when modules change or user completes lessons
+    const refreshInterval = setInterval(fetchPageProgress, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, [user?.id, modules.length]);
 
   // Add refresh button handler
   useEffect(() => {
@@ -168,6 +216,16 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   };
 
   const moduleStatus = (module: Module) => {
+    // CRITICAL: Use page-based progress if available (CORRECT calculation)
+    const pagePercent = pageBasedProgress[module.id];
+    
+    if (pagePercent !== undefined) {
+      // We have page-based progress - USE THIS (accounts for document pages, not just lessons)
+      const done = pagePercent === 100;
+      return { percent: pagePercent, done };
+    }
+    
+    // Fallback to lesson-based calculation (will be replaced once page progress loads)
     const modProg = getModuleProgress(module.id);
     const totalLessons = module.lessons.length;
     const completedLessons = modProg ? Object.keys(modProg.lessonsCompleted).length : 0;
