@@ -1,3 +1,4 @@
+// ModuleManager - v2.0.0 - Updated Jan 13, 2026
 import { useState, useEffect } from 'react';
 import { getApiUrl } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog,
@@ -425,6 +427,7 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                 onChange={(e) => setGenerateModuleId(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
+                <option value="">Select a module...</option>
                 {modules.map(m => (
                   <option key={m.id} value={m.id}>
                     {m.title} ({m.totalLessons} lessons)
