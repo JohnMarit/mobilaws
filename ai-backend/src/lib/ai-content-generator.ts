@@ -436,13 +436,14 @@ Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educationa
 
 /**
  * Generate additional SHARED lessons for a module (available to all users).
+ * Uses page-based generation from page 1 to end sequentially.
  * Appends lessons directly to generatedModules/{moduleId}.lessons.
  */
 export async function generateSharedLessonsForModule(
   moduleId: string,
   numberOfLessons: number = 5,
   difficulty: 'simple' | 'medium' | 'hard' = 'medium'
-): Promise<{ success: boolean; added: number; message?: string }> {
+): Promise<{ success: boolean; added: number; message?: string; currentPage?: number; totalPages?: number }> {
   const db = getFirestore();
   if (!db) {
     return { success: false, added: 0, message: 'Database not available' };
@@ -455,27 +456,62 @@ export async function generateSharedLessonsForModule(
       return { success: false, added: 0, message: 'Module not found' };
     }
 
-    const moduleData = moduleDoc.data() as GeneratedModule;
-
-    // Get source content to retrieve file path
+    const moduleData = moduleDoc.data() as GeneratedModule & { sharedLessonsLastPage?: number };
     const sourceContentId = moduleData.sourceContentId;
+
     if (!sourceContentId) {
       return { success: false, added: 0, message: 'Module missing sourceContentId' };
     }
 
-    const contentDoc = await db.collection('tutorContent').doc(sourceContentId).get();
-    if (!contentDoc.exists) {
-      return { success: false, added: 0, message: 'Source content not found' };
+    // Get document pages (page-based generation)
+    const { getDocumentPagesByContentId } = await import('./document-page-storage');
+    let documentPagesData = await getDocumentPagesByContentId(sourceContentId);
+    let documentPages = documentPagesData?.pages || [];
+
+    // If no pages exist, try to migrate
+    if (!documentPages || documentPages.length === 0) {
+      console.log(`⚠️ No document pages found for ${sourceContentId}, attempting migration...`);
+      const { migrateModuleDocument } = await import('./document-migration');
+      const migrationResult = await migrateModuleDocument(moduleId);
+      
+      if (migrationResult.success) {
+        documentPagesData = await getDocumentPagesByContentId(sourceContentId);
+        documentPages = documentPagesData?.pages || [];
+      } else {
+        return { success: false, added: 0, message: 'No document pages available and migration failed' };
+      }
     }
 
-    const contentData = contentDoc.data() as any;
-    const filePath = contentData?.filePath;
-    if (!filePath) {
-      return { success: false, added: 0, message: 'Source file path missing' };
+    if (!documentPages || documentPages.length === 0) {
+      return { success: false, added: 0, message: 'No document pages available' };
     }
 
-    // Extract document text for context
-    const documentText = await extractDocumentText(filePath);
+    const totalPages = documentPages.length;
+    const lastPageCovered = moduleData.sharedLessonsLastPage || 0;
+
+    // Check if we've reached the end
+    if (lastPageCovered >= totalPages) {
+      return {
+        success: true,
+        added: 0,
+        message: `All ${totalPages} pages have been covered. Module is complete!`,
+        currentPage: totalPages,
+        totalPages
+      };
+    }
+
+    // Determine pages to generate from
+    const pagesToCover = Math.min(numberOfLessons, totalPages - lastPageCovered);
+    const startPage = lastPageCovered + 1;
+    const endPage = lastPageCovered + pagesToCover;
+
+    // Get content for these pages
+    const contentForAI = documentPages
+      .slice(startPage - 1, endPage)
+      .map((p: any) => `--- Page ${p.pageNumber} ---\n${p.content}`)
+      .join('\n\n');
+
+    console.log(`📚 Generating ${numberOfLessons} shared lessons from pages ${startPage} to ${endPage} of ${totalPages}`);
 
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -486,27 +522,47 @@ export async function generateSharedLessonsForModule(
       hard: 'Hard mode with complex analysis'
     };
 
-    // Build prompt to append lessons
     const systemPrompt = `You are an expert educational content creator for South Sudan law. 
 Create engaging, INTERACTIVE lessons using Duolingo-style pedagogy.
-Return ONLY valid JSON with lessons array.`;
+Return ONLY valid JSON with lessons array in this format:
+{
+  "lessons": [
+    {
+      "id": "lesson-1",
+      "title": "Lesson Title",
+      "content": "<html content>",
+      "summary": "Brief summary",
+      "xpReward": 100,
+      "estimatedMinutes": 10,
+      "quiz": [{"id": "q1", "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "...", "difficulty": "medium", "points": 10}],
+      "tips": ["tip1", "tip2"],
+      "examples": ["example1"],
+      "keyTerms": [{"term": "term", "definition": "def"}]
+    }
+  ]
+}`;
 
-    const userPrompt = `Create ${numberOfLessons} new lessons for module "${moduleData.title}"
+    const userPrompt = `Create ${numberOfLessons} new SEQUENTIAL lessons for module "${moduleData.title}"
 
 Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData.description || 'South Sudan legal education'}
-Existing Lessons: ${moduleData.lessons?.length || 0}
+Existing Shared Lessons: ${moduleData.lessons?.length || 0}
+Current Progress: Pages ${startPage}-${endPage} of ${totalPages}
 
-=== REFERENCE MATERIAL FROM UPLOADED DOCUMENT ===
-${documentText.slice(0, 12000)}
-=== END REFERENCE MATERIAL ===
+=== DOCUMENT PAGES FOR THIS BATCH ===
+${contentForAI}
+=== END DOCUMENT PAGES ===
 
-CRITICAL:
-- Base ALL content on the document above
-- Ensure lessons are answerable from the content
-- Provide quizzes with explanations
-- Keep difficulty at ${difficulty}
-`;
+CRITICAL REQUIREMENTS:
+1. Base ALL content ONLY on the document pages above (pages ${startPage}-${endPage})
+2. Create lessons in SEQUENTIAL order following the document
+3. Ensure content is directly answerable from provided pages
+4. Do NOT repeat content from previous pages (1-${lastPageCovered})
+5. Keep difficulty at ${difficulty}
+6. Include 3-5 quiz questions per lesson
+7. Provide clear explanations for quiz answers
+
+Create ${numberOfLessons} high-quality, sequential lessons now!`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -545,10 +601,12 @@ CRITICAL:
       lesson.userGenerated = false;
       lesson.accessLevels = moduleData.accessLevels || ['free', 'basic', 'standard', 'premium'];
       lesson.difficulty = difficulty;
+      lesson.fromPages = { start: startPage, end: endPage }; // Track which pages this came from
       if (Array.isArray(lesson.quiz)) {
         lesson.quiz.forEach((q: any, qIndex: number) => {
           q.id = q.id || `q-${timestamp}-${index}-${qIndex}`;
           q.points = q.points || 10;
+          q.difficulty = q.difficulty || difficulty;
         });
       }
     });
@@ -558,16 +616,25 @@ CRITICAL:
     const totalXp = updatedLessons.reduce((sum, l: any) => sum + (l.xpReward || 0), 0);
     const estimatedHours = updatedLessons.reduce((sum, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
 
+    // Update module with new lessons and page tracking
     await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
       lessons: updatedLessons,
       totalLessons: updatedLessons.length,
       totalXp,
       estimatedHours: Math.round(estimatedHours * 10) / 10,
+      sharedLessonsLastPage: endPage, // Track progress through document
       updatedAt: admin.firestore.Timestamp.now(),
     });
 
-    console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId}`);
-    return { success: true, added: newLessons.length, message: 'Shared lessons generated' };
+    console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (pages ${startPage}-${endPage}/${totalPages})`);
+    
+    return {
+      success: true,
+      added: newLessons.length,
+      message: `Generated ${newLessons.length} lessons from pages ${startPage}-${endPage}. Progress: ${Math.round((endPage / totalPages) * 100)}%`,
+      currentPage: endPage,
+      totalPages
+    };
   } catch (error) {
     console.error('❌ Error generating shared lessons:', error);
     return { success: false, added: 0, message: error instanceof Error ? error.message : 'Unknown error' };

@@ -106,6 +106,10 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
   const [modules, setModules] = useState<GeneratedModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<GeneratedModule | null>(null);
+  const [generateModuleId, setGenerateModuleId] = useState<string>('');
+  const [generateCount, setGenerateCount] = useState<number>(5);
+  const [generateDifficulty, setGenerateDifficulty] = useState<'simple' | 'medium' | 'hard'>('medium');
+  const [isGeneratingShared, setIsGeneratingShared] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAccessLevels, setEditingAccessLevels] = useState<{
     moduleAccessLevels: string[];
@@ -141,6 +145,9 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
       console.log('📊 Number of modules:', data?.length || 0);
       
       setModules(data || []);
+      if (data && data.length > 0 && !generateModuleId) {
+        setGenerateModuleId(data[0].id);
+      }
       
       if (!data || data.length === 0) {
         console.warn('⚠️ No modules found for tutor:', tutorId);
@@ -305,6 +312,60 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
     return date.toLocaleDateString();
   };
 
+  const handleGenerateSharedLessons = async () => {
+    if (!generateModuleId) {
+      toast.error('Please select a module');
+      return;
+    }
+
+    if (generateCount < 1) {
+      toast.error('Number of lessons must be at least 1');
+      return;
+    }
+
+    setIsGeneratingShared(true);
+    try {
+      const response = await fetch(getApiUrl('tutor-admin/generate-public-lessons'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          moduleId: generateModuleId,
+          numberOfLessons: generateCount,
+          difficulty: generateDifficulty,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || data.message || 'Failed to generate lessons');
+      }
+
+      // Show detailed progress message
+      if (data.currentPage && data.totalPages) {
+        const progressPercent = Math.round((data.currentPage / data.totalPages) * 100);
+        toast.success(
+          `✅ Generated ${data.added} lesson(s)! Progress: ${progressPercent}% (page ${data.currentPage}/${data.totalPages})`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.success(`✅ Generated ${data.added || generateCount} shared lesson(s)!`);
+      }
+      
+      // Reload modules to show new lessons
+      await loadModules();
+      
+      // Notify all users to reload modules
+      window.dispatchEvent(new Event('modules-updated'));
+      
+      console.log('📚 Shared lessons generated and modules refreshed');
+    } catch (error) {
+      console.error('Error generating shared lessons:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate shared lessons');
+    } finally {
+      setIsGeneratingShared(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
@@ -343,6 +404,85 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
           {modules.length} Module{modules.length !== 1 ? 's' : ''}
         </Badge>
       </div>
+
+      {/* Shared Lessons Generator */}
+      <Card className="border-blue-200 bg-blue-50/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-blue-600" />
+            Generate Shared Lessons (All Users)
+          </CardTitle>
+          <CardDescription>
+            Quickly generate lessons once and make them available to every learner. Faster load, no per-user generation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="space-y-1">
+              <Label className="text-sm text-gray-700">Module</Label>
+              <select
+                value={generateModuleId}
+                onChange={(e) => setGenerateModuleId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {modules.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.title} ({m.totalLessons} lessons)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm text-gray-700">Number of Lessons</Label>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={generateCount}
+                onChange={(e) => setGenerateCount(Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">Recommended: 3-10</p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm text-gray-700">Difficulty</Label>
+              <select
+                value={generateDifficulty}
+                onChange={(e) => setGenerateDifficulty(e.target.value as 'simple' | 'medium' | 'hard')}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="simple">Simple</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <p className="text-xs sm:text-sm text-gray-600">
+              Shared lessons are stored on the module and load instantly for all users. Perfect to reduce per-user generation time.
+            </p>
+            <Button
+              onClick={handleGenerateSharedLessons}
+              disabled={isGeneratingShared || !generateModuleId}
+              className="gap-2"
+            >
+              {isGeneratingShared ? (
+                <>
+                  <Sparkles className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generate Shared Lessons
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 sm:gap-4">
         {modules.map((module) => (

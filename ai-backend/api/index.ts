@@ -35,36 +35,31 @@ import documentMigrationRouter from '../src/routes/document-migration';
 const app = express();
 
 // Parse CORS origins from environment
-const corsOriginsString = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173,https://www.mobilaws.com,https://mobilaws.com';
+const corsOriginsString = process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173,https://www.mobilaws.com,https://mobilaws.com,https://mobilaws-ympe.vercel.app';
 const corsOrigins = corsOriginsString.split(',').map(origin => origin.trim());
 
 console.log('🌐 CORS Origins:', corsOrigins);
 
-// CORS configuration
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-    
-    // Check if origin is in whitelist
-    if (corsOrigins.includes(origin)) {
-      return callback(null, true);
+    // Always allow - this is a public API
+    // Log origin for debugging
+    if (origin) {
+      console.log(`📨 Request from origin: ${origin}`);
     }
-    
-    // In development, allow localhost with any port
-    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    console.warn(`⚠️  CORS blocked origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
+    callback(null, true);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Admin-Email', 'X-Admin-Token'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Admin-Email', 'X-Admin-Token', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   maxAge: 86400, // 24 hours
-}));
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+});
+
+// Apply CORS to all routes
+app.use(corsMiddleware);
 
 // Body parsing middleware
 app.use(express.json({ limit: '20mb' }));

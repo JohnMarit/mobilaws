@@ -12,6 +12,9 @@ function getFirestore(): admin.firestore.Firestore | null {
   return admin.firestore();
 }
 
+// Cache modules whose source files are missing to avoid repeated migration attempts/log spam
+const missingSourceFileModules = new Set<string>();
+
 export interface ModuleProgressData {
   moduleId: string;
   moduleName: string;
@@ -54,7 +57,7 @@ export async function calculateModuleProgress(
     let documentPages = await getDocumentPagesByModuleId(moduleId);
 
     // Auto-migrate modules that don't have page data yet
-    if (!documentPages) {
+  if (!documentPages && !missingSourceFileModules.has(moduleId)) {
       console.warn(`⚠️ No document pages found for module ${moduleId} - attempting migration`);
       try {
         const { migrateModuleDocument, initializeUserPageProgress } = await import('./document-migration');
@@ -66,6 +69,9 @@ export async function calculateModuleProgress(
           documentPages = await getDocumentPagesByModuleId(moduleId);
           pageProgress = await getUserPageProgress(userId, moduleId);
           console.log(`✅ Migration complete for module ${moduleId}; page data now available`);
+      } else if (migrationResult.message?.toLowerCase().includes('source file not found')) {
+        console.warn(`⚠️ Source file missing for module ${moduleId}. Skipping further migration attempts this session.`);
+        missingSourceFileModules.add(moduleId);
         } else {
           console.warn(`⚠️ Migration failed for module ${moduleId}: ${migrationResult.message}`);
         }
