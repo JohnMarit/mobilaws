@@ -435,6 +435,146 @@ Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educationa
 }
 
 /**
+ * Generate additional SHARED lessons for a module (available to all users).
+ * Appends lessons directly to generatedModules/{moduleId}.lessons.
+ */
+export async function generateSharedLessonsForModule(
+  moduleId: string,
+  numberOfLessons: number = 5,
+  difficulty: 'simple' | 'medium' | 'hard' = 'medium'
+): Promise<{ success: boolean; added: number; message?: string }> {
+  const db = getFirestore();
+  if (!db) {
+    return { success: false, added: 0, message: 'Database not available' };
+  }
+
+  try {
+    // Get module
+    const moduleDoc = await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).get();
+    if (!moduleDoc.exists) {
+      return { success: false, added: 0, message: 'Module not found' };
+    }
+
+    const moduleData = moduleDoc.data() as GeneratedModule;
+
+    // Get source content to retrieve file path
+    const sourceContentId = moduleData.sourceContentId;
+    if (!sourceContentId) {
+      return { success: false, added: 0, message: 'Module missing sourceContentId' };
+    }
+
+    const contentDoc = await db.collection('tutorContent').doc(sourceContentId).get();
+    if (!contentDoc.exists) {
+      return { success: false, added: 0, message: 'Source content not found' };
+    }
+
+    const contentData = contentDoc.data() as any;
+    const filePath = contentData?.filePath;
+    if (!filePath) {
+      return { success: false, added: 0, message: 'Source file path missing' };
+    }
+
+    // Extract document text for context
+    const documentText = await extractDocumentText(filePath);
+
+    // Initialize OpenAI
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+
+    const difficultyDescriptions = {
+      simple: 'Simple mode with clear explanations and guided learning',
+      medium: 'Medium difficulty with intermediate scenarios',
+      hard: 'Hard mode with complex analysis'
+    };
+
+    // Build prompt to append lessons
+    const systemPrompt = `You are an expert educational content creator for South Sudan law. 
+Create engaging, INTERACTIVE lessons using Duolingo-style pedagogy.
+Return ONLY valid JSON with lessons array.`;
+
+    const userPrompt = `Create ${numberOfLessons} new lessons for module "${moduleData.title}"
+
+Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
+Module Description: ${moduleData.description || 'South Sudan legal education'}
+Existing Lessons: ${moduleData.lessons?.length || 0}
+
+=== REFERENCE MATERIAL FROM UPLOADED DOCUMENT ===
+${documentText.slice(0, 12000)}
+=== END REFERENCE MATERIAL ===
+
+CRITICAL:
+- Base ALL content on the document above
+- Ensure lessons are answerable from the content
+- Provide quizzes with explanations
+- Keep difficulty at ${difficulty}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 12000,
+      response_format: { type: 'json_object' }
+    });
+
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) {
+      return { success: false, added: 0, message: 'Empty response from OpenAI' };
+    }
+
+    let newLessons: any[] = [];
+    try {
+      const parsed = JSON.parse(responseContent);
+      newLessons = parsed.lessons || [];
+    } catch (err) {
+      console.error('❌ Failed to parse AI response:', err);
+      return { success: false, added: 0, message: 'Failed to parse AI response' };
+    }
+
+    if (newLessons.length === 0) {
+      return { success: false, added: 0, message: 'AI did not generate lessons' };
+    }
+
+    // Normalize lessons and quizzes
+    const timestamp = Date.now();
+    newLessons.forEach((lesson: any, index: number) => {
+      lesson.id = lesson.id || `shared-${timestamp}-${index}`;
+      lesson.hasAudio = true;
+      lesson.userGenerated = false;
+      lesson.accessLevels = moduleData.accessLevels || ['free', 'basic', 'standard', 'premium'];
+      lesson.difficulty = difficulty;
+      if (Array.isArray(lesson.quiz)) {
+        lesson.quiz.forEach((q: any, qIndex: number) => {
+          q.id = q.id || `q-${timestamp}-${index}-${qIndex}`;
+          q.points = q.points || 10;
+        });
+      }
+    });
+
+    // Append to module
+    const updatedLessons = [...(moduleData.lessons || []), ...newLessons];
+    const totalXp = updatedLessons.reduce((sum, l: any) => sum + (l.xpReward || 0), 0);
+    const estimatedHours = updatedLessons.reduce((sum, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
+
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      lessons: updatedLessons,
+      totalLessons: updatedLessons.length,
+      totalXp,
+      estimatedHours: Math.round(estimatedHours * 10) / 10,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId}`);
+    return { success: true, added: newLessons.length, message: 'Shared lessons generated' };
+  } catch (error) {
+    console.error('❌ Error generating shared lessons:', error);
+    return { success: false, added: 0, message: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
  * Generate additional quizzes based on user request
  */
 export async function generateAdditionalQuizzes(

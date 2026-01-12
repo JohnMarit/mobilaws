@@ -187,7 +187,8 @@ router.get('/migration/user-progress/:userId', async (req: Request, res: Respons
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const progressList = await getUserComprehensiveProgress(userId);
+    // Use page-based calculator (auto-migrates modules missing page data)
+    const progressList = await calculateAllModulesProgress(userId);
 
     return res.json({
       success: true,

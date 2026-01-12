@@ -42,6 +42,7 @@ import {
 } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
 import { admin, getFirestore } from '../lib/firebase-admin';
+import { generateSharedLessonsForModule } from '../lib/ai-content-generator';
 
 const router = Router();
 
@@ -317,6 +318,36 @@ router.post('/tutor-admin/upload', upload.single('file'), async (req: Request, r
       error: 'Upload failed',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
+  }
+});
+
+/**
+ * Generate shared lessons for a module (available to all users)
+ * POST /api/tutor-admin/generate-public-lessons
+ * Body: { moduleId: string, numberOfLessons?: number, difficulty?: 'simple' | 'medium' | 'hard' }
+ */
+router.post('/tutor-admin/generate-public-lessons', async (req: Request, res: Response) => {
+  try {
+    const { moduleId, numberOfLessons = 5, difficulty = 'medium' } = req.body;
+
+    if (!moduleId) {
+      return res.status(400).json({ error: 'moduleId is required' });
+    }
+
+    const result = await generateSharedLessonsForModule(moduleId, numberOfLessons, difficulty);
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.message || 'Failed to generate lessons' });
+    }
+
+    return res.json({
+      success: true,
+      added: result.added,
+      message: result.message || `Generated ${result.added} lessons`,
+    });
+  } catch (error) {
+    console.error('❌ Error generating public lessons:', error);
+    return res.status(500).json({ error: 'Failed to generate lessons' });
   }
 });
 

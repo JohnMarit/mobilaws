@@ -50,8 +50,29 @@ export async function calculateModuleProgress(
     const moduleName = moduleData?.title || 'Unknown Module';
 
     // Get page progress (PRIMARY SOURCE OF TRUTH)
-    const pageProgress = await getUserPageProgress(userId, moduleId);
-    const documentPages = await getDocumentPagesByModuleId(moduleId);
+    let pageProgress = await getUserPageProgress(userId, moduleId);
+    let documentPages = await getDocumentPagesByModuleId(moduleId);
+
+    // Auto-migrate modules that don't have page data yet
+    if (!documentPages) {
+      console.warn(`⚠️ No document pages found for module ${moduleId} - attempting migration`);
+      try {
+        const { migrateModuleDocument, initializeUserPageProgress } = await import('./document-migration');
+        const migrationResult = await migrateModuleDocument(moduleId);
+        if (migrationResult.success || migrationResult.message.includes('already exist')) {
+          // Initialize user progress after migration
+          await initializeUserPageProgress(userId, moduleId);
+          // Re-fetch page data and progress
+          documentPages = await getDocumentPagesByModuleId(moduleId);
+          pageProgress = await getUserPageProgress(userId, moduleId);
+          console.log(`✅ Migration complete for module ${moduleId}; page data now available`);
+        } else {
+          console.warn(`⚠️ Migration failed for module ${moduleId}: ${migrationResult.message}`);
+        }
+      } catch (migErr) {
+        console.error(`❌ Auto-migration error for module ${moduleId}:`, migErr);
+      }
+    }
 
     let totalPages = 0;
     let currentPage = 0;
