@@ -369,10 +369,7 @@ async function fetchModulesFromBackend(
     console.log(`📚 Fetching modules for tier: ${accessLevel} from ${urlWithTimestamp}`);
     
     const response = await fetch(urlWithTimestamp, {
-      cache: 'no-store', // Disable caching
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
+      cache: 'no-store' // Disable caching (timestamp also prevents caching)
     });
     
     if (!response.ok) {

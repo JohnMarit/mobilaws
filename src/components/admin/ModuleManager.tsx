@@ -146,10 +146,7 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
       const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}?t=${timestamp}`);
       console.log('📡 Fetching from:', url);
       const response = await fetch(url, {
-        cache: 'no-store', // Disable caching
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
+        cache: 'no-store' // Disable caching (timestamp also prevents caching)
       });
       console.log('📥 Response status:', response.status);
       
