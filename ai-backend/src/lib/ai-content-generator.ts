@@ -1147,6 +1147,12 @@ export async function getModulesByAccessLevel(
         // Deduplicate by lesson id to avoid duplicates on refreshes
         const uniqueLessons = Array.from(new Map(allLessons.map((l: any) => [l.id, l])).values());
         
+        // Track if lesson counts mismatch metadata
+        const metadataTotal = (data as any)?.totalLessons;
+        if (metadataTotal !== undefined && metadataTotal !== uniqueLessons.length) {
+          console.warn(`⚠️ totalLessons metadata mismatch for module ${moduleId}: metadata=${metadataTotal}, actual=${uniqueLessons.length}`);
+        }
+        
         console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
         
         return {
@@ -1154,7 +1160,9 @@ export async function getModulesByAccessLevel(
           ...data,
           lessons: uniqueLessons,
           // Keep metadata in sync with actual lessons returned
-          totalLessons: uniqueLessons.length
+          totalLessons: uniqueLessons.length,
+          sharedLessonsLastPage: (data as any)?.sharedLessonsLastPage,
+          documentTotalPages: (data as any)?.documentTotalPages
         } as GeneratedModule;
       } catch (error) {
         console.error(`❌ Error processing module ${doc.id}:`, error);
@@ -1518,8 +1526,8 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
       // Fetch lessons from both array and subcollection for each module
       const modules = await Promise.all(snapshot.docs.map(async (doc) => {
         try {
-          const data = doc.data();
-          const moduleId = doc.id;
+      const data = doc.data();
+      const moduleId = doc.id;
           
           // Get lessons from array (backward compatibility)
           const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
@@ -1541,12 +1549,14 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
             console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
           }
           
-          return {
-            id: moduleId,
-            ...data,
-            lessons: uniqueLessons,
-            totalLessons: uniqueLessons.length
-          } as GeneratedModule;
+            return {
+              id: moduleId,
+              ...data,
+              lessons: uniqueLessons,
+              totalLessons: uniqueLessons.length,
+              sharedLessonsLastPage: (data as any)?.sharedLessonsLastPage,
+              documentTotalPages: (data as any)?.documentTotalPages
+            } as GeneratedModule;
         } catch (error) {
           console.error(`❌ Error processing tutor module ${doc.id}:`, error);
           // Return module with just array lessons as fallback
