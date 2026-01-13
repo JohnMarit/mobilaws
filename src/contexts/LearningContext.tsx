@@ -362,10 +362,17 @@ async function fetchModulesFromBackend(
   userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
   try {
+    // Add timestamp to prevent caching issues
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
-    console.log(`📚 Fetching modules for tier: ${accessLevel} from ${apiUrl}`);
+    const urlWithTimestamp = `${apiUrl}?t=${Date.now()}`;
+    console.log(`📚 Fetching modules for tier: ${accessLevel} from ${urlWithTimestamp}`);
     
-    const response = await fetch(apiUrl);
+    const response = await fetch(urlWithTimestamp, {
+      cache: 'no-store', // Prevent browser caching
+      headers: {
+        'Cache-Control': 'no-cache',
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -375,10 +382,17 @@ async function fetchModulesFromBackend(
     }
 
     const generatedModules: GeneratedModule[] = await response.json();
-    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier (${generatedModules.filter(m => m.imageUrl).length} with images)`);
+    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier`);
+    
+    // Log raw module data to see what backend is sending
+    generatedModules.forEach(m => {
+      const lessonCount = Array.isArray(m.lessons) ? m.lessons.length : 0;
+      console.log(`   📦 Backend module "${m.title}": ${lessonCount} lessons (published: ${m.published})`);
+    });
     
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);
+    console.log(`📋 ${publishedModules.length} published module(s) after filtering`);
     
     // Convert to frontend format with progress and merge user-specific lessons
     return publishedModules.map(m => {
@@ -398,7 +412,7 @@ async function fetchModulesFromBackend(
         ...userModuleLessons
       ];
       
-      console.log(`📊 Module "${m.title}": ${moduleLessons.length} base + ${userModuleLessons.length} user-generated = ${allLessons.length} total lessons (${completedCount} completed in progress)`);
+      console.log(`📊 Module "${m.title}": ${moduleLessons.length} backend + ${userModuleLessons.length} user-specific = ${allLessons.length} total lessons (${completedCount} completed)`);
       
       const moduleWithLessons: GeneratedModule = {
         ...m,

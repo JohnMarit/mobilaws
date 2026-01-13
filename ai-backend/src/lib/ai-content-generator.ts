@@ -1118,20 +1118,18 @@ export async function getModulesByAccessLevel(
       // Always check subcollection for shared lessons (they're stored there to avoid size limits)
       let sharedLessons: any[] = [];
       try {
+        console.log(`🔍 Checking subcollection for module ${moduleId} (${data.title})...`);
         sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+        console.log(`   ✅ Found ${sharedLessons.length} shared lessons in subcollection`);
       } catch (error) {
         // Subcollection might not exist for older modules - that's okay
-        console.debug(`No shared lessons subcollection for module ${moduleId} (this is normal for older modules):`, error);
+        console.log(`   ℹ️  No shared lessons subcollection for module ${moduleId}:`, error);
       }
       
       // Merge lessons: array lessons first, then shared lessons from subcollection
       const allLessons = [...arrayLessons, ...sharedLessons];
       
-      if (sharedLessons.length > 0) {
-        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
-      } else if (arrayLessons.length > 0) {
-        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} lessons (array only, no shared subcollection)`);
-      }
+      console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
       
       return {
         id: moduleId,
@@ -1140,19 +1138,19 @@ export async function getModulesByAccessLevel(
       } as GeneratedModule;
     }));
     
-    console.log(`  - ${modules.filter(m => m.imageUrl).length} module(s) have images`);
-    
     // Log summary of lessons
     const totalLessons = modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
-    const modulesWithSharedLessons = modules.filter(m => {
-      const arrayCount = Array.isArray(m.lessons) ? m.lessons.length : 0;
-      // If module has more lessons than what's in the array, it likely has shared lessons
-      return arrayCount > 0 && (m.lessons?.length || 0) > arrayCount;
-    }).length;
-    console.log(`  - Total lessons across all modules: ${totalLessons}`);
-    if (modulesWithSharedLessons > 0) {
-      console.log(`  - ${modulesWithSharedLessons} module(s) have shared lessons from subcollection`);
-    }
+    const modulesWithLessons = modules.filter(m => (m.lessons?.length || 0) > 0);
+    console.log(`📊 SUMMARY for ${accessLevel} tier:`);
+    console.log(`   - ${modules.length} module(s) total`);
+    console.log(`   - ${modulesWithLessons.length} module(s) have lessons`);
+    console.log(`   - ${totalLessons} total lessons across all modules`);
+    console.log(`   - ${modules.filter(m => m.imageUrl).length} module(s) have images`);
+    
+    // Log each module's lesson count for debugging
+    modules.forEach(m => {
+      console.log(`   📖 "${m.title}": ${m.lessons?.length || 0} lessons`);
+    });
 
     return modules;
   } catch (error: any) {
