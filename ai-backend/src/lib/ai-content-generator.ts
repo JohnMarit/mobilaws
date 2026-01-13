@@ -443,7 +443,18 @@ export async function generateSharedLessonsForModule(
   moduleId: string,
   numberOfLessons: number = 5,
   difficulty: 'simple' | 'medium' | 'hard' = 'medium'
-): Promise<{ success: boolean; added: number; message?: string; currentPage?: number; totalPages?: number }> {
+): Promise<{ 
+  success: boolean; 
+  added: number; 
+  message?: string; 
+  currentPage?: number; 
+  totalPages?: number;
+  pagesCovered?: number;
+  pagesRemaining?: number;
+  startPage?: number;
+  endPage?: number;
+  useFallback?: boolean;
+}> {
   const db = getFirestore();
   if (!db) {
     return { success: false, added: 0, message: 'Database not available' };
