@@ -44,6 +44,10 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
   const questionUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const explanationUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
+  // Track the last lesson ID to prevent resetting when lesson object reference changes
+  const lastLessonIdRef = useRef<string | null>(null);
+  const lastModuleIdRef = useRef<string | null>(null);
+  
   // Determine if audio is enabled for this lesson - available for all tiers
   const audioEnabled = useMemo(() => {
     // Audio is available for all plans (free, basic, standard, premium) if lesson has audio
@@ -64,34 +68,49 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
         onClose();
         return;
       }
-      startLesson(module.id, lesson.id);
       
-      // Determine initial phase based on lesson type
-      const lessonType = lesson.type || 'traditional';
-      if (lessonType === 'conversational' && lesson.conversationalContent) {
-        setCurrentPhase('conversation');
-      } else if (lessonType === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
-        setCurrentPhase('case-study');
-      } else {
-        setCurrentPhase('content');
-      }
+      // Only reset lesson state if this is a different lesson or module
+      const isNewLesson = lastLessonIdRef.current !== lesson.id || lastModuleIdRef.current !== module.id;
       
-      setCurrentQuizIndex(0);
-      setQuizAnswers([]);
-      setSelectedOption(null);
-      setShowExplanation(false);
-      setCurrentSentenceIndex(-1);
-      setShowRetakeMessage(false);
-      setFinalScore(null);
-      setCaseStudyScore(null);
-      // Stop any playing audio when lesson changes
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+      if (isNewLesson) {
+        startLesson(module.id, lesson.id);
+        
+        // Determine initial phase based on lesson type
+        const lessonType = lesson.type || 'traditional';
+        if (lessonType === 'conversational' && lesson.conversationalContent) {
+          setCurrentPhase('conversation');
+        } else if (lessonType === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
+          setCurrentPhase('case-study');
+        } else {
+          setCurrentPhase('content');
+        }
+        
+        setCurrentQuizIndex(0);
+        setQuizAnswers([]);
+        setSelectedOption(null);
+        setShowExplanation(false);
+        setCurrentSentenceIndex(-1);
+        setShowRetakeMessage(false);
+        setFinalScore(null);
+        setCaseStudyScore(null);
+        
+        // Update refs to track current lesson
+        lastLessonIdRef.current = lesson.id;
+        lastModuleIdRef.current = module.id;
+        
+        // Stop any playing audio when lesson changes
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        questionUtteranceRef.current = null;
+        explanationUtteranceRef.current = null;
       }
-      questionUtteranceRef.current = null;
-      explanationUtteranceRef.current = null;
+    } else {
+      // Reset refs when dialog closes
+      lastLessonIdRef.current = null;
+      lastModuleIdRef.current = null;
     }
-  }, [open, module.id, lesson.id, startLesson, user, onClose, lesson.type, lesson.conversationalContent, lesson.caseStudies]);
+  }, [open, module.id, lesson.id, startLesson, user, onClose]);
 
   const handleConversationComplete = () => {
     // After conversation, move to case studies if available
