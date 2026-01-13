@@ -302,7 +302,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       }
 
       const data = await response.json();
-      toast.success(`Generated ${data.lessons.length} new lessons! (${data.requestCount}/${data.maxRequests} requests used)`);
+      const addedCount = data.added || data.lessons?.length || 0;
+      toast.success(`Generated ${addedCount} new lessons!${data.requestCount !== undefined ? ` (${data.requestCount}/${data.maxRequests} requests used)` : ''}`);
       
       // Refresh modules to show new lessons without kicking the user back home
       await reloadModules();
