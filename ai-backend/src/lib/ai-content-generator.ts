@@ -1225,13 +1225,36 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
         .orderBy('createdAt', 'desc')
         .get();
 
-      const modules = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as GeneratedModule[];
+      const modules = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        };
+      }) as GeneratedModule[];
       
       console.log(`✅ Found ${modules.length} module(s) with orderBy`);
+      
+      // Debug: Log page coverage data before enrichment
+      modules.forEach((module, index) => {
+        console.log(`📄 Module ${index + 1} (${module.title}):`, {
+          sharedLessonsLastPage: (module as any).sharedLessonsLastPage,
+          documentTotalPages: (module as any).documentTotalPages,
+          hasSharedLessonsLastPage: (module as any).sharedLessonsLastPage !== undefined
+        });
+      });
+      
       const enrichedModules = await enrichModulesWithPageInfo(modules);
+      
+      // Debug: Log after enrichment
+      enrichedModules.forEach((module, index) => {
+        console.log(`📄 Module ${index + 1} AFTER enrichment:`, {
+          sharedLessonsLastPage: module.sharedLessonsLastPage,
+          documentTotalPages: module.documentTotalPages,
+          hasPageData: module.sharedLessonsLastPage !== undefined && module.documentTotalPages !== undefined
+        });
+      });
+      
       return enrichedModules;
     } catch (indexError: any) {
       // If index error, try without orderBy
@@ -1243,10 +1266,13 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
           .where('tutorId', '==', tutorId)
           .get();
 
-        const modules = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as GeneratedModule[];
+        const modules = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data
+          };
+        }) as GeneratedModule[];
         
         // Sort in memory
         modules.sort((a, b) => {
@@ -1256,7 +1282,27 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
         });
         
         console.log(`✅ Found ${modules.length} module(s) without orderBy (sorted in memory)`);
+        
+        // Debug: Log page coverage data before enrichment
+        modules.forEach((module, index) => {
+          console.log(`📄 Module ${index + 1} (${module.title}):`, {
+            sharedLessonsLastPage: (module as any).sharedLessonsLastPage,
+            documentTotalPages: (module as any).documentTotalPages,
+            hasSharedLessonsLastPage: (module as any).sharedLessonsLastPage !== undefined
+          });
+        });
+        
         const enrichedModules = await enrichModulesWithPageInfo(modules);
+        
+        // Debug: Log after enrichment
+        enrichedModules.forEach((module, index) => {
+          console.log(`📄 Module ${index + 1} AFTER enrichment:`, {
+            sharedLessonsLastPage: module.sharedLessonsLastPage,
+            documentTotalPages: module.documentTotalPages,
+            hasPageData: module.sharedLessonsLastPage !== undefined && module.documentTotalPages !== undefined
+          });
+        });
+        
         return enrichedModules;
       }
       throw indexError;
