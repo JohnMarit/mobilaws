@@ -1268,7 +1268,7 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
               };
               
               // If module was missing documentTotalPages, save it back to Firestore
-              if (needsEnrichment) {
+              if (needsEnrichment && module.id) {
                 try {
                   await db.collection(GENERATED_MODULES_COLLECTION).doc(module.id).update({
                     documentTotalPages: documentPages.totalPages,
