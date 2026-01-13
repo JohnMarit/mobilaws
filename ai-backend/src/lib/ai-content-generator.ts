@@ -532,13 +532,18 @@ export async function generateSharedLessonsForModule(
 
       // Check if we've reached the end
       if (lastPageCovered >= totalPages) {
-        return {
-          success: true,
-          added: 0,
-          message: `All ${totalPages} pages have been covered. Module is complete!`,
-          currentPage: totalPages,
-          totalPages
-        };
+      return {
+        success: true,
+        added: 0,
+        message: `All ${totalPages} pages have been covered. Module is complete!`,
+        currentPage: totalPages,
+        totalPages,
+        pagesCovered: totalPages,
+        pagesRemaining: 0,
+        startPage: totalPages,
+        endPage: totalPages,
+        useFallback: false
+      };
       }
 
       // Determine pages to generate from
@@ -693,6 +698,10 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
     // Only update page tracking if we're using document pages (not fallback)
     if (!useFallbackContent) {
       updateData.sharedLessonsLastPage = endPage; // Track progress through document
+      // Also store total pages if we have document pages
+      if (documentPagesData && documentPagesData.totalPages) {
+        updateData.documentTotalPages = documentPagesData.totalPages;
+      }
     } else {
       // In fallback mode, track by lesson count instead
       updateData.sharedLessonsLastPage = updatedLessons.length;
@@ -703,17 +712,33 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
 
     if (useFallbackContent) {
       console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (using fallback: existing module content)`);
+      return {
+        success: true,
+        added: newLessons.length,
+        message: `Generated ${newLessons.length} lessons using existing module content`,
+        currentPage: endPage,
+        totalPages,
+        pagesCovered: endPage,
+        pagesRemaining: Math.max(0, totalPages - endPage),
+        startPage,
+        endPage,
+        useFallback: true
+      };
     } else {
       console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (pages ${startPage}-${endPage}/${totalPages})`);
+      return {
+        success: true,
+        added: newLessons.length,
+        message: `Generated ${newLessons.length} lessons from pages ${startPage}-${endPage}. Progress: ${Math.round((endPage / totalPages) * 100)}%`,
+        currentPage: endPage,
+        totalPages,
+        pagesCovered: endPage,
+        pagesRemaining: Math.max(0, totalPages - endPage),
+        startPage,
+        endPage,
+        useFallback: false
+      };
     }
-    
-    return {
-      success: true,
-      added: newLessons.length,
-      message: `Generated ${newLessons.length} lessons from pages ${startPage}-${endPage}. Progress: ${Math.round((endPage / totalPages) * 100)}%`,
-      currentPage: endPage,
-      totalPages
-    };
   } catch (error) {
     console.error('❌ Error generating shared lessons:', error);
     return { success: false, added: 0, message: error instanceof Error ? error.message : 'Unknown error' };
@@ -1160,6 +1185,28 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
   try {
     console.log(`🔍 Querying generatedModules for tutorId: ${tutorId}`);
     
+    // Helper to enrich modules with document page information
+    const enrichModulesWithPageInfo = async (modules: GeneratedModule[]): Promise<GeneratedModule[]> => {
+      const { getDocumentPagesByContentId } = await import('./document-page-storage');
+      
+      return Promise.all(modules.map(async (module) => {
+        if (module.sourceContentId) {
+          try {
+            const documentPages = await getDocumentPagesByContentId(module.sourceContentId);
+            if (documentPages) {
+              return {
+                ...module,
+                documentTotalPages: documentPages.totalPages
+              };
+            }
+          } catch (error) {
+            console.warn(`⚠️ Could not fetch document pages for module ${module.id}:`, error);
+          }
+        }
+        return module;
+      }));
+    };
+    
     // Try with orderBy first
     try {
       const snapshot = await db.collection(GENERATED_MODULES_COLLECTION)
@@ -1173,7 +1220,8 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
       })) as GeneratedModule[];
       
       console.log(`✅ Found ${modules.length} module(s) with orderBy`);
-      return modules;
+      const enrichedModules = await enrichModulesWithPageInfo(modules);
+      return enrichedModules;
     } catch (indexError: any) {
       // If index error, try without orderBy
       if (indexError?.code === 9 || indexError?.message?.includes('index')) {
@@ -1197,7 +1245,8 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
         });
         
         console.log(`✅ Found ${modules.length} module(s) without orderBy (sorted in memory)`);
-        return modules;
+        const enrichedModules = await enrichModulesWithPageInfo(modules);
+        return enrichedModules;
       }
       throw indexError;
     }

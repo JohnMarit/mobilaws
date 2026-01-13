@@ -344,6 +344,13 @@ router.post('/tutor-admin/generate-public-lessons', async (req: Request, res: Re
       success: true,
       added: result.added,
       message: result.message || `Generated ${result.added} lessons`,
+      currentPage: result.currentPage,
+      totalPages: result.totalPages,
+      pagesCovered: result.pagesCovered,
+      pagesRemaining: result.pagesRemaining,
+      startPage: result.startPage,
+      endPage: result.endPage,
+      useFallback: result.useFallback
     });
   } catch (error) {
     console.error('❌ Error generating public lessons:', error);

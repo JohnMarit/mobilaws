@@ -83,6 +83,8 @@ interface GeneratedModule {
   totalLessons: number;
   estimatedHours: number;
   published: boolean;
+  sharedLessonsLastPage?: number;
+  documentTotalPages?: number;
 }
 
 interface ModuleManagerProps {
@@ -342,8 +344,21 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
         throw new Error(data.error || data.message || 'Failed to generate lessons');
       }
 
-      // Show detailed progress message
-      if (data.currentPage && data.totalPages) {
+      // Show detailed progress message with page coverage
+      if (data.pagesCovered !== undefined && data.totalPages) {
+        const progressPercent = Math.round((data.pagesCovered / data.totalPages) * 100);
+        if (data.useFallback) {
+          toast.success(
+            `✅ Generated ${data.added} lesson(s)! (Using existing module content as reference)`,
+            { duration: 5000 }
+          );
+        } else {
+          toast.success(
+            `✅ Generated ${data.added} lesson(s)! Pages ${data.startPage}-${data.endPage} covered. Progress: ${progressPercent}% (${data.pagesCovered}/${data.totalPages} pages)`,
+            { duration: 7000 }
+          );
+        }
+      } else if (data.currentPage && data.totalPages) {
         const progressPercent = Math.round((data.currentPage / data.totalPages) * 100);
         toast.success(
           `✅ Generated ${data.added} lesson(s)! Progress: ${progressPercent}% (page ${data.currentPage}/${data.totalPages})`,
@@ -560,6 +575,41 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
                   </div>
                 </div>
               </div>
+
+              {/* Page Coverage Display */}
+              {module.sharedLessonsLastPage !== undefined && module.documentTotalPages && (
+                <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FileQuestion className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                      <p className="text-xs sm:text-sm font-semibold text-gray-700">Document Pages Coverage</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {Math.round((module.sharedLessonsLastPage / module.documentTotalPages) * 100)}% Complete
+                    </Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">Pages Covered:</span>
+                      <span className="font-semibold text-green-600">{module.sharedLessonsLastPage} / {module.documentTotalPages}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600">Pages Remaining:</span>
+                      <span className="font-semibold text-orange-600">
+                        {Math.max(0, module.documentTotalPages - module.sharedLessonsLastPage)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, Math.round((module.sharedLessonsLastPage / module.documentTotalPages) * 100))}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="text-xs sm:text-sm text-gray-600">
                 Created: {formatDate(module.createdAt)}
