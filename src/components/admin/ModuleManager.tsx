@@ -141,9 +141,16 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
     setLoading(true);
     console.log('🔍 Loading modules for tutor:', tutorId);
     try {
-      const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}`);
+      // Add cache-busting timestamp to ensure fresh data
+      const timestamp = Date.now();
+      const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}?t=${timestamp}`);
       console.log('📡 Fetching from:', url);
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: 'no-store', // Disable caching
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
       console.log('📥 Response status:', response.status);
       
       if (!response.ok) {
@@ -395,13 +402,22 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
         toast.success(`✅ Generated ${data.added || generateCount} shared lesson(s)!`);
       }
       
-      // Wait a moment for Firestore to update
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for Firestore to propagate changes (increased from 1s to 3s)
+      console.log('⏳ Waiting for Firestore to propagate changes...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Reload modules to show new lessons
+      // Force reload modules with cache busting
+      console.log('🔄 Reloading modules...');
       await loadModules();
       
+      // Verify the module was updated
+      const updatedModule = modules.find(m => m.id === generateModuleId);
+      if (updatedModule) {
+        console.log(`✅ Module "${updatedModule.title}" now has ${updatedModule.lessons.length} lessons (was showing ${updatedModule.totalLessons} total)`);
+      }
+      
       // Notify all users to reload modules
+      console.log('📢 Notifying users to reload modules...');
       window.dispatchEvent(new Event('modules-updated'));
       
       console.log('📚 Shared lessons generated and modules refreshed');

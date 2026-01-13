@@ -368,7 +368,12 @@ async function fetchModulesFromBackend(
     const urlWithTimestamp = `${apiUrl}?t=${Date.now()}`;
     console.log(`📚 Fetching modules for tier: ${accessLevel} from ${urlWithTimestamp}`);
     
-    const response = await fetch(urlWithTimestamp);
+    const response = await fetch(urlWithTimestamp, {
+      cache: 'no-store', // Disable caching
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -551,10 +556,23 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   // Listen for module updates from tutor admin
   useEffect(() => {
     const handleModulesUpdated = () => {
-      console.log('📢 Modules updated, reloading...');
-      loadModules().then(() => {
-        toast.success('📚 Course content has been updated!');
-      });
+      console.log('📢 Modules updated event received, reloading modules...');
+      // Clear any cached data
+      setModules([]);
+      setModulesLoading(true);
+      
+      // Wait a moment then reload
+      setTimeout(() => {
+        loadModules().then(() => {
+          console.log('✅ Modules reloaded after update');
+          toast.success('📚 Course content has been updated!', {
+            duration: 4000
+          });
+        }).catch(error => {
+          console.error('❌ Error reloading modules:', error);
+          toast.error('Failed to reload course content');
+        });
+      }, 500); // Small delay to ensure event fully propagates
     };
 
     window.addEventListener('modules-updated', handleModulesUpdated);

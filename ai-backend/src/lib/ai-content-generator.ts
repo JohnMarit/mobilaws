@@ -765,6 +765,7 @@ Create exactly 5 high-quality, sequential lessons with proper difficulty progres
     });
     await batch.commit();
     console.log(`✅ Stored ${newLessons.length} new shared lessons in subcollection for module ${moduleId}`);
+    console.log(`   Lesson IDs: ${newLessons.map((l: any) => l.id).join(', ')}`);
 
     // Get existing lessons from array (backward compatibility)
     const existingArrayLessons = moduleData.lessons || [];
@@ -1022,8 +1023,9 @@ async function fetchSharedLessonsFromSubcollection(moduleId: string): Promise<an
       console.log(`📚 Fetched ${lessons.length} shared lessons from subcollection for module ${moduleId}`);
       // Log first and last lesson IDs for debugging
       console.log(`   First lesson: ${lessons[0]?.id || 'N/A'}, Last lesson: ${lessons[lessons.length - 1]?.id || 'N/A'}`);
+      console.log(`   All lesson IDs: ${lessons.map(l => l.id).join(', ')}`);
     } else {
-      console.debug(`📚 No shared lessons found in subcollection for module ${moduleId}`);
+      console.log(`📚 No shared lessons found in subcollection for module ${moduleId}`);
     }
     return lessons;
   } catch (error: any) {
@@ -2074,4 +2076,5 @@ export async function deleteNonTutorModules(dryRun = false): Promise<{
     throw error;
   }
 }
+
 
