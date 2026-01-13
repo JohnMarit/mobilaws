@@ -467,6 +467,7 @@ export async function generateSharedLessonsForModule(
     const { getDocumentPagesByContentId } = await import('./document-page-storage');
     let documentPagesData = await getDocumentPagesByContentId(sourceContentId);
     let documentPages = documentPagesData?.pages || [];
+    let useFallbackContent = false;
 
     // If no pages exist, try to migrate
     if (!documentPages || documentPages.length === 0) {
@@ -478,40 +479,81 @@ export async function generateSharedLessonsForModule(
         documentPagesData = await getDocumentPagesByContentId(sourceContentId);
         documentPages = documentPagesData?.pages || [];
       } else {
-        return { success: false, added: 0, message: 'No document pages available and migration failed' };
+        console.log(`⚠️ Migration failed: ${migrationResult.message}. Using fallback: existing module content.`);
+        useFallbackContent = true;
       }
     }
 
-    if (!documentPages || documentPages.length === 0) {
-      return { success: false, added: 0, message: 'No document pages available' };
+    // Fallback: Use existing module lessons as source content if pages aren't available
+    let contentForAI: string;
+    let totalPages: number;
+    let lastPageCovered: number;
+    let startPage: number;
+    let endPage: number;
+
+    if (useFallbackContent || !documentPages || documentPages.length === 0) {
+      // Use existing lessons as source material
+      const existingLessons = moduleData.lessons || [];
+      if (existingLessons.length === 0) {
+        return { 
+          success: false, 
+          added: 0, 
+          message: 'Cannot generate lessons: No document pages available and module has no existing lessons to use as reference. Please re-upload the document or ensure the module has initial lessons.' 
+        };
+      }
+
+      // Extract content from existing lessons
+      const existingContent = existingLessons
+        .map((lesson: any, idx: number) => {
+          const lessonText = [
+            `Lesson ${idx + 1}: ${lesson.title}`,
+            lesson.summary || '',
+            lesson.content?.replace(/<[^>]*>/g, '').substring(0, 1000) || '', // Strip HTML and limit length
+            ...(lesson.keyTerms?.map((kt: any) => `${kt.term}: ${kt.definition}`) || [])
+          ].filter(Boolean).join('\n');
+          return lessonText;
+        })
+        .join('\n\n');
+
+      contentForAI = `=== EXISTING MODULE CONTENT (as reference) ===\n${existingContent}\n=== END REFERENCE ===`;
+      totalPages = existingLessons.length; // Treat each lesson as a "page"
+      lastPageCovered = moduleData.sharedLessonsLastPage || 0;
+      
+      // Generate new lessons based on the module's theme and existing content
+      const pagesToCover = Math.min(numberOfLessons, Math.max(1, totalPages - lastPageCovered));
+      startPage = lastPageCovered + 1;
+      endPage = lastPageCovered + pagesToCover;
+      
+      console.log(`📚 Using fallback: Generating ${numberOfLessons} lessons based on existing module content (${existingLessons.length} existing lessons)`);
+    } else {
+      // Use document pages (normal flow)
+      totalPages = documentPages.length;
+      lastPageCovered = moduleData.sharedLessonsLastPage || 0;
+
+      // Check if we've reached the end
+      if (lastPageCovered >= totalPages) {
+        return {
+          success: true,
+          added: 0,
+          message: `All ${totalPages} pages have been covered. Module is complete!`,
+          currentPage: totalPages,
+          totalPages
+        };
+      }
+
+      // Determine pages to generate from
+      const pagesToCover = Math.min(numberOfLessons, totalPages - lastPageCovered);
+      startPage = lastPageCovered + 1;
+      endPage = lastPageCovered + pagesToCover;
+
+      // Get content for these pages
+      contentForAI = documentPages
+        .slice(startPage - 1, endPage)
+        .map((p: any) => `--- Page ${p.pageNumber} ---\n${p.content}`)
+        .join('\n\n');
+      
+      console.log(`📚 Generating ${numberOfLessons} shared lessons from pages ${startPage} to ${endPage} of ${totalPages}`);
     }
-
-    const totalPages = documentPages.length;
-    const lastPageCovered = moduleData.sharedLessonsLastPage || 0;
-
-    // Check if we've reached the end
-    if (lastPageCovered >= totalPages) {
-      return {
-        success: true,
-        added: 0,
-        message: `All ${totalPages} pages have been covered. Module is complete!`,
-        currentPage: totalPages,
-        totalPages
-      };
-    }
-
-    // Determine pages to generate from
-    const pagesToCover = Math.min(numberOfLessons, totalPages - lastPageCovered);
-    const startPage = lastPageCovered + 1;
-    const endPage = lastPageCovered + pagesToCover;
-
-    // Get content for these pages
-    const contentForAI = documentPages
-      .slice(startPage - 1, endPage)
-      .map((p: any) => `--- Page ${p.pageNumber} ---\n${p.content}`)
-      .join('\n\n');
-
-    console.log(`📚 Generating ${numberOfLessons} shared lessons from pages ${startPage} to ${endPage} of ${totalPages}`);
 
     // Initialize OpenAI
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -542,7 +584,28 @@ Return ONLY valid JSON with lessons array in this format:
   ]
 }`;
 
-    const userPrompt = `Create ${numberOfLessons} new SEQUENTIAL lessons for module "${moduleData.title}"
+    // Build user prompt based on whether we're using document pages or fallback content
+    let userPrompt: string;
+    if (useFallbackContent) {
+      userPrompt = `Create ${numberOfLessons} new lessons for module "${moduleData.title}"
+
+Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
+Module Description: ${moduleData.description || 'South Sudan legal education'}
+Existing Shared Lessons: ${moduleData.lessons?.length || 0}
+
+${contentForAI}
+
+CRITICAL REQUIREMENTS:
+1. Create NEW lessons that expand on the module's theme and existing content
+2. Ensure lessons are complementary to existing ones, not duplicates
+3. Keep difficulty at ${difficulty}
+4. Include 3-5 quiz questions per lesson
+5. Provide clear explanations for quiz answers
+6. Maintain consistency with the module's style and focus
+
+Create ${numberOfLessons} high-quality, engaging lessons now!`;
+    } else {
+      userPrompt = `Create ${numberOfLessons} new SEQUENTIAL lessons for module "${moduleData.title}"
 
 Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData.description || 'South Sudan legal education'}
@@ -563,6 +626,7 @@ CRITICAL REQUIREMENTS:
 7. Provide clear explanations for quiz answers
 
 Create ${numberOfLessons} high-quality, sequential lessons now!`;
+    }
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -601,7 +665,9 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
       lesson.userGenerated = false;
       lesson.accessLevels = moduleData.accessLevels || ['free', 'basic', 'standard', 'premium'];
       lesson.difficulty = difficulty;
-      lesson.fromPages = { start: startPage, end: endPage }; // Track which pages this came from
+      if (!useFallbackContent) {
+        lesson.fromPages = { start: startPage, end: endPage }; // Track which pages this came from
+      }
       if (Array.isArray(lesson.quiz)) {
         lesson.quiz.forEach((q: any, qIndex: number) => {
           q.id = q.id || `q-${timestamp}-${index}-${qIndex}`;
@@ -617,16 +683,29 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
     const estimatedHours = updatedLessons.reduce((sum, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
 
     // Update module with new lessons and page tracking
-    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+    const updateData: any = {
       lessons: updatedLessons,
       totalLessons: updatedLessons.length,
       totalXp,
       estimatedHours: Math.round(estimatedHours * 10) / 10,
-      sharedLessonsLastPage: endPage, // Track progress through document
-      updatedAt: admin.firestore.Timestamp.now(),
-    });
+    };
 
-    console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (pages ${startPage}-${endPage}/${totalPages})`);
+    // Only update page tracking if we're using document pages (not fallback)
+    if (!useFallbackContent) {
+      updateData.sharedLessonsLastPage = endPage; // Track progress through document
+    } else {
+      // In fallback mode, track by lesson count instead
+      updateData.sharedLessonsLastPage = updatedLessons.length;
+    }
+
+    updateData.updatedAt = admin.firestore.Timestamp.now();
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update(updateData);
+
+    if (useFallbackContent) {
+      console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (using fallback: existing module content)`);
+    } else {
+      console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (pages ${startPage}-${endPage}/${totalPages})`);
+    }
     
     return {
       success: true,
