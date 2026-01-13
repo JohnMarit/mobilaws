@@ -351,10 +351,11 @@ Description: ${description}
 Category: ${category}
 Access Levels: ${accessLevels.join(', ')}
 
-Document Content:
+Document Content (First Section):
 ${documentText.slice(0, 12000)} 
 
-Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educational!`;
+IMPORTANT: Create ONLY 5 INITIAL lessons covering this first section. Additional lessons will be generated later to cover the full document.
+Include 3-5 quiz questions per lesson. Make it engaging and educational!`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',

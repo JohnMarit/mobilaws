@@ -137,16 +137,17 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
     loadModules();
   }, [tutorId]);
 
-  const loadModules = async () => {
+  const loadModules = async (): Promise<boolean> => {
     setLoading(true);
     console.log('🔍 Loading modules for tutor:', tutorId);
     try {
       // Add cache-busting timestamp to ensure fresh data
       const timestamp = Date.now();
-      const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}?t=${timestamp}`);
+      const url = getApiUrl(`tutor-admin/modules/tutor/${tutorId}?t=${timestamp}&bustCache=${Math.random()}`);
       console.log('📡 Fetching from:', url);
       const response = await fetch(url, {
-        cache: 'no-store' // Disable caching (timestamp also prevents caching)
+        cache: 'no-store', // Disable caching (timestamp also prevents caching)
+        mode: 'cors'
       });
       console.log('📥 Response status:', response.status);
       
@@ -181,9 +182,11 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
       } else {
         console.log('✅ Loaded', data.length, 'module(s)');
       }
+      return true;
     } catch (error) {
       console.error('❌ Failed to load modules:', error);
       toast.error('Failed to load modules: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      return false;
     } finally {
       setLoading(false);
     }
@@ -399,25 +402,36 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
         toast.success(`✅ Generated ${data.added || generateCount} shared lesson(s)!`);
       }
       
-      // Wait for Firestore to propagate changes (increased from 1s to 3s)
-      console.log('⏳ Waiting for Firestore to propagate changes...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait for Firestore to propagate changes (increased to 4s for subcollection indexing)
+      console.log('⏳ Waiting for Firestore to propagate changes and index subcollection...');
+      await new Promise(resolve => setTimeout(resolve, 4000));
       
       // Force reload modules with cache busting
-      console.log('🔄 Reloading modules...');
-      await loadModules();
+      console.log('🔄 Reloading modules from server...');
+      const reloadSuccess = await loadModules();
       
-      // Verify the module was updated
-      const updatedModule = modules.find(m => m.id === generateModuleId);
-      if (updatedModule) {
-        console.log(`✅ Module "${updatedModule.title}" now has ${updatedModule.lessons.length} lessons (was showing ${updatedModule.totalLessons} total)`);
+      if (reloadSuccess !== false) {
+        // Verify the module was updated
+        const updatedModule = modules.find(m => m.id === generateModuleId);
+        if (updatedModule) {
+          console.log(`✅ Module "${updatedModule.title}" now has ${updatedModule.lessons.length} lessons`);
+          console.log(`   Total metadata shows: ${updatedModule.totalLessons} lessons`);
+          
+          if (updatedModule.lessons.length !== updatedModule.totalLessons) {
+            console.warn(`⚠️ Mismatch: UI showing ${updatedModule.lessons.length} but metadata says ${updatedModule.totalLessons}`);
+            // Try one more reload after additional delay
+            console.log('🔄 Attempting second reload...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await loadModules();
+          }
+        }
       }
       
       // Notify all users to reload modules
-      console.log('📢 Notifying users to reload modules...');
+      console.log('📢 Notifying all users to reload modules...');
       window.dispatchEvent(new Event('modules-updated'));
       
-      console.log('📚 Shared lessons generated and modules refreshed');
+      console.log('✅ Shared lessons generated and modules refreshed');
     } catch (error) {
       console.error('Error generating shared lessons:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate shared lessons');
