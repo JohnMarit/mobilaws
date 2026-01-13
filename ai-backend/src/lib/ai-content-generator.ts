@@ -987,14 +987,17 @@ async function fetchSharedLessonsFromSubcollection(moduleId: string): Promise<an
       }
     }
     
-    const lessons = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const lessons = snapshot.docs.map(doc => {
+      const data = doc.data() as any;
+      return {
+        id: doc.id,
+        ...data
+      };
+    });
     
     // Sort in memory if we didn't use orderBy
     if (lessons.length > 0 && !snapshot.query.orderBy) {
-      lessons.sort((a, b) => {
+      lessons.sort((a: any, b: any) => {
         const aTime = a.createdAt?.toMillis?.() || a.createdAt?._seconds * 1000 || 0;
         const bTime = b.createdAt?.toMillis?.() || b.createdAt?._seconds * 1000 || 0;
         return aTime - bTime;
