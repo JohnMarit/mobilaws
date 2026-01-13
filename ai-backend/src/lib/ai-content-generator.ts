@@ -1051,29 +1051,40 @@ export async function getAllGeneratedModules(): Promise<GeneratedModule[]> {
 
     // Fetch lessons from both array and subcollection for each module
     const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-      const data = doc.data();
-      const moduleId = doc.id;
-      
-      // Get lessons from array (backward compatibility)
-      const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-      
-      // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-      let sharedLessons: any[] = [];
       try {
-        sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+        const data = doc.data();
+        const moduleId = doc.id;
+        
+        // Get lessons from array (backward compatibility)
+        const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
+        
+        // Always check subcollection for shared lessons (they're stored there to avoid size limits)
+        let sharedLessons: any[] = [];
+        try {
+          sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+        } catch (error) {
+          // Subcollection might not exist for older modules - that's okay
+          console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
+        }
+        
+        // Merge lessons: array lessons first, then shared lessons from subcollection
+        const allLessons = [...arrayLessons, ...sharedLessons];
+        
+        return {
+          id: moduleId,
+          ...data,
+          lessons: allLessons
+        } as GeneratedModule;
       } catch (error) {
-        // Subcollection might not exist for older modules - that's okay
-        console.debug(`No shared lessons subcollection for module ${moduleId} (this is normal for older modules):`, error);
+        console.error(`❌ Error processing module ${doc.id}:`, error);
+        // Return module with just array lessons as fallback
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          lessons: data.lessons || []
+        } as GeneratedModule;
       }
-      
-      // Merge lessons: array lessons first, then shared lessons from subcollection
-      const allLessons = [...arrayLessons, ...sharedLessons];
-      
-      return {
-        id: moduleId,
-        ...data,
-        lessons: allLessons
-      } as GeneratedModule;
     }));
 
     return modules;
@@ -1109,33 +1120,45 @@ export async function getModulesByAccessLevel(
     
     // Fetch lessons from both array and subcollection for each module
     const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-      const data = doc.data();
-      const moduleId = doc.id;
-      
-      // Get lessons from array (backward compatibility)
-      const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-      
-      // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-      let sharedLessons: any[] = [];
       try {
-        console.log(`🔍 Checking subcollection for module ${moduleId} (${data.title})...`);
-        sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
-        console.log(`   ✅ Found ${sharedLessons.length} shared lessons in subcollection`);
+        const data = doc.data();
+        const moduleId = doc.id;
+        
+        // Get lessons from array (backward compatibility)
+        const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
+        
+        // Always check subcollection for shared lessons (they're stored there to avoid size limits)
+        let sharedLessons: any[] = [];
+        try {
+          console.log(`🔍 Checking subcollection for module ${moduleId} (${data.title})...`);
+          sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+          console.log(`   ✅ Found ${sharedLessons.length} shared lessons in subcollection`);
+        } catch (error) {
+          // Subcollection might not exist for older modules - that's okay
+          console.error(`   ⚠️ Error fetching shared lessons for module ${moduleId}:`, error);
+          // Continue with just array lessons
+        }
+        
+        // Merge lessons: array lessons first, then shared lessons from subcollection
+        const allLessons = [...arrayLessons, ...sharedLessons];
+        
+        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
+        
+        return {
+          id: moduleId,
+          ...data,
+          lessons: allLessons
+        } as GeneratedModule;
       } catch (error) {
-        // Subcollection might not exist for older modules - that's okay
-        console.log(`   ℹ️  No shared lessons subcollection for module ${moduleId}:`, error);
+        console.error(`❌ Error processing module ${doc.id}:`, error);
+        // Return module with just array lessons as fallback
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          lessons: data.lessons || []
+        } as GeneratedModule;
       }
-      
-      // Merge lessons: array lessons first, then shared lessons from subcollection
-      const allLessons = [...arrayLessons, ...sharedLessons];
-      
-      console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
-      
-      return {
-        id: moduleId,
-        ...data,
-        lessons: allLessons
-      } as GeneratedModule;
     }));
     
     // Log summary of lessons
@@ -1483,33 +1506,44 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
 
       // Fetch lessons from both array and subcollection for each module
       const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-        const data = doc.data();
-        const moduleId = doc.id;
-        
-        // Get lessons from array (backward compatibility)
-        const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-        
-        // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-        let sharedLessons: any[] = [];
         try {
-          sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+          const data = doc.data();
+          const moduleId = doc.id;
+          
+          // Get lessons from array (backward compatibility)
+          const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
+          
+          // Always check subcollection for shared lessons (they're stored there to avoid size limits)
+          let sharedLessons: any[] = [];
+          try {
+            sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+          } catch (error) {
+            // Subcollection might not exist for older modules - that's okay
+            console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
+          }
+          
+          // Merge lessons: array lessons first, then shared lessons from subcollection
+          const allLessons = [...arrayLessons, ...sharedLessons];
+          
+          if (sharedLessons.length > 0) {
+            console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
+          }
+          
+          return {
+            id: moduleId,
+            ...data,
+            lessons: allLessons
+          } as GeneratedModule;
         } catch (error) {
-          // Subcollection might not exist for older modules - that's okay
-          console.debug(`No shared lessons subcollection for module ${moduleId} (this is normal for older modules):`, error);
+          console.error(`❌ Error processing tutor module ${doc.id}:`, error);
+          // Return module with just array lessons as fallback
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            lessons: data.lessons || []
+          } as GeneratedModule;
         }
-        
-        // Merge lessons: array lessons first, then shared lessons from subcollection
-        const allLessons = [...arrayLessons, ...sharedLessons];
-        
-        if (sharedLessons.length > 0) {
-          console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
-        }
-        
-        return {
-          id: moduleId,
-          ...data,
-          lessons: allLessons
-        } as GeneratedModule;
       }));
       
       console.log(`✅ Found ${modules.length} module(s) with orderBy`);
@@ -1547,29 +1581,40 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
 
         // Fetch lessons from both array and subcollection for each module
         const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-          const data = doc.data();
-          const moduleId = doc.id;
-          
-          // Get lessons from array (backward compatibility)
-          const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-          
-          // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-          let sharedLessons: any[] = [];
           try {
-            sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+            const data = doc.data();
+            const moduleId = doc.id;
+            
+            // Get lessons from array (backward compatibility)
+            const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
+            
+            // Always check subcollection for shared lessons (they're stored there to avoid size limits)
+            let sharedLessons: any[] = [];
+            try {
+              sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
+            } catch (error) {
+              // Subcollection might not exist for older modules - that's okay
+              console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
+            }
+            
+            // Merge lessons: array lessons first, then shared lessons from subcollection
+            const allLessons = [...arrayLessons, ...sharedLessons];
+            
+            return {
+              id: moduleId,
+              ...data,
+              lessons: allLessons
+            } as GeneratedModule;
           } catch (error) {
-            // Subcollection might not exist for older modules - that's okay
-            console.debug(`No shared lessons subcollection for module ${moduleId} (this is normal for older modules):`, error);
+            console.error(`❌ Error processing tutor module ${doc.id}:`, error);
+            // Return module with just array lessons as fallback
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              lessons: data.lessons || []
+            } as GeneratedModule;
           }
-          
-          // Merge lessons: array lessons first, then shared lessons from subcollection
-          const allLessons = [...arrayLessons, ...sharedLessons];
-          
-          return {
-            id: moduleId,
-            ...data,
-            lessons: allLessons
-          } as GeneratedModule;
         }));
         
         // Sort in memory

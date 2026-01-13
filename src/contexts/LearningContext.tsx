@@ -361,22 +361,19 @@ async function fetchModulesFromBackend(
   userId?: string,
   userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
+  console.log(`🚀 fetchModulesFromBackend called with accessLevel: ${accessLevel}`);
   try {
     // Add timestamp to prevent caching issues
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
     const urlWithTimestamp = `${apiUrl}?t=${Date.now()}`;
     console.log(`📚 Fetching modules for tier: ${accessLevel} from ${urlWithTimestamp}`);
     
-    const response = await fetch(urlWithTimestamp, {
-      cache: 'no-store', // Prevent browser caching
-      headers: {
-        'Cache-Control': 'no-cache',
-      }
-    });
+    const response = await fetch(urlWithTimestamp);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Failed to fetch modules for tier ${accessLevel}:`, response.status, response.statusText);
+      console.error(`Request URL:`, urlWithTimestamp);
       console.error(`Error details:`, errorText);
       return [];
     }
@@ -421,7 +418,9 @@ async function fetchModulesFromBackend(
       return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, moduleLessons.length);
     });
   } catch (error) {
-    console.error('Error fetching modules from backend:', error);
+    console.error('❌ Error fetching modules from backend:', error);
+    console.error(`   Access level: ${accessLevel}`);
+    console.error(`   Error type:`, error instanceof Error ? error.message : 'Unknown error');
     return [];
   }
 }
