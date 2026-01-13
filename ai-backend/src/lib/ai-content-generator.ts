@@ -1144,13 +1144,17 @@ export async function getModulesByAccessLevel(
         
         // Merge lessons: array lessons first, then shared lessons from subcollection
         const allLessons = [...arrayLessons, ...sharedLessons];
+        // Deduplicate by lesson id to avoid duplicates on refreshes
+        const uniqueLessons = Array.from(new Map(allLessons.map((l: any) => [l.id, l])).values());
         
-        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
+        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
         
         return {
           id: moduleId,
           ...data,
-          lessons: allLessons
+          lessons: uniqueLessons,
+          // Keep metadata in sync with actual lessons returned
+          totalLessons: uniqueLessons.length
         } as GeneratedModule;
       } catch (error) {
         console.error(`❌ Error processing module ${doc.id}:`, error);
@@ -1531,15 +1535,17 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
           
           // Merge lessons: array lessons first, then shared lessons from subcollection
           const allLessons = [...arrayLessons, ...sharedLessons];
+          const uniqueLessons = Array.from(new Map(allLessons.map((l: any) => [l.id, l])).values());
           
           if (sharedLessons.length > 0) {
-            console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${allLessons.length} total lessons`);
+            console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
           }
           
           return {
             id: moduleId,
             ...data,
-            lessons: allLessons
+            lessons: uniqueLessons,
+            totalLessons: uniqueLessons.length
           } as GeneratedModule;
         } catch (error) {
           console.error(`❌ Error processing tutor module ${doc.id}:`, error);

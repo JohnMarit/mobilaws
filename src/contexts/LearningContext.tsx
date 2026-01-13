@@ -560,7 +560,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
       
       // Wait a moment then reload
       setTimeout(() => {
-        loadModules().then(() => {
+      loadModules().then(() => {
           console.log('✅ Modules reloaded after update');
           toast.success('📚 Course content has been updated!', {
             duration: 4000
@@ -568,7 +568,7 @@ export function LearningProvider({ children }: { children: ReactNode }) {
         }).catch(error => {
           console.error('❌ Error reloading modules:', error);
           toast.error('Failed to reload course content');
-        });
+      });
       }, 500); // Small delay to ensure event fully propagates
     };
 
