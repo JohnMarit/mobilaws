@@ -352,8 +352,8 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           moduleId: generateModuleId,
-          numberOfLessons: generateCount,
-          difficulty: generateDifficulty,
+          numberOfLessons: 5, // Always generate 5 lessons per level
+          difficulty: 'medium', // Ignored - we use mixed difficulties
         }),
       });
 
@@ -481,29 +481,19 @@ export default function ModuleManager({ tutorId, tutorName }: ModuleManagerProps
               </select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-sm text-gray-700">Number of Lessons</Label>
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                value={generateCount}
-                onChange={(e) => setGenerateCount(Number(e.target.value))}
-              />
-              <p className="text-xs text-muted-foreground">Recommended: 3-10</p>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-sm text-gray-700">Difficulty</Label>
-              <select
-                value={generateDifficulty}
-                onChange={(e) => setGenerateDifficulty(e.target.value as 'simple' | 'medium' | 'hard')}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="simple">Simple</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
+            <div className="space-y-1 md:col-span-2">
+              <Label className="text-sm text-gray-700">Lessons Per Generation</Label>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-900 font-semibold mb-1">5 Lessons Per Level</p>
+                <p className="text-xs text-blue-700">
+                  Each generation creates exactly 5 lessons with mixed difficulties:
+                  <br />• 2 Simple lessons
+                  <br />• 2 Medium lessons
+                  <br />• 1 Hard lesson
+                  <br />
+                  <span className="font-medium mt-1 block">All lessons cover the same topic with increasing difficulty.</span>
+                </p>
+              </div>
             </div>
           </div>
 

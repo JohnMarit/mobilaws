@@ -1270,7 +1270,19 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   {filteredModules.map((module) => {
                     const { percent, done } = moduleStatus(module);
                     const isExpanded = expandedLessons.has(module.id);
-                    const visibleLessons = module.lessons.filter((_, lessonIndex) => isExpanded || lessonIndex < 5);
+                    
+                    // Group lessons by level
+                    const lessonsByLevel = module.lessons.reduce((acc, lesson) => {
+                      const level = (lesson as any).level || Math.floor(module.lessons.indexOf(lesson) / 5) + 1;
+                      if (!acc[level]) {
+                        acc[level] = [];
+                      }
+                      acc[level].push(lesson);
+                      return acc;
+                    }, {} as Record<number, typeof module.lessons>);
+                    
+                    const levels = Object.keys(lessonsByLevel).map(Number).sort((a, b) => a - b);
+                    const visibleLevels = isExpanded ? levels : levels.slice(0, 1); // Show first level by default
                     const isSelected = selectedModuleId === module.id;
                     
                     return (
@@ -1352,9 +1364,27 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                           </div>
 
                           {isSelected && (
-                            <div className="mt-3 space-y-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                {visibleLessons.map((lesson) => {
+                            <div className="mt-3 space-y-4">
+                              {visibleLevels.map((level) => {
+                                const levelLessons = lessonsByLevel[level] || [];
+                                
+                                return (
+                                  <div key={level} className="space-y-3">
+                                    {/* Level Header */}
+                                    <div className="flex items-center justify-between pb-2 border-b border-blue-100">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-sm font-semibold border-blue-300 text-blue-700 bg-blue-50">
+                                          Level {level}
+                                        </Badge>
+                                        <span className="text-xs text-slate-500">
+                                          {levelLessons.length} lesson{levelLessons.length !== 1 ? 's' : ''}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Lessons in this level */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                      {levelLessons.map((lesson) => {
                                   const lp = getLessonProgress(module.id, lesson.id);
                                   const isLocked = lesson.locked;
                                   const isCompleted = lp?.completed === true && !isLocked;
@@ -1398,10 +1428,22 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                           )}
                                         </div>
                                         <div className="flex items-center justify-between pt-1">
-                                          <div className="text-xs text-slate-500 flex items-center gap-2">
+                                          <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                                             <Badge variant="outline" className="capitalize text-[11px] sm:text-xs border-blue-200 text-blue-700 bg-blue-50">
                                               {lesson.tier || 'basic'}
                                             </Badge>
+                                            {(lesson as any).difficulty && (
+                                              <Badge 
+                                                variant="outline" 
+                                                className={`capitalize text-[11px] sm:text-xs ${
+                                                  (lesson as any).difficulty === 'simple' ? 'border-green-200 text-green-700 bg-green-50' :
+                                                  (lesson as any).difficulty === 'medium' ? 'border-yellow-200 text-yellow-700 bg-yellow-50' :
+                                                  'border-red-200 text-red-700 bg-red-50'
+                                                }`}
+                                              >
+                                                {(lesson as any).difficulty}
+                                              </Badge>
+                                            )}
                                           </div>
                                           <Button
                                             size="sm"
@@ -1419,10 +1461,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                     </Card>
                                   );
                                 })}
-                              </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                               
                               {/* Expand/Collapse Button */}
-                              {module.lessons.length > 5 && (
+                              {levels.length > 1 && (
                                 <Button
                                   variant="ghost"
                                   className="w-full mt-1 text-sm text-blue-700 hover:bg-blue-50"
@@ -1446,7 +1491,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                   ) : (
                                     <>
                                       <FontAwesomeIcon icon={faChevronDown} className="mr-2" />
-                                      Show All {module.lessons.length} Lessons
+                                      Show All {levels.length} Level{levels.length !== 1 ? 's' : ''} ({module.lessons.length} Lessons)
                                     </>
                                   )}
                                 </Button>

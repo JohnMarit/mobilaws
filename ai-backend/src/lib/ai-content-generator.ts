@@ -60,6 +60,7 @@ export interface GeneratedLesson {
   // New interactive lesson types
   type?: 'traditional' | 'conversational' | 'case-study' | 'audio-only';
   difficulty?: 'simple' | 'medium' | 'hard';
+  level?: number; // Level number (groups of 5 lessons per level)
   conversationalContent?: ConversationalLesson;
   caseStudies?: CaseStudy[];
 }
@@ -582,6 +583,13 @@ export async function generateSharedLessonsForModule(
       hard: 'Hard mode with complex analysis'
     };
 
+    // Calculate current level (each level has 5 lessons)
+    const existingLessonsCount = moduleData.lessons?.length || 0;
+    const currentLevel = Math.floor(existingLessonsCount / 5) + 1;
+    
+    // Force numberOfLessons to be 5 for proper level structure
+    const lessonsToGenerate = 5;
+    
     const systemPrompt = `You are an expert educational content creator for South Sudan law. 
 Create engaging, INTERACTIVE lessons using Duolingo-style pedagogy.
 Return ONLY valid JSON with lessons array in this format:
@@ -594,40 +602,56 @@ Return ONLY valid JSON with lessons array in this format:
       "summary": "Brief summary",
       "xpReward": 100,
       "estimatedMinutes": 10,
+      "difficulty": "simple" | "medium" | "hard",
       "quiz": [{"id": "q1", "question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "...", "difficulty": "medium", "points": 10}],
       "tips": ["tip1", "tip2"],
       "examples": ["example1"],
       "keyTerms": [{"term": "term", "definition": "def"}]
     }
   ]
-}`;
+}
+
+CRITICAL: You MUST return exactly 5 lessons with this difficulty distribution:
+- Lesson 1: "simple" difficulty
+- Lesson 2: "simple" difficulty
+- Lesson 3: "medium" difficulty
+- Lesson 4: "medium" difficulty
+- Lesson 5: "hard" difficulty
+
+All 5 lessons should cover the SAME topic/theme from the provided content.`;
 
     // Build user prompt based on whether we're using document pages or fallback content
     let userPrompt: string;
     if (useFallbackContent) {
-      userPrompt = `Create ${numberOfLessons} new lessons for module "${moduleData.title}"
+      userPrompt = `Create exactly 5 new lessons for module "${moduleData.title}" - Level ${currentLevel}
 
-Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData.description || 'South Sudan legal education'}
 Existing Shared Lessons: ${moduleData.lessons?.length || 0}
+Current Level: ${currentLevel} (each level contains 5 lessons)
 
 ${contentForAI}
 
 CRITICAL REQUIREMENTS:
-1. Create NEW lessons that expand on the module's theme and existing content
-2. Ensure lessons are complementary to existing ones, not duplicates
-3. Keep difficulty at ${difficulty}
-4. Include 3-5 quiz questions per lesson
+1. Create exactly 5 lessons covering the SAME topic/theme from the content above
+2. Difficulty distribution (MANDATORY):
+   - Lesson 1: "simple" - Basic introduction, clear explanations
+   - Lesson 2: "simple" - Reinforce basics with examples
+   - Lesson 3: "medium" - Intermediate concepts, more detail
+   - Lesson 4: "medium" - Apply concepts in scenarios
+   - Lesson 5: "hard" - Advanced analysis, complex scenarios
+3. All 5 lessons must cover the SAME topic but with increasing difficulty
+4. Include 3-5 quiz questions per lesson matching the lesson's difficulty
 5. Provide clear explanations for quiz answers
 6. Maintain consistency with the module's style and focus
+7. Ensure lessons are complementary to existing ones, not duplicates
 
-Create ${numberOfLessons} high-quality, engaging lessons now!`;
+Create exactly 5 high-quality lessons with proper difficulty progression now!`;
     } else {
-      userPrompt = `Create ${numberOfLessons} new SEQUENTIAL lessons for module "${moduleData.title}"
+      userPrompt = `Create exactly 5 new SEQUENTIAL lessons for module "${moduleData.title}" - Level ${currentLevel}
 
-Difficulty: ${difficulty.toUpperCase()} - ${difficultyDescriptions[difficulty]}
 Module Description: ${moduleData.description || 'South Sudan legal education'}
 Existing Shared Lessons: ${moduleData.lessons?.length || 0}
+Current Level: ${currentLevel} (each level contains 5 lessons)
 Current Progress: Pages ${startPage}-${endPage} of ${totalPages}
 
 === DOCUMENT PAGES FOR THIS BATCH ===
@@ -636,14 +660,20 @@ ${contentForAI}
 
 CRITICAL REQUIREMENTS:
 1. Base ALL content ONLY on the document pages above (pages ${startPage}-${endPage})
-2. Create lessons in SEQUENTIAL order following the document
-3. Ensure content is directly answerable from provided pages
-4. Do NOT repeat content from previous pages (1-${lastPageCovered})
-5. Keep difficulty at ${difficulty}
-6. Include 3-5 quiz questions per lesson
-7. Provide clear explanations for quiz answers
+2. Create exactly 5 lessons covering the SAME topic from these pages
+3. Difficulty distribution (MANDATORY):
+   - Lesson 1: "simple" - Basic introduction, clear explanations
+   - Lesson 2: "simple" - Reinforce basics with examples
+   - Lesson 3: "medium" - Intermediate concepts, more detail
+   - Lesson 4: "medium" - Apply concepts in scenarios
+   - Lesson 5: "hard" - Advanced analysis, complex scenarios
+4. All 5 lessons must cover the SAME topic but with increasing difficulty
+5. Ensure content is directly answerable from provided pages
+6. Do NOT repeat content from previous pages (1-${lastPageCovered})
+7. Include 3-5 quiz questions per lesson matching the lesson's difficulty
+8. Provide clear explanations for quiz answers
 
-Create ${numberOfLessons} high-quality, sequential lessons now!`;
+Create exactly 5 high-quality, sequential lessons with proper difficulty progression now!`;
     }
 
     const completion = await openai.chat.completions.create({
@@ -677,12 +707,21 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
 
     // Normalize lessons and quizzes
     const timestamp = Date.now();
+    const difficultyOrder: ('simple' | 'medium' | 'hard')[] = ['simple', 'simple', 'medium', 'medium', 'hard'];
+    
     newLessons.forEach((lesson: any, index: number) => {
       lesson.id = lesson.id || `shared-${timestamp}-${index}`;
       lesson.hasAudio = true;
       lesson.userGenerated = false;
       lesson.accessLevels = moduleData.accessLevels || ['free', 'basic', 'standard', 'premium'];
-      lesson.difficulty = difficulty;
+      
+      // Assign difficulty based on position (2 simple, 2 medium, 1 hard)
+      const assignedDifficulty = difficultyOrder[index % 5] || lesson.difficulty || 'medium';
+      lesson.difficulty = assignedDifficulty;
+      
+      // Assign level number
+      lesson.level = currentLevel;
+      
       if (!useFallbackContent) {
         lesson.fromPages = { start: startPage, end: endPage }; // Track which pages this came from
       }
@@ -690,7 +729,7 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
         lesson.quiz.forEach((q: any, qIndex: number) => {
           q.id = q.id || `q-${timestamp}-${index}-${qIndex}`;
           q.points = q.points || 10;
-          q.difficulty = q.difficulty || difficulty;
+          q.difficulty = q.difficulty || assignedDifficulty;
         });
       }
     });
@@ -711,9 +750,14 @@ Create ${numberOfLessons} high-quality, sequential lessons now!`;
     // Only update page tracking if we're using document pages (not fallback)
     if (!useFallbackContent) {
       updateData.sharedLessonsLastPage = endPage; // Track progress through document
-      // Also store total pages if we have document pages
+      // Always store total pages if we have document pages
       if (documentPagesData && documentPagesData.totalPages) {
         updateData.documentTotalPages = documentPagesData.totalPages;
+        console.log(`✅ Saving documentTotalPages: ${documentPagesData.totalPages} to module ${moduleId}`);
+      } else if (totalPages) {
+        // Fallback: use the totalPages we calculated from documentPages array
+        updateData.documentTotalPages = totalPages;
+        console.log(`✅ Saving documentTotalPages (fallback): ${totalPages} to module ${moduleId}`);
       }
     } else {
       // In fallback mode, track by lesson count instead
@@ -1203,19 +1247,51 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
       const { getDocumentPagesByContentId } = await import('./document-page-storage');
       
       return Promise.all(modules.map(async (module) => {
+        // If module already has documentTotalPages stored, use it
+        if (module.documentTotalPages) {
+          console.log(`✅ Module ${module.id} already has documentTotalPages: ${module.documentTotalPages}`);
+          return module;
+        }
+        
+        // If module has sharedLessonsLastPage but no documentTotalPages, try to fetch it
+        const needsEnrichment = module.sharedLessonsLastPage !== undefined && !module.documentTotalPages;
+        
+        // Otherwise, try to fetch from documentPages collection
         if (module.sourceContentId) {
           try {
             const documentPages = await getDocumentPagesByContentId(module.sourceContentId);
-            if (documentPages) {
-              return {
+            if (documentPages && documentPages.totalPages) {
+              console.log(`✅ Fetched documentTotalPages for module ${module.id}: ${documentPages.totalPages}`);
+              const enrichedModule = {
                 ...module,
                 documentTotalPages: documentPages.totalPages
               };
+              
+              // If module was missing documentTotalPages, save it back to Firestore
+              if (needsEnrichment) {
+                try {
+                  await db.collection(GENERATED_MODULES_COLLECTION).doc(module.id).update({
+                    documentTotalPages: documentPages.totalPages,
+                    updatedAt: admin.firestore.Timestamp.now()
+                  });
+                  console.log(`✅ Saved documentTotalPages (${documentPages.totalPages}) to module ${module.id} in Firestore`);
+                } catch (updateError) {
+                  console.warn(`⚠️ Could not save documentTotalPages to module ${module.id}:`, updateError);
+                }
+              }
+              
+              return enrichedModule;
+            } else {
+              console.warn(`⚠️ No document pages found for module ${module.id}, sourceContentId: ${module.sourceContentId}`);
             }
           } catch (error) {
             console.warn(`⚠️ Could not fetch document pages for module ${module.id}:`, error);
           }
+        } else {
+          console.warn(`⚠️ Module ${module.id} has no sourceContentId`);
         }
+        
+        // Return module as-is if we couldn't get documentTotalPages
         return module;
       }));
     };
