@@ -73,38 +73,38 @@ export default function LessonRunner({ open, onClose, module, lesson }: LessonRu
       const isNewLesson = lastLessonIdRef.current !== lesson.id || lastModuleIdRef.current !== module.id;
       
       if (isNewLesson) {
-        startLesson(module.id, lesson.id);
-        
-        // Determine initial phase based on lesson type
-        const lessonType = lesson.type || 'traditional';
-        if (lessonType === 'conversational' && lesson.conversationalContent) {
-          setCurrentPhase('conversation');
-        } else if (lessonType === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
-          setCurrentPhase('case-study');
-        } else {
-          setCurrentPhase('content');
-        }
-        
-        setCurrentQuizIndex(0);
-        setQuizAnswers([]);
-        setSelectedOption(null);
-        setShowExplanation(false);
-        setCurrentSentenceIndex(-1);
-        setShowRetakeMessage(false);
-        setFinalScore(null);
-        setCaseStudyScore(null);
+      startLesson(module.id, lesson.id);
+      
+      // Determine initial phase based on lesson type
+      const lessonType = lesson.type || 'traditional';
+      if (lessonType === 'conversational' && lesson.conversationalContent) {
+        setCurrentPhase('conversation');
+      } else if (lessonType === 'case-study' && lesson.caseStudies && lesson.caseStudies.length > 0) {
+        setCurrentPhase('case-study');
+      } else {
+        setCurrentPhase('content');
+      }
+      
+      setCurrentQuizIndex(0);
+      setQuizAnswers([]);
+      setSelectedOption(null);
+      setShowExplanation(false);
+      setCurrentSentenceIndex(-1);
+      setShowRetakeMessage(false);
+      setFinalScore(null);
+      setCaseStudyScore(null);
         
         // Update refs to track current lesson
         lastLessonIdRef.current = lesson.id;
         lastModuleIdRef.current = module.id;
         
-        // Stop any playing audio when lesson changes
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-        questionUtteranceRef.current = null;
-        explanationUtteranceRef.current = null;
+      // Stop any playing audio when lesson changes
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
       }
+      questionUtteranceRef.current = null;
+      explanationUtteranceRef.current = null;
+    }
     } else {
       // Reset refs when dialog closes
       lastLessonIdRef.current = null;
