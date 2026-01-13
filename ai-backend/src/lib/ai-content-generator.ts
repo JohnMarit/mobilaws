@@ -1172,7 +1172,11 @@ export async function getModulesByAccessLevel(
     
     // Log each module's lesson count for debugging
     modules.forEach(m => {
-      console.log(`   📖 "${m.title}": ${m.lessons?.length || 0} lessons`);
+      console.log(`   📖 "${m.title}": ${m.lessons?.length || 0} lessons (arrayLessons + sharedLessons)`);
+      // Log detailed breakdown if lessons > 0
+      if (m.lessons && m.lessons.length > 0) {
+        console.log(`      Lesson IDs: ${m.lessons.map((l: any) => l.id).join(', ')}`);
+      }
     });
 
     return modules;

@@ -385,6 +385,12 @@ async function fetchModulesFromBackend(
     generatedModules.forEach(m => {
       const lessonCount = Array.isArray(m.lessons) ? m.lessons.length : 0;
       console.log(`   📦 Backend module "${m.title}": ${lessonCount} lessons (published: ${m.published})`);
+      if (m.lessons && m.lessons.length > 0) {
+        console.log(`      First 3 lesson IDs: ${m.lessons.slice(0, 3).map((l: any) => l.id).join(', ')}`);
+        if (m.lessons.length > 10) {
+          console.log(`      Lessons 11-13 IDs: ${m.lessons.slice(10, 13).map((l: any) => l.id).join(', ')}`);
+        }
+      }
     });
     
     // Filter to only published modules (backend should do this, but double-check)
