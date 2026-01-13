@@ -93,6 +93,8 @@ export interface GeneratedModule {
   totalLessons: number;
   estimatedHours: number;
   published: boolean;
+  sharedLessonsLastPage?: number; // Last page number used for shared lesson generation
+  documentTotalPages?: number; // Total pages in the source document
 }
 
 export interface QuizRequest {
