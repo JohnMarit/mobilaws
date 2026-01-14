@@ -351,11 +351,10 @@ Description: ${description}
 Category: ${category}
 Access Levels: ${accessLevels.join(', ')}
 
-Document Content (First Section):
+Document Content:
 ${documentText.slice(0, 12000)} 
 
-IMPORTANT: Create ONLY 5 INITIAL lessons covering this first section. Additional lessons will be generated later to cover the full document.
-Include 3-5 quiz questions per lesson. Make it engaging and educational!`;
+Create 5-8 lessons with 3-5 quiz questions each. Make it engaging and educational!`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -508,8 +507,8 @@ export async function generateSharedLessonsForModule(
 
     if (useFallbackContent || !documentPages || documentPages.length === 0) {
       // Use existing lessons as source material
-      const existingArrayLessons = moduleData.lessons || [];
-      if (existingArrayLessons.length === 0) {
+      const existingLessons = moduleData.lessons || [];
+      if (existingLessons.length === 0) {
         return { 
           success: false, 
           added: 0, 
@@ -518,7 +517,7 @@ export async function generateSharedLessonsForModule(
       }
 
       // Extract content from existing lessons
-      const existingContent = existingArrayLessons
+      const existingContent = existingLessons
         .map((lesson: any, idx: number) => {
           const lessonText = [
             `Lesson ${idx + 1}: ${lesson.title}`,
@@ -531,25 +530,15 @@ export async function generateSharedLessonsForModule(
         .join('\n\n');
 
       contentForAI = `=== EXISTING MODULE CONTENT (as reference) ===\n${existingContent}\n=== END REFERENCE ===`;
+      totalPages = existingLessons.length; // Treat each lesson as a "page"
+      lastPageCovered = moduleData.sharedLessonsLastPage || 0;
       
-      // In fallback mode, we can generate unlimited lessons since we're creating new content
-      // based on the module theme, not paginating through a document
-      // Track progress by the number of "levels" generated (each level = 5 lessons)
-      const sharedLessonsRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons');
-      const existingSharedSnapshot = await sharedLessonsRef.get();
-      const existingSharedCount = existingSharedSnapshot.size;
+      // Generate new lessons based on the module's theme and existing content
+      const pagesToCover = Math.min(numberOfLessons, Math.max(1, totalPages - lastPageCovered));
+      startPage = lastPageCovered + 1;
+      endPage = lastPageCovered + pagesToCover;
       
-      // Calculate levels: original lessons + shared lessons generated so far
-      const totalLessonsGenerated = existingArrayLessons.length + existingSharedCount;
-      const currentLevelNumber = Math.floor(totalLessonsGenerated / 5) + 1;
-      
-      // For fallback, we use level numbers instead of page numbers
-      totalPages = 999; // Effectively unlimited
-      lastPageCovered = currentLevelNumber - 1;
-      startPage = currentLevelNumber;
-      endPage = currentLevelNumber;
-      
-      console.log(`📚 Using fallback: Generating Level ${currentLevelNumber} (${existingSharedCount} shared lessons exist, ${existingArrayLessons.length} array lessons)`);
+      console.log(`📚 Using fallback: Generating ${numberOfLessons} lessons based on existing module content (${existingLessons.length} existing lessons)`);
     } else {
       // Use document pages (normal flow)
       totalPages = documentPages.length;
@@ -745,54 +734,17 @@ Create exactly 5 high-quality, sequential lessons with proper difficulty progres
       }
     });
 
-    // Store new lessons in subcollection to avoid document size limit (1MB)
-    // This prevents "Document size exceeds maximum" errors
-    const sharedLessonsRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons');
-    
-    // Get existing shared lessons from subcollection BEFORE adding new ones
-    const existingSharedLessonsSnapshot = await sharedLessonsRef.get();
-    const existingSharedLessons = existingSharedLessonsSnapshot.docs.map(doc => doc.data());
-    console.log(`📊 Found ${existingSharedLessons.length} existing shared lessons in subcollection`);
-    
-    // Batch write new lessons to subcollection
-    const batch = db.batch();
-    newLessons.forEach((lesson: any) => {
-      const lessonRef = sharedLessonsRef.doc(lesson.id);
-      batch.set(lessonRef, {
-        ...lesson,
-        createdAt: admin.firestore.Timestamp.now(),
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-    });
-    await batch.commit();
-    console.log(`✅ Stored ${newLessons.length} new shared lessons in subcollection for module ${moduleId}`);
-    console.log(`   Lesson IDs: ${newLessons.map((l: any) => l.id).join(', ')}`);
+    // Append to module
+    const updatedLessons = [...(moduleData.lessons || []), ...newLessons];
+    const totalXp = updatedLessons.reduce((sum, l: any) => sum + (l.xpReward || 0), 0);
+    const estimatedHours = updatedLessons.reduce((sum, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
 
-    // Get existing lessons from array (backward compatibility)
-    const existingArrayLessons = moduleData.lessons || [];
-    
-    // Calculate totals from ALL existing lessons (array + existing shared) + new lessons
-    const allExistingLessons = [...existingArrayLessons, ...existingSharedLessons];
-    const totalLessonsCount = allExistingLessons.length + newLessons.length;
-    
-    // Calculate XP from all existing lessons + new lessons
-    const existingXp = allExistingLessons.reduce((sum: number, l: any) => sum + (l.xpReward || 0), 0);
-    const newXp = newLessons.reduce((sum: number, l: any) => sum + (l.xpReward || 0), 0);
-    const totalXp = existingXp + newXp;
-    
-    // Calculate hours from all existing lessons + new lessons
-    const existingHours = allExistingLessons.reduce((sum: number, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
-    const newHours = newLessons.reduce((sum: number, l: any) => sum + (l.estimatedMinutes || 5), 0) / 60;
-    const estimatedHours = existingHours + newHours;
-    
-    console.log(`📊 Total lessons: ${totalLessonsCount} (${existingArrayLessons.length} array + ${existingSharedLessons.length} existing shared + ${newLessons.length} new shared)`);
-
-    // Update module metadata only (NOT the full lessons array to avoid size limit)
+    // Update module with new lessons and page tracking
     const updateData: any = {
-      totalLessons: totalLessonsCount,
+      lessons: updatedLessons,
+      totalLessons: updatedLessons.length,
       totalXp,
       estimatedHours: Math.round(estimatedHours * 10) / 10,
-      hasSharedLessonsSubcollection: true, // Flag to indicate we're using subcollection
     };
 
     // Only update page tracking if we're using document pages (not fallback)
@@ -802,44 +754,31 @@ Create exactly 5 high-quality, sequential lessons with proper difficulty progres
       if (documentPagesData && documentPagesData.totalPages) {
         updateData.documentTotalPages = documentPagesData.totalPages;
         console.log(`✅ Saving documentTotalPages: ${documentPagesData.totalPages} to module ${moduleId}`);
-      } else if (totalPages && totalPages !== 999) {
-        // Use the totalPages we calculated from documentPages array (but not the 999 placeholder)
+      } else if (totalPages) {
+        // Fallback: use the totalPages we calculated from documentPages array
         updateData.documentTotalPages = totalPages;
-        console.log(`✅ Saving documentTotalPages: ${totalPages} to module ${moduleId}`);
+        console.log(`✅ Saving documentTotalPages (fallback): ${totalPages} to module ${moduleId}`);
       }
-    }
-    // In fallback mode, we don't track pages - lessons are generated based on theme, not document pages
-    // We store the level number for reference but don't limit further generation
-    if (useFallbackContent) {
-      updateData.fallbackMode = true;
-      updateData.lastGeneratedLevel = endPage; // endPage is the level number in fallback mode
-      console.log(`📊 Fallback mode: Generated level ${endPage}, total lessons now: ${totalLessonsCount}`);
+    } else {
+      // In fallback mode, track by lesson count instead
+      updateData.sharedLessonsLastPage = updatedLessons.length;
     }
 
     updateData.updatedAt = admin.firestore.Timestamp.now();
     await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update(updateData);
-    
-    console.log(`📊 Updated module ${moduleId} metadata:`, {
-      totalLessons: totalLessonsCount,
-      totalXp,
-      estimatedHours,
-      hasSharedLessonsSubcollection: true,
-      sharedLessonsLastPage: updateData.sharedLessonsLastPage,
-      documentTotalPages: updateData.documentTotalPages
-    });
 
     if (useFallbackContent) {
       console.log(`✅ Generated ${newLessons.length} shared lessons for module ${moduleId} (using fallback: existing module content)`);
       return {
         success: true,
         added: newLessons.length,
-        message: `Generated ${newLessons.length} lessons (Level ${endPage}). Total lessons now: ${totalLessonsCount}`,
-        currentPage: endPage, // Level number in fallback mode
-        totalPages: totalLessonsCount, // Show total lessons instead of fake page count
-        pagesCovered: totalLessonsCount,
-        pagesRemaining: 0, // Not applicable in fallback mode
-        startPage: endPage,
-        endPage: endPage,
+        message: `Generated ${newLessons.length} lessons using existing module content`,
+        currentPage: endPage,
+        totalPages,
+        pagesCovered: endPage,
+        pagesRemaining: Math.max(0, totalPages - endPage),
+        startPage,
+        endPage,
         useFallback: true
       };
     } else {
@@ -980,67 +919,6 @@ export async function saveTutorMessage(message: Omit<TutorMessage, 'id'>): Promi
 }
 
 /**
- * Fetch shared lessons from subcollection for a module
- */
-async function fetchSharedLessonsFromSubcollection(moduleId: string): Promise<any[]> {
-  const db = getFirestore();
-  if (!db) return [];
-
-  try {
-    const sharedLessonsRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons');
-    
-    // Try with orderBy first, fallback to unordered if index missing
-    let snapshot;
-    try {
-      snapshot = await sharedLessonsRef.orderBy('createdAt', 'asc').get();
-    } catch (orderByError: any) {
-      // If orderBy fails (missing index), fetch without ordering
-      if (orderByError?.code === 9 || orderByError?.message?.includes('index')) {
-        console.warn(`⚠️ Index missing for sharedLessons createdAt, fetching without orderBy for module ${moduleId}`);
-        snapshot = await sharedLessonsRef.get();
-      } else {
-        throw orderByError;
-      }
-    }
-    
-    const lessons = snapshot.docs.map(doc => {
-      const data = doc.data() as any;
-      return {
-        id: doc.id,
-        ...data
-      };
-    });
-    
-    // Sort in memory if we didn't use orderBy
-    if (lessons.length > 0 && !snapshot.query.orderBy) {
-      lessons.sort((a: any, b: any) => {
-        const aTime = a.createdAt?.toMillis?.() || a.createdAt?._seconds * 1000 || 0;
-        const bTime = b.createdAt?.toMillis?.() || b.createdAt?._seconds * 1000 || 0;
-        return aTime - bTime;
-      });
-    }
-    
-    if (lessons.length > 0) {
-      console.log(`📚 Fetched ${lessons.length} shared lessons from subcollection for module ${moduleId}`);
-      // Log first and last lesson IDs for debugging
-      console.log(`   First lesson: ${lessons[0]?.id || 'N/A'}, Last lesson: ${lessons[lessons.length - 1]?.id || 'N/A'}`);
-      console.log(`   All lesson IDs: ${lessons.map(l => l.id).join(', ')}`);
-    } else {
-      console.log(`📚 No shared lessons found in subcollection for module ${moduleId}`);
-    }
-    return lessons;
-  } catch (error: any) {
-    // If subcollection doesn't exist, that's okay - return empty array
-    if (error?.code === 5 || error?.message?.includes('not found')) {
-      console.debug(`📚 Subcollection doesn't exist for module ${moduleId} (this is normal for older modules)`);
-      return [];
-    }
-    console.error(`❌ Error fetching shared lessons for module ${moduleId}:`, error);
-    return [];
-  }
-}
-
-/**
  * Get all generated modules
  */
 export async function getAllGeneratedModules(): Promise<GeneratedModule[]> {
@@ -1052,45 +930,10 @@ export async function getAllGeneratedModules(): Promise<GeneratedModule[]> {
       .orderBy('createdAt', 'desc')
       .get();
 
-    // Fetch lessons from both array and subcollection for each module
-    const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-      try {
-        const data = doc.data();
-        const moduleId = doc.id;
-        
-        // Get lessons from array (backward compatibility)
-        const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-        
-        // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-        let sharedLessons: any[] = [];
-        try {
-          sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
-        } catch (error) {
-          // Subcollection might not exist for older modules - that's okay
-          console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
-        }
-        
-        // Merge lessons: array lessons first, then shared lessons from subcollection
-        const allLessons = [...arrayLessons, ...sharedLessons];
-        
-        return {
-          id: moduleId,
-          ...data,
-          lessons: allLessons
-        } as GeneratedModule;
-      } catch (error) {
-        console.error(`❌ Error processing module ${doc.id}:`, error);
-        // Return module with just array lessons as fallback
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          lessons: data.lessons || []
-        } as GeneratedModule;
-      }
-    }));
-
-    return modules;
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GeneratedModule[];
   } catch (error) {
     console.error('❌ Error fetching generated modules:', error);
     return [];
@@ -1121,78 +964,15 @@ export async function getModulesByAccessLevel(
 
     console.log(`✅ Found ${snapshot.size} published module(s) for ${accessLevel} tier`);
     
-    // Fetch lessons from both array and subcollection for each module
-    const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-      try {
-        const data = doc.data();
-        const moduleId = doc.id;
-        
-        // Get lessons from array (backward compatibility)
-        const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-        
-        // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-        let sharedLessons: any[] = [];
-        try {
-          console.log(`🔍 Checking subcollection for module ${moduleId} (${data.title})...`);
-          sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
-          console.log(`   ✅ Found ${sharedLessons.length} shared lessons in subcollection`);
-        } catch (error) {
-          // Subcollection might not exist for older modules - that's okay
-          console.error(`   ⚠️ Error fetching shared lessons for module ${moduleId}:`, error);
-          // Continue with just array lessons
-        }
-        
-        // Merge lessons: array lessons first, then shared lessons from subcollection
-        const allLessons = [...arrayLessons, ...sharedLessons];
-        // Deduplicate by lesson id to avoid duplicates on refreshes
-        const uniqueLessons = Array.from(new Map(allLessons.map((l: any) => [l.id, l])).values());
-        
-        // Track if lesson counts mismatch metadata
-        const metadataTotal = (data as any)?.totalLessons;
-        if (metadataTotal !== undefined && metadataTotal !== uniqueLessons.length) {
-          console.warn(`⚠️ totalLessons metadata mismatch for module ${moduleId}: metadata=${metadataTotal}, actual=${uniqueLessons.length}`);
-        }
-        
-        console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
-        
-        return {
-          id: moduleId,
-          ...data,
-          lessons: uniqueLessons,
-          // Keep metadata in sync with actual lessons returned
-          totalLessons: uniqueLessons.length,
-          sharedLessonsLastPage: (data as any)?.sharedLessonsLastPage,
-          documentTotalPages: (data as any)?.documentTotalPages
-        } as GeneratedModule;
-      } catch (error) {
-        console.error(`❌ Error processing module ${doc.id}:`, error);
-        // Return module with just array lessons as fallback
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          lessons: data.lessons || []
-        } as GeneratedModule;
-      }
-    }));
+    const modules = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data
+      };
+    }) as GeneratedModule[];
     
-    // Log summary of lessons
-    const totalLessons = modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0);
-    const modulesWithLessons = modules.filter(m => (m.lessons?.length || 0) > 0);
-    console.log(`📊 SUMMARY for ${accessLevel} tier:`);
-    console.log(`   - ${modules.length} module(s) total`);
-    console.log(`   - ${modulesWithLessons.length} module(s) have lessons`);
-    console.log(`   - ${totalLessons} total lessons across all modules`);
-    console.log(`   - ${modules.filter(m => m.imageUrl).length} module(s) have images`);
-    
-    // Log each module's lesson count for debugging
-    modules.forEach(m => {
-      console.log(`   📖 "${m.title}": ${m.lessons?.length || 0} lessons (arrayLessons + sharedLessons)`);
-      // Log detailed breakdown if lessons > 0
-      if (m.lessons && m.lessons.length > 0) {
-        console.log(`      Lesson IDs: ${m.lessons.map((l: any) => l.id).join(', ')}`);
-      }
-    });
+    console.log(`  - ${modules.filter(m => m.imageUrl).length} module(s) have images`);
 
     return modules;
   } catch (error: any) {
@@ -1523,51 +1303,13 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
         .orderBy('createdAt', 'desc')
         .get();
 
-      // Fetch lessons from both array and subcollection for each module
-      const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-        try {
-      const data = doc.data();
-      const moduleId = doc.id;
-          
-          // Get lessons from array (backward compatibility)
-          const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-          
-          // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-          let sharedLessons: any[] = [];
-          try {
-            sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
-          } catch (error) {
-            // Subcollection might not exist for older modules - that's okay
-            console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
-          }
-          
-          // Merge lessons: array lessons first, then shared lessons from subcollection
-          const allLessons = [...arrayLessons, ...sharedLessons];
-          const uniqueLessons = Array.from(new Map(allLessons.map((l: any) => [l.id, l])).values());
-          
-          if (sharedLessons.length > 0) {
-            console.log(`📚 Module "${data.title || moduleId}": ${arrayLessons.length} array + ${sharedLessons.length} shared = ${uniqueLessons.length} total lessons (deduped)`);
-          }
-          
-            return {
-              id: moduleId,
-              ...data,
-              lessons: uniqueLessons,
-              totalLessons: uniqueLessons.length,
-              sharedLessonsLastPage: (data as any)?.sharedLessonsLastPage,
-              documentTotalPages: (data as any)?.documentTotalPages
-            } as GeneratedModule;
-        } catch (error) {
-          console.error(`❌ Error processing tutor module ${doc.id}:`, error);
-          // Return module with just array lessons as fallback
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            lessons: data.lessons || []
-          } as GeneratedModule;
-        }
-      }));
+      const modules = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        };
+      }) as GeneratedModule[];
       
       console.log(`✅ Found ${modules.length} module(s) with orderBy`);
       
@@ -1602,43 +1344,13 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
           .where('tutorId', '==', tutorId)
           .get();
 
-        // Fetch lessons from both array and subcollection for each module
-        const modules = await Promise.all(snapshot.docs.map(async (doc) => {
-          try {
-            const data = doc.data();
-            const moduleId = doc.id;
-            
-            // Get lessons from array (backward compatibility)
-            const arrayLessons = Array.isArray(data.lessons) ? data.lessons : [];
-            
-            // Always check subcollection for shared lessons (they're stored there to avoid size limits)
-            let sharedLessons: any[] = [];
-            try {
-              sharedLessons = await fetchSharedLessonsFromSubcollection(moduleId);
-            } catch (error) {
-              // Subcollection might not exist for older modules - that's okay
-              console.debug(`No shared lessons subcollection for module ${moduleId}:`, error);
-            }
-            
-            // Merge lessons: array lessons first, then shared lessons from subcollection
-            const allLessons = [...arrayLessons, ...sharedLessons];
-            
-            return {
-              id: moduleId,
-              ...data,
-              lessons: allLessons
-            } as GeneratedModule;
-          } catch (error) {
-            console.error(`❌ Error processing tutor module ${doc.id}:`, error);
-            // Return module with just array lessons as fallback
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              lessons: data.lessons || []
-            } as GeneratedModule;
-          }
-        }));
+        const modules = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data
+          };
+        }) as GeneratedModule[];
         
         // Sort in memory
         modules.sort((a, b) => {
@@ -1682,7 +1394,6 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
 
 /**
  * Update access levels for a specific lesson within a module
- * Checks both the array lessons and subcollection lessons
  */
 export async function updateLessonAccessLevels(
   moduleId: string,
@@ -1697,43 +1408,20 @@ export async function updateLessonAccessLevels(
     if (!moduleDoc.exists) return false;
 
     const module = moduleDoc.data() as GeneratedModule;
-    
-    // First, check if lesson is in the array
-    const arrayLessons = module.lessons || [];
-    const lessonInArray = arrayLessons.find(lesson => lesson.id === lessonId);
-    
-    if (lessonInArray) {
-      // Update in array
-      const updatedLessons = arrayLessons.map(lesson => {
-        if (lesson.id === lessonId) {
-          return { ...lesson, accessLevels };
-        }
-        return lesson;
-      });
+    const updatedLessons = module.lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        return { ...lesson, accessLevels };
+      }
+      return lesson;
+    });
 
-      await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
-        lessons: updatedLessons,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-      console.log(`✅ Updated access levels for lesson ${lessonId} in module array`);
-      return true;
-    }
-    
-    // Check if lesson is in the subcollection
-    const sharedLessonRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons').doc(lessonId);
-    const sharedLessonDoc = await sharedLessonRef.get();
-    
-    if (sharedLessonDoc.exists) {
-      await sharedLessonRef.update({
-        accessLevels,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-      console.log(`✅ Updated access levels for lesson ${lessonId} in sharedLessons subcollection`);
-      return true;
-    }
-    
-    console.warn(`⚠️ Lesson ${lessonId} not found in module ${moduleId} (neither in array nor subcollection)`);
-    return false;
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      lessons: updatedLessons,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Updated access levels for lesson ${lessonId} in module ${moduleId}`);
+    return true;
   } catch (error) {
     console.error('❌ Error updating lesson access levels:', error);
     return false;
@@ -1757,56 +1445,26 @@ export async function updateQuizAccessLevels(
     if (!moduleDoc.exists) return false;
 
     const module = moduleDoc.data() as GeneratedModule;
-    const arrayLessons = module.lessons || [];
-    
-    // Check if lesson is in the array
-    const lessonInArray = arrayLessons.find(lesson => lesson.id === lessonId);
-    
-    if (lessonInArray) {
-      const updatedLessons = arrayLessons.map(lesson => {
-        if (lesson.id === lessonId) {
-          const updatedQuizzes = lesson.quiz.map(quiz => {
-            if (quiz.id === quizId) {
-              return { ...quiz, accessLevels };
-            }
-            return quiz;
-          });
-          return { ...lesson, quiz: updatedQuizzes };
-        }
-        return lesson;
-      });
+    const updatedLessons = module.lessons.map(lesson => {
+      if (lesson.id === lessonId) {
+        const updatedQuizzes = lesson.quiz.map(quiz => {
+          if (quiz.id === quizId) {
+            return { ...quiz, accessLevels };
+          }
+          return quiz;
+        });
+        return { ...lesson, quiz: updatedQuizzes };
+      }
+      return lesson;
+    });
 
-      await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
-        lessons: updatedLessons,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-      console.log(`✅ Updated access levels for quiz ${quizId} in lesson ${lessonId} (array)`);
-      return true;
-    }
-    
-    // Check if lesson is in the subcollection
-    const sharedLessonRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons').doc(lessonId);
-    const sharedLessonDoc = await sharedLessonRef.get();
-    
-    if (sharedLessonDoc.exists) {
-      const lessonData = sharedLessonDoc.data() as any;
-      const updatedQuizzes = (lessonData.quiz || []).map((quiz: any) => {
-        if (quiz.id === quizId) {
-          return { ...quiz, accessLevels };
-        }
-        return quiz;
-      });
-      
-      await sharedLessonRef.update({
-        quiz: updatedQuizzes,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-      console.log(`✅ Updated access levels for quiz ${quizId} in lesson ${lessonId} (subcollection)`);
-      return true;
-    }
-    
-    console.warn(`⚠️ Lesson ${lessonId} not found in module ${moduleId}`);
-    return false;
+    await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
+      lessons: updatedLessons,
+      updatedAt: admin.firestore.Timestamp.now(),
+    });
+
+    console.log(`✅ Updated access levels for quiz ${quizId} in lesson ${lessonId}`);
+    return true;
   } catch (error) {
     console.error('❌ Error updating quiz access levels:', error);
     return false;
@@ -1815,7 +1473,6 @@ export async function updateQuizAccessLevels(
 
 /**
  * Bulk update access levels for all items in a module
- * Updates both array lessons and subcollection lessons
  */
 export async function bulkUpdateModuleAccessLevels(
   moduleId: string,
@@ -1833,7 +1490,6 @@ export async function bulkUpdateModuleAccessLevels(
     if (!moduleDoc.exists) return false;
 
     const module = moduleDoc.data() as GeneratedModule;
-    const arrayLessons = module.lessons || [];
     let updatedModule: any = { ...module };
 
     // Update module-level access
@@ -1841,37 +1497,10 @@ export async function bulkUpdateModuleAccessLevels(
       updatedModule.accessLevels = updates.moduleAccessLevels;
     }
 
-    // Track which lesson/quiz updates were applied to array (remaining go to subcollection)
-    const arrayLessonIds = new Set(arrayLessons.map(l => l.id));
-    const lessonUpdatesForArray: typeof updates.lessonUpdates = [];
-    const lessonUpdatesForSubcollection: typeof updates.lessonUpdates = [];
-    const quizUpdatesForArray: typeof updates.quizUpdates = [];
-    const quizUpdatesForSubcollection: typeof updates.quizUpdates = [];
-
-    // Separate updates by location
-    if (updates.lessonUpdates) {
-      updates.lessonUpdates.forEach(u => {
-        if (arrayLessonIds.has(u.lessonId)) {
-          lessonUpdatesForArray.push(u);
-        } else {
-          lessonUpdatesForSubcollection.push(u);
-        }
-      });
-    }
-    if (updates.quizUpdates) {
-      updates.quizUpdates.forEach(u => {
-        if (arrayLessonIds.has(u.lessonId)) {
-          quizUpdatesForArray.push(u);
-        } else {
-          quizUpdatesForSubcollection.push(u);
-        }
-      });
-    }
-
-    // Update lesson access levels in array
-    if (lessonUpdatesForArray.length > 0) {
-      updatedModule.lessons = arrayLessons.map(lesson => {
-        const lessonUpdate = lessonUpdatesForArray.find(u => u.lessonId === lesson.id);
+    // Update lesson access levels
+    if (updates.lessonUpdates && updates.lessonUpdates.length > 0) {
+      updatedModule.lessons = module.lessons.map(lesson => {
+        const lessonUpdate = updates.lessonUpdates!.find(u => u.lessonId === lesson.id);
         if (lessonUpdate) {
           return { ...lesson, accessLevels: lessonUpdate.accessLevels };
         }
@@ -1879,10 +1508,10 @@ export async function bulkUpdateModuleAccessLevels(
       });
     }
 
-    // Update quiz access levels in array
-    if (quizUpdatesForArray.length > 0) {
-      updatedModule.lessons = (updatedModule.lessons || arrayLessons).map((lesson: GeneratedLesson) => {
-        const quizUpdatesForLesson = quizUpdatesForArray.filter(u => u.lessonId === lesson.id);
+    // Update quiz access levels
+    if (updates.quizUpdates && updates.quizUpdates.length > 0) {
+      updatedModule.lessons = (updatedModule.lessons || module.lessons).map((lesson: GeneratedLesson) => {
+        const quizUpdatesForLesson = updates.quizUpdates!.filter(u => u.lessonId === lesson.id);
         if (quizUpdatesForLesson.length > 0) {
           const updatedQuizzes = lesson.quiz.map((quiz: GeneratedQuiz) => {
             const quizUpdate = quizUpdatesForLesson.find(u => u.quizId === quiz.id);
@@ -1897,52 +1526,10 @@ export async function bulkUpdateModuleAccessLevels(
       });
     }
 
-    // Update module document (array lessons)
     await db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).update({
       ...updatedModule,
       updatedAt: admin.firestore.Timestamp.now(),
     });
-
-    // Update subcollection lessons
-    const subcollectionRef = db.collection(GENERATED_MODULES_COLLECTION).doc(moduleId).collection('sharedLessons');
-    
-    // Batch update subcollection lessons
-    if (lessonUpdatesForSubcollection.length > 0 || quizUpdatesForSubcollection.length > 0) {
-      const batch = db.batch();
-      
-      for (const lessonUpdate of lessonUpdatesForSubcollection) {
-        const lessonRef = subcollectionRef.doc(lessonUpdate.lessonId);
-        batch.update(lessonRef, {
-          accessLevels: lessonUpdate.accessLevels,
-          updatedAt: admin.firestore.Timestamp.now(),
-        });
-      }
-      
-      // For quiz updates in subcollection, we need to fetch and update each lesson
-      const uniqueLessonIds = [...new Set(quizUpdatesForSubcollection.map(u => u.lessonId))];
-      for (const lessonId of uniqueLessonIds) {
-        const lessonRef = subcollectionRef.doc(lessonId);
-        const lessonDoc = await lessonRef.get();
-        if (lessonDoc.exists) {
-          const lessonData = lessonDoc.data() as any;
-          const quizUpdatesForThisLesson = quizUpdatesForSubcollection.filter(u => u.lessonId === lessonId);
-          const updatedQuizzes = (lessonData.quiz || []).map((quiz: any) => {
-            const quizUpdate = quizUpdatesForThisLesson.find(u => u.quizId === quiz.id);
-            if (quizUpdate) {
-              return { ...quiz, accessLevels: quizUpdate.accessLevels };
-            }
-            return quiz;
-          });
-          batch.update(lessonRef, {
-            quiz: updatedQuizzes,
-            updatedAt: admin.firestore.Timestamp.now(),
-          });
-        }
-      }
-      
-      await batch.commit();
-      console.log(`✅ Updated ${lessonUpdatesForSubcollection.length} lessons and quizzes in ${uniqueLessonIds.length} lessons in subcollection`);
-    }
 
     console.log(`✅ Bulk updated access levels for module ${moduleId}`);
     return true;
@@ -2093,5 +1680,4 @@ export async function deleteNonTutorModules(dryRun = false): Promise<{
     throw error;
   }
 }
-
 

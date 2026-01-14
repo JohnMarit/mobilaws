@@ -361,43 +361,24 @@ async function fetchModulesFromBackend(
   userId?: string,
   userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
-  console.log(`🚀 fetchModulesFromBackend called with accessLevel: ${accessLevel}`);
   try {
-    // Add timestamp to prevent caching issues
     const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
-    const urlWithTimestamp = `${apiUrl}?t=${Date.now()}`;
-    console.log(`📚 Fetching modules for tier: ${accessLevel} from ${urlWithTimestamp}`);
+    console.log(`📚 Fetching modules for tier: ${accessLevel} from ${apiUrl}`);
     
-    const response = await fetch(urlWithTimestamp, {
-      cache: 'no-store' // Disable caching (timestamp also prevents caching)
-    });
+    const response = await fetch(apiUrl);
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Failed to fetch modules for tier ${accessLevel}:`, response.status, response.statusText);
-      console.error(`Request URL:`, urlWithTimestamp);
       console.error(`Error details:`, errorText);
       return [];
     }
 
     const generatedModules: GeneratedModule[] = await response.json();
-    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier`);
-    
-    // Log raw module data to see what backend is sending
-    generatedModules.forEach(m => {
-      const lessonCount = Array.isArray(m.lessons) ? m.lessons.length : 0;
-      console.log(`   📦 Backend module "${m.title}": ${lessonCount} lessons (published: ${m.published})`);
-      if (m.lessons && m.lessons.length > 0) {
-        console.log(`      First 3 lesson IDs: ${m.lessons.slice(0, 3).map((l: any) => l.id).join(', ')}`);
-        if (m.lessons.length > 10) {
-          console.log(`      Lessons 11-13 IDs: ${m.lessons.slice(10, 13).map((l: any) => l.id).join(', ')}`);
-        }
-      }
-    });
+    console.log(`✅ Fetched ${generatedModules.length} module(s) for ${accessLevel} tier (${generatedModules.filter(m => m.imageUrl).length} with images)`);
     
     // Filter to only published modules (backend should do this, but double-check)
     const publishedModules = generatedModules.filter(m => m.published === true);
-    console.log(`📋 ${publishedModules.length} published module(s) after filtering`);
     
     // Convert to frontend format with progress and merge user-specific lessons
     return publishedModules.map(m => {
@@ -417,7 +398,7 @@ async function fetchModulesFromBackend(
         ...userModuleLessons
       ];
       
-      console.log(`📊 Module "${m.title}": ${moduleLessons.length} backend + ${userModuleLessons.length} user-specific = ${allLessons.length} total lessons (${completedCount} completed)`);
+      console.log(`📊 Module "${m.title}": ${moduleLessons.length} base + ${userModuleLessons.length} user-generated = ${allLessons.length} total lessons (${completedCount} completed in progress)`);
       
       const moduleWithLessons: GeneratedModule = {
         ...m,
@@ -426,9 +407,7 @@ async function fetchModulesFromBackend(
       return convertGeneratedModuleToModule(moduleWithLessons, accessLevel, moduleProgress, moduleLessons.length);
     });
   } catch (error) {
-    console.error('❌ Error fetching modules from backend:', error);
-    console.error(`   Access level: ${accessLevel}`);
-    console.error(`   Error type:`, error instanceof Error ? error.message : 'Unknown error');
+    console.error('Error fetching modules from backend:', error);
     return [];
   }
 }
@@ -553,23 +532,10 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   // Listen for module updates from tutor admin
   useEffect(() => {
     const handleModulesUpdated = () => {
-      console.log('📢 Modules updated event received, reloading modules...');
-      // Clear any cached data
-      setModules([]);
-      setModulesLoading(true);
-      
-      // Wait a moment then reload
-      setTimeout(() => {
+      console.log('📢 Modules updated, reloading...');
       loadModules().then(() => {
-          console.log('✅ Modules reloaded after update');
-          toast.success('📚 Course content has been updated!', {
-            duration: 4000
-          });
-        }).catch(error => {
-          console.error('❌ Error reloading modules:', error);
-          toast.error('Failed to reload course content');
+        toast.success('📚 Course content has been updated!');
       });
-      }, 500); // Small delay to ensure event fully propagates
     };
 
     window.addEventListener('modules-updated', handleModulesUpdated);
