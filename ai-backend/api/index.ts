@@ -31,6 +31,7 @@ import pushRouter from '../src/routes/push';
 import counselRouter from '../src/routes/counsel';
 import counselChatRouter from '../src/routes/counsel-chat';
 import documentMigrationRouter from '../src/routes/document-migration';
+import discussionsRouter from '../src/routes/discussions';
 
 const app = express();
 
@@ -92,6 +93,7 @@ app.use('/api', pushRouter);
 app.use('/api/counsel', counselRouter);
 app.use('/api/counsel', counselChatRouter);
 app.use('/api', documentMigrationRouter);
+app.use('/api/discussions', discussionsRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

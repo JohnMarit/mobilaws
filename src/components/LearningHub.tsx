@@ -6,7 +6,9 @@ import {
   faCircleCheck, faLock, faChevronRight, faChevronDown, faChevronUp,
   faTrashCan, faRotateLeft, faXmark, faAward, faPlay, faWandMagicSparkles,
   faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye,
-  faHouse
+  faHouse, faBars, faBell, faSearch, faClock, faChartLine, faBriefcase,
+  faUsers, faFileLines, faDatabase, faDownload, faThumbsUp, faComments,
+  faReply, faCrown, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,8 @@ import { Lesson, Module } from '@/lib/learningContent';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { getApiUrl } from '@/lib/api';
+import { auth } from '@/lib/firebase';
+import { Textarea } from '@/components/ui/textarea';
 
 // Category name mapping - maps icon names to readable category names
 const categoryMap: Record<string, string> = {
@@ -126,7 +130,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     window.addEventListener('modules-updated', handleModulesUpdated);
     return () => window.removeEventListener('modules-updated', handleModulesUpdated);
   }, [reloadModules]);
-  const { showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { showLoginModal, setShowLoginModal, setShowSubscriptionModal } = usePromptLimit();
   const [activeLesson, setActiveLesson] = useState<{ module: Module; lesson: Lesson } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -141,6 +145,15 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const [showGenerateLessonsPopup, setShowGenerateLessonsPopup] = useState(false);
   const [moduleForGeneration, setModuleForGeneration] = useState<{ id: string; name: string } | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<'simple' | 'medium' | 'hard'>('medium');
+  
+  // Discussions state
+  const [discussions, setDiscussions] = useState<any[]>([]);
+  const [discussionsLoading, setDiscussionsLoading] = useState(true);
+  const [showNewPostDialog, setShowNewPostDialog] = useState(false);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [selectedDiscussionId, setSelectedDiscussionId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Record<string, any[]>>({});
+  const [commentContent, setCommentContent] = useState<Record<string, string>>({});
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -446,21 +459,251 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     return Array.from(catNames).sort(); // Sort alphabetically
   }, [modules]);
 
+  // Helper function to get auth token for API requests
+  const getAuthToken = async (): Promise<string | null> => {
+    try {
+      if (auth?.currentUser) {
+        return await auth.currentUser.getIdToken();
+      }
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+    }
+    return null;
+  };
+
+  // Fetch discussions from API
+  const fetchDiscussions = async () => {
+    setDiscussionsLoading(true);
+    try {
+      const token = await getAuthToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(getApiUrl('discussions'), { headers });
+      if (!response.ok) throw new Error('Failed to fetch discussions');
+      
+      const data = await response.json();
+      if (data.success) {
+        setDiscussions(data.discussions || []);
+      }
+    } catch (error) {
+      console.error('Error fetching discussions:', error);
+      toast.error('Failed to load discussions');
+    } finally {
+      setDiscussionsLoading(false);
+    }
+  };
+
+  // Create a new discussion post
+  const handleCreatePost = async () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    if (!newPostContent.trim()) {
+      toast.error('Please enter some content');
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to post');
+        return;
+      }
+
+      const response = await fetch(getApiUrl('discussions'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newPostContent.trim() }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create post');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Post created successfully!');
+        setNewPostContent('');
+        setShowNewPostDialog(false);
+        fetchDiscussions(); // Refresh discussions
+      }
+    } catch (error: any) {
+      console.error('Error creating post:', error);
+      toast.error(error.message || 'Failed to create post');
+    }
+  };
+
+  // Toggle like on a discussion
+  const handleToggleLike = async (discussionId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to like posts');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}/like`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle like');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Update local state
+        setDiscussions(prev => prev.map(d => {
+          if (d.id === discussionId) {
+            return {
+              ...d,
+              likesCount: data.liked ? d.likesCount + 1 : d.likesCount - 1,
+              isLiked: data.liked,
+            };
+          }
+          return d;
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast.error('Failed to update like');
+    }
+  };
+
+  // Add a comment to a discussion
+  const handleAddComment = async (discussionId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const content = commentContent[discussionId]?.trim();
+    if (!content) {
+      toast.error('Please enter a comment');
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to comment');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Comment added!');
+        setCommentContent(prev => ({ ...prev, [discussionId]: '' }));
+        // Refresh comments
+        const commentsResponse = await fetch(getApiUrl(`discussions/${discussionId}/comments`));
+        if (commentsResponse.ok) {
+          const commentsData = await commentsResponse.json();
+          if (commentsData.success) {
+            setComments(prev => ({ ...prev, [discussionId]: commentsData.comments }));
+          }
+        }
+        // Update discussion comment count
+        setDiscussions(prev => prev.map(d => {
+          if (d.id === discussionId) {
+            return { ...d, commentsCount: d.commentsCount + 1 };
+          }
+          return d;
+        }));
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      toast.error('Failed to add comment');
+    }
+  };
+
+  // Fetch comments for a discussion
+  const fetchComments = async (discussionId: string) => {
+    try {
+      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments`));
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (data.success) {
+        setComments(prev => ({ ...prev, [discussionId]: data.comments || [] }));
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  // Format time ago
+  const formatTimeAgo = (timestamp: any): string => {
+    if (!timestamp) return 'Unknown';
+    const seconds = timestamp.seconds || Math.floor(timestamp / 1000);
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - seconds;
+
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return `${Math.floor(diff / 604800)}w ago`;
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Fetch discussions when learning tab is active
+  useEffect(() => {
+    if (activeNav === 'learning') {
+      fetchDiscussions();
+    }
+  }, [activeNav]);
+
   // Filter modules based on navigation
   const displayedModules = useMemo(() => {
-    if (activeNav === 'learning') {
-      // Show only courses user has started (has progress)
-      return filteredModules.filter(module => {
-        const modProg = getModuleProgress(module.id);
-        return modProg && Object.keys(modProg.lessonsCompleted || {}).length > 0;
-      });
-    } else if (activeNav === 'featured') {
+    if (activeNav === 'featured') {
       // Show all courses
       return filteredModules;
     }
-    // For certification and leaderboard, return empty (they show different content)
+    // For learning, certification and leaderboard, return empty (they show different content)
     return [];
-  }, [filteredModules, activeNav, getModuleProgress]);
+  }, [filteredModules, activeNav]);
 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
@@ -469,10 +712,18 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-blue-100/70 bg-white/80 backdrop-blur-md flex-shrink-0 h-[60px] shadow-sm">
           <div className="flex items-center gap-3">
-            <FontAwesomeIcon icon={faBookOpen} className="text-xl text-primary" />
-            <div>
-              <h1 className="text-lg sm:text-xl font-semibold leading-tight">Learning Hub</h1>
-              <p className="text-xs text-slate-500 hidden sm:block">Curated courses with a clean, blue-first experience</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-lg hover:bg-blue-50 text-slate-600"
+            >
+              <FontAwesomeIcon icon={faBars} className="text-lg" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                <FontAwesomeIcon icon={faBookOpen} className="text-white text-sm" />
+              </div>
+              <h1 className="text-lg sm:text-xl font-semibold leading-tight text-blue-700">LawLearn</h1>
             </div>
           </div>
           
@@ -511,6 +762,14 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             <Button
               variant="ghost"
               size="sm"
+              className="h-9 w-9 p-0 rounded-lg hover:bg-blue-50 text-slate-600"
+            >
+              <FontAwesomeIcon icon={faBell} className="text-lg" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onOpenChange(false)}
               className="h-7 w-7 p-0 ml-1 rounded-full hover:bg-blue-50 text-slate-600"
             >
@@ -521,13 +780,278 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 pb-20">
-          {activeNav === 'featured' || activeNav === 'learning' ? (
-            <div className="space-y-4 sm:space-y-6">
+          {activeNav === 'featured' ? (
+            <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+              {/* Welcome Banner Section */}
+              <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 p-6 sm:p-8 text-white shadow-xl">
+                <div className="relative z-10">
+                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+                    Welcome Back, {user?.name || 'Student'}!
+                  </h1>
+                  <p className="text-blue-100 text-sm sm:text-base">
+                    Continue your legal education journey
+                  </p>
+                </div>
+                
+                {/* Current Course Card */}
+                {(() => {
+                  const currentModule = modules.find(m => {
+                    const prog = getModuleProgress(m.id);
+                    return prog && Object.keys(prog.lessonsCompleted || {}).length > 0;
+                  }) || modules[0];
+                  
+                  if (!currentModule) return null;
+                  const { percent } = moduleStatus(currentModule);
+                  
+                  return (
+                    <div className="mt-6 bg-white/95 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <p className="text-xs text-blue-600 font-medium mb-1">Current Course</p>
+                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-3">{currentModule.title}</h3>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-slate-600">
+                              <span>Progress</span>
+                              <span className="font-semibold text-blue-600">{percent}%</span>
+                            </div>
+                            <Progress value={percent} className="h-2 bg-blue-50" />
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                            <FontAwesomeIcon
+                              icon={
+                                currentModule.icon === 'faScroll' ? faScroll :
+                                currentModule.icon === 'faGlobe' ? faGlobe :
+                                currentModule.icon === 'faScaleBalanced' ? faScaleBalanced :
+                                currentModule.icon === 'faLandmark' ? faLandmark :
+                                faBook
+                              }
+                              className="text-xl sm:text-2xl text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleCourseClick(currentModule)}
+                        className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-md"
+                      >
+                        Continue Learning
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search courses, topics..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 h-12 rounded-xl border-blue-200 focus:border-blue-400 bg-white shadow-sm"
+                />
+                <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
+              </div>
+
+              {/* Statistics Cards */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                <Card className="bg-white border-blue-100 shadow-sm">
+                  <CardContent className="p-4 sm:p-5 text-center">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faBook} className="text-white text-lg sm:text-xl" />
+                    </div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{modules.length}</div>
+                    <div className="text-xs sm:text-sm text-slate-600">Active Courses</div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-white border-blue-100 shadow-sm">
+                  <CardContent className="p-4 sm:p-5 text-center">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faClock} className="text-white text-lg sm:text-xl" />
+                    </div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{Math.floor(progress.xp / 60)}h</div>
+                    <div className="text-xs sm:text-sm text-slate-600">Study Time</div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="bg-white border-blue-100 shadow-sm">
+                  <CardContent className="p-4 sm:p-5 text-center">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faTrophy} className="text-white text-lg sm:text-xl" />
+                    </div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{Math.floor(progress.xp / 500)}</div>
+                    <div className="text-xs sm:text-sm text-slate-600">Certificates</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Browse Categories Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Browse Categories</h2>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    View All
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  {categories.slice(0, 6).map(catName => {
+                    const iconName = Object.keys(categoryMap).find(key => categoryMap[key] === catName) || 'faBook';
+                    const catModules = modules.filter(m => getCategoryName(m.icon) === catName);
+                    const bgGradients = [
+                      'from-blue-50 to-blue-100',
+                      'from-blue-100 to-blue-200',
+                      'from-blue-200 to-blue-300',
+                      'from-blue-300 to-blue-400',
+                      'from-blue-400 to-blue-500',
+                      'from-blue-500 to-blue-600'
+                    ];
+                    const iconGradients = [
+                      'from-blue-500 to-blue-600',
+                      'from-blue-600 to-blue-700',
+                      'from-blue-400 to-blue-500',
+                      'from-blue-300 to-blue-400',
+                      'from-blue-500 to-blue-600',
+                      'from-blue-600 to-blue-700'
+                    ];
+                    const gradientIndex = categories.indexOf(catName) % bgGradients.length;
+                    
+                    return (
+                      <Card
+                        key={catName}
+                        className={`cursor-pointer border-blue-100 hover:shadow-lg transition-all bg-gradient-to-br ${bgGradients[gradientIndex]}`}
+                        onClick={() => setSelectedCategory(catName === selectedCategory ? 'all' : catName)}
+                      >
+                        <CardContent className="p-4 sm:p-5">
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 mb-3 rounded-lg bg-gradient-to-br ${iconGradients[gradientIndex]} flex items-center justify-center shadow-md`}>
+                            <FontAwesomeIcon
+                              icon={
+                                iconName === 'faScroll' ? faScroll :
+                                iconName === 'faGlobe' ? faGlobe :
+                                iconName === 'faScaleBalanced' ? faScaleBalanced :
+                                iconName === 'faLandmark' ? faLandmark : faBook
+                              }
+                              className="text-white text-lg sm:text-xl"
+                            />
+                          </div>
+                          <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">{catName}</h3>
+                          <p className="text-xs text-slate-600 mb-2">{catModules.length} Courses</p>
+                          <button className="text-xs text-blue-700 font-medium flex items-center gap-1">
+                            Explore <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
+                          </button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recommended Learning Path Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Recommended Learning Path</h2>
+                </div>
+                
+                <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100 shadow-sm">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="space-y-4">
+                      {modules.slice(0, 5).map((module, index) => {
+                        const { percent, done } = moduleStatus(module);
+                        const isLocked = index > 0 && !moduleStatus(modules[index - 1]).done;
+                        
+                        return (
+                          <div key={module.id} className="flex items-center gap-4">
+                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              done ? 'bg-green-500' : isLocked ? 'bg-slate-300' : 'bg-blue-500'
+                            } text-white font-bold shadow-sm`}>
+                              {done ? (
+                                <FontAwesomeIcon icon={faCircleCheck} className="text-sm" />
+                              ) : isLocked ? (
+                                <FontAwesomeIcon icon={faLock} className="text-xs" />
+                              ) : (
+                                index + 1
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-slate-900 text-sm sm:text-base">{module.title}</h4>
+                              <p className="text-xs text-slate-600 mt-0.5">
+                                {done ? 'Completed' : isLocked ? 'Locked' : ''}
+                              </p>
+                              {!done && !isLocked && (
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="text-slate-600">Progress</span>
+                                    <span className="font-semibold text-blue-600">{percent}%</span>
+                                  </div>
+                                  <Progress value={percent} className="h-1.5 bg-blue-50" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      View Full Path
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Streak Tracker Section */}
+              <Card className="bg-gradient-to-br from-blue-500 via-blue-400 to-blue-600 border-0 shadow-xl text-white overflow-hidden">
+                <CardContent className="p-4 sm:p-6 relative">
+                  <div className="absolute top-4 right-4 w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
+                    <FontAwesomeIcon icon={faTrophy} className="text-white text-xl sm:text-2xl" />
+                  </div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FontAwesomeIcon icon={faFire} className="text-orange-300" />
+                      <h3 className="text-xl sm:text-2xl font-bold">{progress.streak} Day Streak!</h3>
+                    </div>
+                    <p className="text-blue-100 mb-4 text-sm sm:text-base">Keep up the amazing work</p>
+                    
+                    {/* Day Tracker */}
+                    <div className="flex items-center gap-2 mb-4">
+                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
+                        <div
+                          key={idx}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
+                            idx < progress.streak % 7
+                              ? 'bg-white text-blue-600'
+                              : idx === (progress.streak % 7)
+                              ? 'bg-white/90 text-blue-600 border-2 border-white'
+                              : 'bg-white/30 text-white border border-white/50'
+                          }`}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Today's Goal */}
+                    <div className="mt-4 pt-4 border-t border-white/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Today's Goal</span>
+                        <span className="text-sm font-semibold">{progress.xp % 60} / 60 min</span>
+                      </div>
+                      <Progress value={(progress.xp % 60) / 60 * 100} className="h-2 bg-white/30" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Modules */}
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="text-lg sm:text-xl font-semibold">
-                    {activeNav === 'learning' ? 'My Learning' : 'All Courses'}
+                    Featured Courses
                   </h3>
                   <div className="flex items-center gap-2">
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -570,9 +1094,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   <div className="text-center py-12">
                     <FontAwesomeIcon icon={faBookOpen} className="text-5xl mx-auto text-gray-300 mb-4" />
                     <p className="text-gray-500 text-lg">
-                      {activeNav === 'learning' 
-                        ? "You haven't started any courses yet. Browse Featured to get started!" 
-                        : 'No courses available.'}
+                      No courses available.
                     </p>
                   </div>
                 ) : (
@@ -657,6 +1179,255 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   </div>
                 )}
               </div>
+            </div>
+          ) : activeNav === 'learning' ? (
+            <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+              {/* Community Discussions Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Community Discussions</h2>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={() => {
+                        if (!user) {
+                          setShowLoginModal(true);
+                        } else {
+                          setShowNewPostDialog(true);
+                        }
+                      }}
+                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                      size="sm"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                      New Post
+                    </Button>
+                  </div>
+                </div>
+                
+                {discussionsLoading ? (
+                  <div className="text-center py-12">
+                    <FontAwesomeIcon icon={faSpinner} className="text-5xl mx-auto text-blue-400 mb-4 animate-spin" />
+                    <p className="text-gray-600 text-lg font-medium">Loading discussions...</p>
+                  </div>
+                ) : discussions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FontAwesomeIcon icon={faComments} className="text-5xl mx-auto text-gray-300 mb-4" />
+                    <p className="text-gray-500 text-lg mb-2">No discussions yet</p>
+                    <p className="text-gray-400 text-sm">Be the first to start a discussion!</p>
+                    <Button
+                      onClick={() => {
+                        if (!user) {
+                          setShowLoginModal(true);
+                        } else {
+                          setShowNewPostDialog(true);
+                        }
+                      }}
+                      className="mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                    >
+                      <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                      Create First Post
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {discussions.map((discussion) => {
+                      const initials = getUserInitials(discussion.userName);
+                      const timeAgo = formatTimeAgo(discussion.createdAt);
+                      const discussionComments = comments[discussion.id] || [];
+                      const showComments = selectedDiscussionId === discussion.id;
+
+                      return (
+                        <Card key={discussion.id} className="bg-white border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                          <CardContent className="p-4 sm:p-5">
+                            <div className="flex items-start gap-3">
+                              {discussion.userPicture ? (
+                                <img
+                                  src={discussion.userPicture}
+                                  alt={discussion.userName}
+                                  className="w-10 h-10 rounded-full flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-white font-semibold text-sm">{initials}</span>
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold text-slate-900 text-sm sm:text-base">{discussion.userName}</span>
+                                  <span className="text-xs text-slate-500">{timeAgo}</span>
+                                </div>
+                                <p className="text-slate-700 text-sm sm:text-base mb-3 whitespace-pre-wrap break-words">
+                                  {discussion.content}
+                                </p>
+                                <div className="flex items-center gap-4">
+                                  <button
+                                    onClick={() => handleToggleLike(discussion.id)}
+                                    className={`flex items-center gap-1.5 transition-colors ${
+                                      discussion.isLiked ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'
+                                    }`}
+                                    disabled={!user}
+                                  >
+                                    <FontAwesomeIcon icon={faThumbsUp} className="text-sm" />
+                                    <span className="text-xs font-medium">{discussion.likesCount || 0}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (showComments) {
+                                        setSelectedDiscussionId(null);
+                                      } else {
+                                        setSelectedDiscussionId(discussion.id);
+                                        if (!discussionComments.length) {
+                                          fetchComments(discussion.id);
+                                        }
+                                      }
+                                    }}
+                                    className="flex items-center gap-1.5 text-slate-600 hover:text-blue-600 transition-colors"
+                                  >
+                                    <FontAwesomeIcon icon={faComments} className="text-sm" />
+                                    <span className="text-xs font-medium">{discussion.commentsCount || 0} replies</span>
+                                  </button>
+                                </div>
+
+                                {/* Comments Section */}
+                                {showComments && (
+                                  <div className="mt-4 pt-4 border-t border-blue-100 space-y-3">
+                                    {/* Existing Comments */}
+                                    {discussionComments.length > 0 && (
+                                      <div className="space-y-3">
+                                        {discussionComments.map((comment: any) => (
+                                          <div key={comment.id} className="flex items-start gap-3">
+                                            {comment.userPicture ? (
+                                              <img
+                                                src={comment.userPicture}
+                                                alt={comment.userName}
+                                                className="w-8 h-8 rounded-full flex-shrink-0"
+                                              />
+                                            ) : (
+                                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-300 to-blue-400 flex items-center justify-center flex-shrink-0">
+                                                <span className="text-white font-semibold text-xs">{getUserInitials(comment.userName)}</span>
+                                              </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-medium text-slate-900 text-xs sm:text-sm">{comment.userName}</span>
+                                                <span className="text-xs text-slate-500">{formatTimeAgo(comment.createdAt)}</span>
+                                              </div>
+                                              <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Add Comment Form */}
+                                    {user && (
+                                      <div className="flex items-start gap-2">
+                                        {user.picture ? (
+                                          <img
+                                            src={user.picture}
+                                            alt={user.name}
+                                            className="w-8 h-8 rounded-full flex-shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-300 to-blue-400 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-white font-semibold text-xs">{getUserInitials(user.name || 'U')}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex-1 flex gap-2">
+                                          <Input
+                                            placeholder="Write a comment..."
+                                            value={commentContent[discussion.id] || ''}
+                                            onChange={(e) => setCommentContent(prev => ({ ...prev, [discussion.id]: e.target.value }))}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleAddComment(discussion.id);
+                                              }
+                                            }}
+                                            className="flex-1 text-sm"
+                                          />
+                                          <Button
+                                            onClick={() => handleAddComment(discussion.id)}
+                                            size="sm"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                          >
+                                            Post
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {!user && (
+                                      <p className="text-sm text-slate-500 text-center py-2">
+                                        <button
+                                          onClick={() => setShowLoginModal(true)}
+                                          className="text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                          Login
+                                        </button>
+                                        {' '}to comment
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Upgrade to Premium Section */}
+              <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 border-0 shadow-xl text-white overflow-hidden">
+                <CardContent className="p-6 sm:p-8 relative">
+                  <div className="absolute top-6 right-6 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
+                    <FontAwesomeIcon icon={faCrown} className="text-white text-2xl sm:text-3xl" />
+                  </div>
+                  <div className="relative z-10 max-w-md">
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-2">Upgrade to Premium</h3>
+                    <p className="text-blue-100 mb-6 text-sm sm:text-base">
+                      Unlock all courses, live sessions, and exclusive resources
+                    </p>
+                    <ul className="space-y-3 mb-6">
+                      <li className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
+                        </div>
+                        <span className="text-sm sm:text-base">Unlimited access to all courses</span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
+                        </div>
+                        <span className="text-sm sm:text-base">Priority support from instructors</span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
+                        </div>
+                        <span className="text-sm sm:text-base">Downloadable resources & materials</span>
+                      </li>
+                      <li className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
+                        </div>
+                        <span className="text-sm sm:text-base">Certificate of completion</span>
+                      </li>
+                    </ul>
+                    <Button
+                      onClick={() => setShowSubscriptionModal(true)}
+                      className="w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold py-3 text-base rounded-xl shadow-lg mb-3"
+                    >
+                      Start Free Trial
+                    </Button>
+                    <p className="text-xs text-blue-100 text-center">
+                      No credit card required + Cancel anytime
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           ) : activeNav === 'certification' ? (
             <ExamPage />
@@ -1105,6 +1876,50 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           isOpen={showLoginModal} 
           onClose={() => setShowLoginModal(false)} 
         />
+
+        {/* New Post Dialog */}
+        <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Create New Discussion Post</DialogTitle>
+              <DialogDescription>
+                Share your thoughts or ask questions with the community
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Textarea
+                  placeholder="What would you like to discuss?"
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  className="min-h-[150px] resize-none"
+                  maxLength={5000}
+                />
+                <div className="text-xs text-slate-500 mt-1 text-right">
+                  {newPostContent.length} / 5000 characters
+                </div>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setNewPostContent('');
+                    setShowNewPostDialog(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreatePost}
+                  disabled={!newPostContent.trim()}
+                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+                >
+                  Post
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
