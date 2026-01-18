@@ -29,6 +29,7 @@ import aiLessonsRouter from './routes/ai-lessons';
 import counselRouter from './routes/counsel';
 import counselChatRouter from './routes/counsel-chat';
 import discussionsRouter from './routes/discussions';
+import notificationsRouter from './routes/notifications';
 
 const app = express();
 
@@ -97,6 +98,7 @@ app.use('/api', aiLessonsRouter);
 app.use('/api/counsel', counselRouter);
 app.use('/api/counsel', counselChatRouter);
 app.use('/api/discussions', discussionsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

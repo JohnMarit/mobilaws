@@ -8,7 +8,7 @@ import {
   faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye,
   faHouse, faBars, faBell, faSearch, faClock, faChartLine, faBriefcase,
   faUsers, faFileLines, faDatabase, faDownload, faThumbsUp, faComments,
-  faReply, faCrown, faCheck
+  faReply, faCrown, faCheck, faEdit, faPencil
 } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
@@ -30,7 +31,6 @@ import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { getApiUrl } from '@/lib/api';
 import { auth } from '@/lib/firebase';
-import { Textarea } from '@/components/ui/textarea';
 
 // Category name mapping - maps icon names to readable category names
 const categoryMap: Record<string, string> = {
@@ -154,6 +154,16 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const [selectedDiscussionId, setSelectedDiscussionId] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, any[]>>({});
   const [commentContent, setCommentContent] = useState<Record<string, string>>({});
+  const [discussionSort, setDiscussionSort] = useState<'trending' | 'new' | 'old' | 'all'>('all');
+  const [editingDiscussionId, setEditingDiscussionId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<Record<string, string | null>>({});
+  const [editDiscussionContent, setEditDiscussionContent] = useState<Record<string, string>>({});
+  const [editCommentContent, setEditCommentContent] = useState<Record<string, string>>({});
+  
+  // Notifications state
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const xpPercent = useMemo(() => {
     const remainder = progress.xp % 120;
@@ -664,6 +674,198 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     }
   };
 
+  // Update a discussion post
+  const handleUpdatePost = async (discussionId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const content = editDiscussionContent[discussionId]?.trim();
+    if (!content) {
+      toast.error('Please enter some content');
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to edit posts');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update post');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Post updated successfully!');
+        setEditingDiscussionId(null);
+        setEditDiscussionContent(prev => {
+          const updated = { ...prev };
+          delete updated[discussionId];
+          return updated;
+        });
+        fetchDiscussions(); // Refresh discussions
+      }
+    } catch (error: any) {
+      console.error('Error updating post:', error);
+      toast.error(error.message || 'Failed to update post');
+    }
+  };
+
+  // Delete a discussion post
+  const handleDeletePost = async (discussionId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to delete posts');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete post');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Post deleted successfully!');
+        fetchDiscussions(); // Refresh discussions
+      }
+    } catch (error: any) {
+      console.error('Error deleting post:', error);
+      toast.error(error.message || 'Failed to delete post');
+    }
+  };
+
+  // Update a comment
+  const handleUpdateComment = async (discussionId: string, commentId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const content = editCommentContent[commentId]?.trim();
+    if (!content) {
+      toast.error('Please enter some content');
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to edit comments');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments/${commentId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update comment');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Comment updated successfully!');
+        setEditingCommentId(prev => ({ ...prev, [discussionId]: null }));
+        setEditCommentContent(prev => {
+          const updated = { ...prev };
+          delete updated[commentId];
+          return updated;
+        });
+        fetchComments(discussionId); // Refresh comments
+      }
+    } catch (error: any) {
+      console.error('Error updating comment:', error);
+      toast.error(error.message || 'Failed to update comment');
+    }
+  };
+
+  // Delete a comment
+  const handleDeleteComment = async (discussionId: string, commentId: string) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        toast.error('Please login to delete comments');
+        return;
+      }
+
+      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments/${commentId}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete comment');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Comment deleted successfully!');
+        // Refresh comments
+        fetchComments(discussionId);
+        // Update discussion comment count
+        setDiscussions(prev => prev.map(d => {
+          if (d.id === discussionId) {
+            return { ...d, commentsCount: Math.max(0, d.commentsCount - 1) };
+          }
+          return d;
+        }));
+      }
+    } catch (error: any) {
+      console.error('Error deleting comment:', error);
+      toast.error(error.message || 'Failed to delete comment');
+    }
+  };
+
   // Format time ago
   const formatTimeAgo = (timestamp: any): string => {
     if (!timestamp) return 'Unknown';
@@ -688,12 +890,142 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       .slice(0, 2);
   };
 
+  // Get verification badge based on tier
+  const getVerificationBadge = (tier?: string) => {
+    if (!tier || tier === 'free') return null;
+    
+    const tierLower = tier.toLowerCase();
+    
+    if (tierLower === 'premium') {
+      return (
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-sm" title="Premium Verified">
+          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
+        </span>
+      );
+    } else if (tierLower === 'standard') {
+      return (
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 shadow-sm" title="Standard Verified">
+          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
+        </span>
+      );
+    } else if (tierLower === 'basic') {
+      return (
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm" title="Basic Verified">
+          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
+        </span>
+      );
+    }
+    
+    return null;
+  };
+
   // Fetch discussions when learning tab is active
   useEffect(() => {
     if (activeNav === 'learning') {
       fetchDiscussions();
     }
   }, [activeNav]);
+
+  // Fetch notification count
+  const fetchNotificationCount = async () => {
+    if (!user) {
+      setNotificationCount(0);
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(getApiUrl('notifications/count'), { headers });
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (data.success) {
+        setNotificationCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notification count:', error);
+    }
+  };
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl('notifications'), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (data.success) {
+        setNotifications(data.notifications || []);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(getApiUrl('notifications/read-all'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setNotificationCount(0);
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      }
+    } catch (error) {
+      console.error('Error marking notifications as read:', error);
+    }
+  };
+
+  // Fetch notification count on mount and when user changes
+  useEffect(() => {
+    if (user) {
+      fetchNotificationCount();
+      // Refresh notification count every 30 seconds
+      const interval = setInterval(fetchNotificationCount, 30000);
+      return () => clearInterval(interval);
+    } else {
+      setNotificationCount(0);
+    }
+  }, [user]);
+
+  // Fetch notifications when notification panel opens
+  useEffect(() => {
+    if (showNotifications && user) {
+      fetchNotifications();
+    }
+  }, [showNotifications, user]);
 
   // Filter modules based on navigation
   const displayedModules = useMemo(() => {
@@ -704,6 +1036,41 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     // For learning, certification and leaderboard, return empty (they show different content)
     return [];
   }, [filteredModules, activeNav]);
+
+  // Sort discussions based on selected sort option
+  const sortedDiscussions = useMemo(() => {
+    let sorted = [...discussions];
+    
+    switch (discussionSort) {
+      case 'trending':
+        sorted.sort((a, b) => {
+          const aScore = (a.likesCount || 0) + (a.commentsCount || 0);
+          const bScore = (b.likesCount || 0) + (b.commentsCount || 0);
+          return bScore - aScore;
+        });
+        break;
+      case 'new':
+        sorted.sort((a, b) => {
+          const aTime = new Date(a.createdAt).getTime();
+          const bTime = new Date(b.createdAt).getTime();
+          return bTime - aTime;
+        });
+        break;
+      case 'old':
+        sorted.sort((a, b) => {
+          const aTime = new Date(a.createdAt).getTime();
+          const bTime = new Date(b.createdAt).getTime();
+          return aTime - bTime;
+        });
+        break;
+      case 'all':
+      default:
+        // Keep original order
+        break;
+    }
+    
+    return sorted;
+  }, [discussions, discussionSort]);
 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
@@ -728,44 +1095,52 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           </div>
           
           {/* Stats as Round Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {/* Level Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faStar} className="text-xs text-white" />
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+                <FontAwesomeIcon icon={faStar} className="text-[10px] text-white" />
               </div>
-              <span className="text-[10px] font-semibold text-blue-700">{progress.level}</span>
+              <span className="text-[9px] font-semibold text-blue-700">{progress.level}</span>
             </div>
             
             {/* Streak Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-sm ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faFire} className="text-xs text-white" />
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+                <FontAwesomeIcon icon={faFire} className="text-[10px] text-white" />
               </div>
-              <span className="text-[10px] font-semibold text-blue-700">{progress.streak}</span>
+              <span className="text-[9px] font-semibold text-blue-700">{progress.streak}</span>
             </div>
             
             {/* Daily Lessons/Goal Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm ring-1 ring-white/60">
                 {tier === 'free' ? (
-                  <FontAwesomeIcon icon={faTrophy} className="text-xs text-white" />
+                  <FontAwesomeIcon icon={faTrophy} className="text-[10px] text-white" />
                 ) : (
-                  <FontAwesomeIcon icon={faBullseye} className="text-xs text-white" />
+                  <FontAwesomeIcon icon={faBullseye} className="text-[10px] text-white" />
                 )}
               </div>
-              <span className="text-[10px] font-semibold text-blue-700">
+              <span className="text-[9px] font-semibold text-blue-700">
                 {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
               </span>
             </div>
             
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 w-9 p-0 rounded-lg hover:bg-blue-50 text-slate-600"
-            >
-              <FontAwesomeIcon icon={faBell} className="text-lg" />
-            </Button>
+            {/* Notification Icon */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div 
+                className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60 relative cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setShowNotifications(true)}
+              >
+                <FontAwesomeIcon icon={faBell} className="text-[10px] text-white" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] font-semibold text-blue-700">{notificationCount}</span>
+            </div>
             
             <Button
               variant="ghost"
@@ -1184,9 +1559,20 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
               {/* Community Discussions Section */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900">Community Discussions</h2>
                   <div className="flex items-center gap-3">
+                    <Select value={discussionSort} onValueChange={(value: 'trending' | 'new' | 'old' | 'all') => setDiscussionSort(value)}>
+                      <SelectTrigger className="w-[120px] sm:w-[140px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="trending">Trending</SelectItem>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="old">Old</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       onClick={() => {
                         if (!user) {
@@ -1230,7 +1616,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {discussions.map((discussion) => {
+                    {sortedDiscussions.map((discussion) => {
                       const initials = getUserInitials(discussion.userName);
                       const timeAgo = formatTimeAgo(discussion.createdAt);
                       const discussionComments = comments[discussion.id] || [];
@@ -1252,13 +1638,72 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-semibold text-slate-900 text-sm sm:text-base">{discussion.userName}</span>
-                                  <span className="text-xs text-slate-500">{timeAgo}</span>
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-slate-900 text-sm sm:text-base">{discussion.userName}</span>
+                                    {getVerificationBadge(discussion.userTier)}
+                                    <span className="text-xs text-slate-500">{timeAgo}</span>
+                                  </div>
+                                  {user && discussion.userId === user.id && (
+                                    <div className="flex items-center gap-2">
+                                      {editingDiscussionId === discussion.id ? (
+                                        <>
+                                          <button
+                                            onClick={() => {
+                                              setEditingDiscussionId(null);
+                                              setEditDiscussionContent(prev => {
+                                                const updated = { ...prev };
+                                                delete updated[discussion.id];
+                                                return updated;
+                                              });
+                                            }}
+                                            className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={() => handleUpdatePost(discussion.id)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                                          >
+                                            Save
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={() => {
+                                              setEditingDiscussionId(discussion.id);
+                                              setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: discussion.content }));
+                                            }}
+                                            className="text-xs text-slate-500 hover:text-blue-600 transition-colors"
+                                            title="Edit post"
+                                          >
+                                            <FontAwesomeIcon icon={faPencil} className="text-xs" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeletePost(discussion.id)}
+                                            className="text-xs text-slate-500 hover:text-red-600 transition-colors"
+                                            title="Delete post"
+                                          >
+                                            <FontAwesomeIcon icon={faTrashCan} className="text-xs" />
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-slate-700 text-sm sm:text-base mb-3 whitespace-pre-wrap break-words">
-                                  {discussion.content}
-                                </p>
+                                {editingDiscussionId === discussion.id ? (
+                                  <Textarea
+                                    value={editDiscussionContent[discussion.id] || ''}
+                                    onChange={(e) => setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: e.target.value }))}
+                                    className="w-full mb-3 text-sm sm:text-base min-h-[100px]"
+                                    placeholder="Edit your post..."
+                                  />
+                                ) : (
+                                  <p className="text-slate-700 text-sm sm:text-base mb-3 whitespace-pre-wrap break-words">
+                                    {discussion.content}
+                                  </p>
+                                )}
                                 <div className="flex items-center gap-4">
                                   <button
                                     onClick={() => handleToggleLike(discussion.id)}
@@ -1308,11 +1753,72 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                               </div>
                                             )}
                                             <div className="flex-1 min-w-0">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-medium text-slate-900 text-xs sm:text-sm">{comment.userName}</span>
-                                                <span className="text-xs text-slate-500">{formatTimeAgo(comment.createdAt)}</span>
+                                              <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-medium text-slate-900 text-xs sm:text-sm">{comment.userName}</span>
+                                                  {getVerificationBadge(comment.userTier)}
+                                                  <span className="text-xs text-slate-500">{formatTimeAgo(comment.createdAt)}</span>
+                                                </div>
+                                                {user && comment.userId === user.id && (
+                                                  <div className="flex items-center gap-2">
+                                                    {editingCommentId[discussion.id] === comment.id ? (
+                                                      <>
+                                                        <button
+                                                          onClick={() => {
+                                                            setEditingCommentId(prev => ({ ...prev, [discussion.id]: null }));
+                                                            setEditCommentContent(prev => {
+                                                              const updated = { ...prev };
+                                                              delete updated[comment.id];
+                                                              return updated;
+                                                            });
+                                                          }}
+                                                          className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                                                        >
+                                                          Cancel
+                                                        </button>
+                                                        <button
+                                                          onClick={() => handleUpdateComment(discussion.id, comment.id)}
+                                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                                                        >
+                                                          Save
+                                                        </button>
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <button
+                                                          onClick={() => {
+                                                            setEditingCommentId(prev => ({ ...prev, [discussion.id]: comment.id }));
+                                                            setEditCommentContent(prev => ({ ...prev, [comment.id]: comment.content }));
+                                                          }}
+                                                          className="text-xs text-slate-500 hover:text-blue-600 transition-colors"
+                                                          title="Edit comment"
+                                                        >
+                                                          <FontAwesomeIcon icon={faPencil} className="text-xs" />
+                                                        </button>
+                                                        <button
+                                                          onClick={() => handleDeleteComment(discussion.id, comment.id)}
+                                                          className="text-xs text-slate-500 hover:text-red-600 transition-colors"
+                                                          title="Delete comment"
+                                                        >
+                                                          <FontAwesomeIcon icon={faTrashCan} className="text-xs" />
+                                                        </button>
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                )}
                                               </div>
-                                              <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+                                              {editingCommentId[discussion.id] === comment.id ? (
+                                                <div className="flex gap-2">
+                                                  <Input
+                                                    value={editCommentContent[comment.id] || ''}
+                                                    onChange={(e) => setEditCommentContent(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                                    className="flex-1 text-xs sm:text-sm"
+                                                    placeholder="Edit your comment..."
+                                                  />
+                                                </div>
+                                              ) : (
+                                                <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-wrap break-words">{comment.content}</p>
+                                              )}
                                             </div>
                                           </div>
                                         ))}
@@ -1378,56 +1884,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   </div>
                 )}
               </div>
-
-              {/* Upgrade to Premium Section */}
-              <Card className="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 border-0 shadow-xl text-white overflow-hidden">
-                <CardContent className="p-6 sm:p-8 relative">
-                  <div className="absolute top-6 right-6 w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
-                    <FontAwesomeIcon icon={faCrown} className="text-white text-2xl sm:text-3xl" />
-                  </div>
-                  <div className="relative z-10 max-w-md">
-                    <h3 className="text-2xl sm:text-3xl font-bold mb-2">Upgrade to Premium</h3>
-                    <p className="text-blue-100 mb-6 text-sm sm:text-base">
-                      Unlock all courses, live sessions, and exclusive resources
-                    </p>
-                    <ul className="space-y-3 mb-6">
-                      <li className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
-                        </div>
-                        <span className="text-sm sm:text-base">Unlimited access to all courses</span>
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
-                        </div>
-                        <span className="text-sm sm:text-base">Priority support from instructors</span>
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
-                        </div>
-                        <span className="text-sm sm:text-base">Downloadable resources & materials</span>
-                      </li>
-                      <li className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                          <FontAwesomeIcon icon={faCheck} className="text-white text-xs" />
-                        </div>
-                        <span className="text-sm sm:text-base">Certificate of completion</span>
-                      </li>
-                    </ul>
-                    <Button
-                      onClick={() => setShowSubscriptionModal(true)}
-                      className="w-full bg-white text-blue-700 hover:bg-blue-50 font-semibold py-3 text-base rounded-xl shadow-lg mb-3"
-                    >
-                      Start Free Trial
-                    </Button>
-                    <p className="text-xs text-blue-100 text-center">
-                      No credit card required + Cancel anytime
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           ) : activeNav === 'certification' ? (
             <ExamPage />
@@ -1472,8 +1928,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               activeNav === 'learning' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
             }`}
           >
-            <FontAwesomeIcon icon={faPlay} className="text-lg" />
-            <span className="text-xs font-medium">Learning</span>
+            <FontAwesomeIcon icon={faComments} className="text-lg" />
+            <span className="text-xs font-medium">Discuss</span>
           </button>
           <button
             onClick={() => {
@@ -1876,6 +2332,92 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           isOpen={showLoginModal} 
           onClose={() => setShowLoginModal(false)} 
         />
+
+        {/* Notifications Panel */}
+        <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
+          <DialogContent className="sm:max-w-[500px] max-h-[80vh]">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle>Notifications</DialogTitle>
+                {notificationCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleMarkAllAsRead}
+                    className="text-blue-600 hover:text-blue-700 text-xs"
+                  >
+                    Mark all as read
+                  </Button>
+                )}
+              </div>
+            </DialogHeader>
+            <div className="overflow-y-auto max-h-[60vh] space-y-2 py-2">
+              {notifications.length === 0 ? (
+                <div className="text-center py-8">
+                  <FontAwesomeIcon icon={faBell} className="text-4xl text-gray-300 mb-3" />
+                  <p className="text-gray-500">No notifications</p>
+                </div>
+              ) : (
+                notifications.map((notification) => {
+                  const handleNotificationClick = async () => {
+                    if (!notification.read && user) {
+                      // Mark as read
+                      try {
+                        const token = await getAuthToken();
+                        if (token) {
+                          await fetch(getApiUrl(`notifications/${notification.id}/read`), {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`,
+                            },
+                          });
+                          setNotifications(prev =>
+                            prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+                          );
+                          setNotificationCount(prev => Math.max(0, prev - 1));
+                        }
+                      } catch (error) {
+                        console.error('Error marking notification as read:', error);
+                      }
+                    }
+                    // Navigate to discussions if it's a post/comment notification
+                    if (notification.discussionId) {
+                      setActiveNav('learning');
+                      setShowNotifications(false);
+                    }
+                  };
+
+                  return (
+                    <Card
+                      key={notification.id}
+                      className={`cursor-pointer hover:shadow-md transition-shadow border-blue-100 relative ${
+                        !notification.read ? 'bg-blue-50/50' : 'bg-white'
+                      }`}
+                      onClick={handleNotificationClick}
+                    >
+                      <CardContent className="p-3 sm:p-4">
+                        {!notification.read && (
+                          <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-blue-600" />
+                        )}
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                            <FontAwesomeIcon icon={faBell} className="text-white text-xs" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-slate-900 text-sm mb-1">{notification.title}</h4>
+                            <p className="text-slate-600 text-xs sm:text-sm mb-1">{notification.message}</p>
+                            <span className="text-xs text-slate-500">{formatTimeAgo(notification.createdAt)}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* New Post Dialog */}
         <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>

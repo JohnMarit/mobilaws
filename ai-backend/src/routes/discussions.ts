@@ -12,9 +12,14 @@ import {
   getComments,
   toggleLike,
   getLikesForDiscussions,
+  updateDiscussion,
+  deleteDiscussion,
+  updateComment,
+  deleteComment,
   Discussion,
   Comment,
 } from '../lib/discussions-storage';
+import { getSubscription } from '../lib/subscription-storage';
 
 const router = express.Router();
 
@@ -85,13 +90,25 @@ router.post('/', optionalFirebaseAuth, async (req: Request, res: Response) => {
       });
     }
 
+    // Get user's subscription tier
+    let userTier: string | undefined = 'free';
+    try {
+      const subscription = await getSubscription(user.uid);
+      if (subscription && subscription.isActive) {
+        userTier = subscription.planId?.toLowerCase() || 'free';
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not fetch subscription tier for discussion, defaulting to free:', error);
+    }
+
     const discussionId = await createDiscussion(
       user.uid,
       user.name || user.email?.split('@')[0] || 'Anonymous',
       content.trim(),
       title?.trim(),
       user.email,
-      user.picture
+      user.picture,
+      userTier
     );
 
     if (!discussionId) {
@@ -147,13 +164,25 @@ router.post('/:discussionId/comments', optionalFirebaseAuth, async (req: Request
       });
     }
 
+    // Get user's subscription tier
+    let userTier: string | undefined = 'free';
+    try {
+      const subscription = await getSubscription(user.uid);
+      if (subscription && subscription.isActive) {
+        userTier = subscription.planId?.toLowerCase() || 'free';
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not fetch subscription tier for comment, defaulting to free:', error);
+    }
+
     const commentId = await addComment(
       discussionId,
       user.uid,
       user.name || user.email?.split('@')[0] || 'Anonymous',
       content.trim(),
       user.email,
-      user.picture
+      user.picture,
+      userTier
     );
 
     if (!commentId) {
@@ -235,6 +264,198 @@ router.post('/:discussionId/like', optionalFirebaseAuth, async (req: Request, re
     res.status(500).json({
       success: false,
       error: 'Failed to toggle like',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/discussions/:discussionId
+ * Update a discussion post
+ */
+router.put('/:discussionId', optionalFirebaseAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
+    const { discussionId } = req.params;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content is required',
+      });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content must be less than 5000 characters',
+      });
+    }
+
+    const result = await updateDiscussion(discussionId, user.uid, content);
+
+    if (!result.success) {
+      const statusCode = result.error?.includes('Unauthorized') ? 403 : 
+                         result.error?.includes('not found') ? 404 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error || 'Failed to update discussion',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Discussion updated successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating discussion:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update discussion',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/discussions/:discussionId
+ * Delete a discussion post
+ */
+router.delete('/:discussionId', optionalFirebaseAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
+    const { discussionId } = req.params;
+    const result = await deleteDiscussion(discussionId, user.uid);
+
+    if (!result.success) {
+      const statusCode = result.error?.includes('Unauthorized') ? 403 : 
+                         result.error?.includes('not found') ? 404 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error || 'Failed to delete discussion',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Discussion deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Error deleting discussion:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete discussion',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/discussions/:discussionId/comments/:commentId
+ * Update a comment
+ */
+router.put('/:discussionId/comments/:commentId', optionalFirebaseAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
+    const { discussionId, commentId } = req.params;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Content is required',
+      });
+    }
+
+    if (content.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Comment must be less than 2000 characters',
+      });
+    }
+
+    const result = await updateComment(discussionId, commentId, user.uid, content);
+
+    if (!result.success) {
+      const statusCode = result.error?.includes('Unauthorized') ? 403 : 
+                         result.error?.includes('not found') ? 404 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error || 'Failed to update comment',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Comment updated successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Error updating comment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update comment',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/discussions/:discussionId/comments/:commentId
+ * Delete a comment
+ */
+router.delete('/:discussionId/comments/:commentId', optionalFirebaseAuth, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || !user.uid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+      });
+    }
+
+    const { discussionId, commentId } = req.params;
+    const result = await deleteComment(discussionId, commentId, user.uid);
+
+    if (!result.success) {
+      const statusCode = result.error?.includes('Unauthorized') ? 403 : 
+                         result.error?.includes('not found') ? 404 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        error: result.error || 'Failed to delete comment',
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Comment deleted successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Error deleting comment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete comment',
       message: error.message,
     });
   }
