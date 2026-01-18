@@ -930,28 +930,40 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       .slice(0, 2);
   };
 
-  // Get verification badge based on tier (Twitter/X style - blue checkmark)
+  // Get verification badge based on tier (Facebook style - colored checkmark)
   const getVerificationBadge = (tier?: string) => {
     if (!tier || tier === 'free') return null;
     
     const tierLower = tier.toLowerCase();
     
-    // Twitter/X style verification badge - blue circular badge with white checkmark
-    if (tierLower === 'premium' || tierLower === 'standard' || tierLower === 'basic') {
-      return (
-        <span 
-          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 shadow-sm" 
-          title="Verified"
-          style={{
-            backgroundColor: '#1DA1F2', // Twitter blue
-          }}
-        >
-          <FontAwesomeIcon icon={faCheck} className="text-[10px] text-white" />
-        </span>
-      );
+    // Facebook style verification badge - colored circular badge with white checkmark
+    let badgeColor = '';
+    let titleText = '';
+    
+    if (tierLower === 'premium') {
+      badgeColor = '#FFD700'; // Gold
+      titleText = 'Premium Verified';
+    } else if (tierLower === 'standard') {
+      badgeColor = '#C0C0C0'; // Silver
+      titleText = 'Standard Verified';
+    } else if (tierLower === 'basic') {
+      badgeColor = '#1877F2'; // Facebook Blue
+      titleText = 'Basic Verified';
+    } else {
+      return null;
     }
     
-    return null;
+    return (
+      <span 
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full shadow-sm" 
+        title={titleText}
+        style={{
+          backgroundColor: badgeColor,
+        }}
+      >
+        <FontAwesomeIcon icon={faCheck} className="text-[10px] text-white" />
+      </span>
+    );
   };
 
   // Fetch discussions when learning tab is active

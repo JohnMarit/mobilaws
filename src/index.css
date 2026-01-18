@@ -345,3 +345,54 @@
     }
   }
 }
+
+/* Prevent zoom on input focus for mobile */
+@layer base {
+  @media (max-width: 768px) {
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="url"],
+    textarea {
+      font-size: 16px !important;
+    }
+    
+    /* Allow text wrapping and growth for inputs/textarea */
+    .input-no-zoom,
+    .textarea-wrap {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+  }
+}
+
+/* Textarea wrapping and auto-growing */
+@layer components {
+  textarea.textarea-wrap {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    resize: none;
+    min-height: 80px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  /* For single-line inputs that should wrap and grow */
+  input.input-wrap {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    height: auto;
+    min-height: 40px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    line-height: 1.5;
+  }
+}
