@@ -955,7 +955,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     
     return (
       <span 
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full shadow-sm" 
+        className="inline-flex items-center justify-center w-4 h-4 facebook-verified-badge shadow-sm" 
         title={titleText}
         style={{
           backgroundColor: badgeColor,
