@@ -40,11 +40,29 @@ router.get('/', optionalFirebaseAuth, async (req: Request, res: Response) => {
       likesMap = await getLikesForDiscussions(discussionIds, userId);
     }
 
-    // Format discussions with like status
-    const formattedDiscussions = discussions.map(discussion => ({
-      ...discussion,
-      isLiked: userId ? (likesMap[discussion.id] || false) : false,
-    }));
+    // Format discussions with like status and convert Firestore Timestamps
+    const formattedDiscussions = discussions.map(discussion => {
+      const formatted: any = {
+        ...discussion,
+        isLiked: userId ? (likesMap[discussion.id] || false) : false,
+      };
+      
+      // Convert Firestore Timestamps to serializable format
+      if (discussion.createdAt) {
+        if (discussion.createdAt.seconds !== undefined) {
+          // Firestore Timestamp - keep as {seconds, nanoseconds} for frontend
+          formatted.createdAt = {
+            seconds: discussion.createdAt.seconds,
+            nanoseconds: discussion.createdAt.nanoseconds || 0,
+          };
+        } else if (typeof discussion.createdAt === 'object' && discussion.createdAt !== null) {
+          // Already serialized or other format
+          formatted.createdAt = discussion.createdAt;
+        }
+      }
+      
+      return formatted;
+    });
 
     res.json({
       success: true,

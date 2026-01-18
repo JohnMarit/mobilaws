@@ -880,16 +880,24 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     // Handle Firestore Timestamp object (has .seconds property)
     let seconds: number;
     if (timestamp.seconds !== undefined) {
+      // Firestore Timestamp serialized as {seconds, nanoseconds}
       seconds = timestamp.seconds;
     } else if (timestamp.toDate) {
-      // Firestore Timestamp with toDate method
+      // Firestore Timestamp with toDate method (if not serialized)
       seconds = Math.floor(timestamp.toDate().getTime() / 1000);
+    } else if (typeof timestamp === 'string') {
+      // ISO string format
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Unknown';
+      seconds = Math.floor(date.getTime() / 1000);
     } else if (typeof timestamp === 'number') {
       // Unix timestamp in milliseconds or seconds
       seconds = timestamp < 10000000000 ? timestamp : Math.floor(timestamp / 1000);
     } else if (timestamp instanceof Date) {
       seconds = Math.floor(timestamp.getTime() / 1000);
     } else {
+      // Try to parse as object with seconds
+      console.warn('Unexpected timestamp format:', timestamp);
       return 'Unknown';
     }
     
@@ -922,28 +930,23 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       .slice(0, 2);
   };
 
-  // Get verification badge based on tier
+  // Get verification badge based on tier (Twitter/X style - blue checkmark)
   const getVerificationBadge = (tier?: string) => {
     if (!tier || tier === 'free') return null;
     
     const tierLower = tier.toLowerCase();
     
-    if (tierLower === 'premium') {
+    // Twitter/X style verification badge - blue circular badge with white checkmark
+    if (tierLower === 'premium' || tierLower === 'standard' || tierLower === 'basic') {
       return (
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-sm" title="Premium Verified">
-          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
-        </span>
-      );
-    } else if (tierLower === 'standard') {
-      return (
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 shadow-sm" title="Standard Verified">
-          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
-        </span>
-      );
-    } else if (tierLower === 'basic') {
-      return (
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-sm" title="Basic Verified">
-          <FontAwesomeIcon icon={faCircleCheck} className="text-[10px] text-white" />
+        <span 
+          className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-500 shadow-sm" 
+          title="Verified"
+          style={{
+            backgroundColor: '#1DA1F2', // Twitter blue
+          }}
+        >
+          <FontAwesomeIcon icon={faCheck} className="text-[10px] text-white" />
         </span>
       );
     }
@@ -995,7 +998,11 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
     try {
       const token = await getAuthToken();
-      if (!token) return;
+      if (!token) {
+        console.warn('No auth token available for fetching notifications');
+        setNotifications([]);
+        return;
+      }
 
       const response = await fetch(getApiUrl('notifications'), {
         headers: {
@@ -1004,14 +1011,22 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         },
       });
 
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.error('Failed to fetch notifications:', response.status, response.statusText);
+        setNotifications([]);
+        return;
+      }
       
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.notifications) {
         setNotifications(data.notifications || []);
+        console.log('✅ Notifications loaded:', data.notifications.length);
+      } else {
+        setNotifications([]);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setNotifications([]);
     }
   };
 
@@ -1055,7 +1070,14 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   // Fetch notifications when notification panel opens
   useEffect(() => {
     if (showNotifications && user) {
-      fetchNotifications();
+      // Always fetch notifications when dialog opens
+      const loadNotifications = async () => {
+        await fetchNotifications();
+      };
+      loadNotifications();
+    } else if (!user) {
+      // Clear notifications if user logs out
+      setNotifications([]);
     }
   }, [showNotifications, user]);
 
