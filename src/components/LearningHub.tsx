@@ -1090,7 +1090,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
                 <FontAwesomeIcon icon={faBookOpen} className="text-white text-sm" />
               </div>
-              <h1 className="text-lg sm:text-xl font-semibold leading-tight text-blue-700">LawLearn</h1>
+              <h1 className="text-lg sm:text-xl font-semibold leading-tight text-blue-700">Study Law</h1>
             </div>
           </div>
           
@@ -1141,15 +1141,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               </div>
               <span className="text-[9px] font-semibold text-blue-700">{notificationCount}</span>
             </div>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              className="h-7 w-7 p-0 ml-1 rounded-full hover:bg-blue-50 text-slate-600"
-            >
-              <FontAwesomeIcon icon={faXmark} className="text-sm" />
-            </Button>
           </div>
         </div>
 
@@ -1263,67 +1254,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                 </Card>
               </div>
 
-              {/* Browse Categories Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Browse Categories</h2>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    View All
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {categories.slice(0, 6).map(catName => {
-                    const iconName = Object.keys(categoryMap).find(key => categoryMap[key] === catName) || 'faBook';
-                    const catModules = modules.filter(m => getCategoryName(m.icon) === catName);
-                    const bgGradients = [
-                      'from-blue-50 to-blue-100',
-                      'from-blue-100 to-blue-200',
-                      'from-blue-200 to-blue-300',
-                      'from-blue-300 to-blue-400',
-                      'from-blue-400 to-blue-500',
-                      'from-blue-500 to-blue-600'
-                    ];
-                    const iconGradients = [
-                      'from-blue-500 to-blue-600',
-                      'from-blue-600 to-blue-700',
-                      'from-blue-400 to-blue-500',
-                      'from-blue-300 to-blue-400',
-                      'from-blue-500 to-blue-600',
-                      'from-blue-600 to-blue-700'
-                    ];
-                    const gradientIndex = categories.indexOf(catName) % bgGradients.length;
-                    
-                    return (
-                      <Card
-                        key={catName}
-                        className={`cursor-pointer border-blue-100 hover:shadow-lg transition-all bg-gradient-to-br ${bgGradients[gradientIndex]}`}
-                        onClick={() => setSelectedCategory(catName === selectedCategory ? 'all' : catName)}
-                      >
-                        <CardContent className="p-4 sm:p-5">
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 mb-3 rounded-lg bg-gradient-to-br ${iconGradients[gradientIndex]} flex items-center justify-center shadow-md`}>
-                            <FontAwesomeIcon
-                              icon={
-                                iconName === 'faScroll' ? faScroll :
-                                iconName === 'faGlobe' ? faGlobe :
-                                iconName === 'faScaleBalanced' ? faScaleBalanced :
-                                iconName === 'faLandmark' ? faLandmark : faBook
-                              }
-                              className="text-white text-lg sm:text-xl"
-                            />
-                          </div>
-                          <h3 className="font-semibold text-slate-900 mb-1 text-sm sm:text-base">{catName}</h3>
-                          <p className="text-xs text-slate-600 mb-2">{catModules.length} Courses</p>
-                          <button className="text-xs text-blue-700 font-medium flex items-center gap-1">
-                            Explore <FontAwesomeIcon icon={faArrowRight} className="text-xs" />
-                          </button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Recommended Learning Path Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1372,6 +1302,17 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     <Button
                       variant="outline"
                       className="w-full mt-4 border-blue-300 text-blue-700 hover:bg-blue-50"
+                      onClick={() => {
+                        setSelectedCourse(null);
+                        setActiveNav('featured');
+                        // Scroll to featured courses section
+                        setTimeout(() => {
+                          const coursesSection = document.querySelector('[data-featured-courses]');
+                          if (coursesSection) {
+                            coursesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }, 100);
+                      }}
                     >
                       View Full Path
                     </Button>
@@ -1423,7 +1364,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               </Card>
 
               {/* Modules */}
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-3 sm:space-y-4" data-featured-courses>
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h3 className="text-lg sm:text-xl font-semibold">
                     Featured Courses
