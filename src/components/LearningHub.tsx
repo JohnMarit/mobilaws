@@ -953,17 +953,17 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       return null;
     }
     
-    return (
-      <span 
-        className="inline-flex items-center justify-center w-4 h-4 facebook-verified-badge shadow-sm" 
+      return (
+        <span 
+        className="inline-flex items-center justify-center w-4 h-4 facebook-verified-badge" 
         title={titleText}
-        style={{
+          style={{
           backgroundColor: badgeColor,
-        }}
-      >
-        <FontAwesomeIcon icon={faCheck} className="text-[10px] text-white" />
-      </span>
-    );
+          }}
+        >
+        <FontAwesomeIcon icon={faCheck} className="text-[10px] text-white" style={{ fontWeight: 'bold', filter: 'drop-shadow(0 0.5px 0.5px rgba(0,0,0,0.2))' }} />
+        </span>
+      );
   };
 
   // Fetch discussions when learning tab is active

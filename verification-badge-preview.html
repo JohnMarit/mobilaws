@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Badge Preview</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .preview-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .badge-preview {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+
+        .badge-preview.premium {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff4d6 100%);
+            border-color: #ffd700;
+        }
+
+        .badge-preview.standard {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            border-color: #c0c0c0;
+        }
+
+        .badge-preview.basic {
+            background: linear-gradient(135deg, #e7f3ff 0%, #d0e7ff 100%);
+            border-color: #1877f2;
+        }
+
+        .username {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .plan-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Facebook-style verification badge - circular with scalloped edges */
+        /* Use SVG to create perfect scalloped circle */
+        .facebook-verified-badge {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            /* Remove clip-path for now, use circular shape */
+            border-radius: 50%;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+            -webkit-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+            /* Ensure proper centering */
+            text-align: center;
+        }
+
+        .facebook-verified-badge i {
+            font-size: 10px;
+            color: white;
+            filter: drop-shadow(0 0.5px 0.5px rgba(0,0,0,0.2));
+            /* Perfect centering */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        .sizes {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .size-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .size-label {
+            width: 100px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <h1>✨ Verification Badge Preview</h1>
+        
+        <div class="badge-preview premium">
+            <span class="facebook-verified-badge" style="width: 16px; height: 16px; background-color: #FFD700;" title="Premium Verified">
+                <i class="fas fa-check"></i>
+            </span>
+            <div>
+                <div class="username">Premium User</div>
+                <div class="plan-label">Premium Plan - Gold Badge</div>
+            </div>
+        </div>
+
+        <div class="badge-preview standard">
+            <span class="facebook-verified-badge" style="width: 16px; height: 16px; background-color: #C0C0C0;" title="Standard Verified">
+                <i class="fas fa-check"></i>
+            </span>
+            <div>
+                <div class="username">Standard User</div>
+                <div class="plan-label">Standard Plan - Silver Badge</div>
+            </div>
+        </div>
+
+        <div class="badge-preview basic">
+            <span class="facebook-verified-badge" style="width: 16px; height: 16px; background-color: #1877F2;" title="Basic Verified">
+                <i class="fas fa-check"></i>
+            </span>
+            <div>
+                <div class="username">Basic User</div>
+                <div class="plan-label">Basic Plan - Blue Badge</div>
+            </div>
+        </div>
+
+        <div class="badge-preview">
+            <div>
+                <div class="username">Free User</div>
+                <div class="plan-label">Free Plan - No Badge</div>
+            </div>
+        </div>
+
+        <div class="sizes">
+            <h3 style="margin: 0 0 15px 0; color: #333;">Different Sizes:</h3>
+            <div class="size-group">
+                <span class="size-label">Small (16px):</span>
+                <span class="facebook-verified-badge" style="width: 16px; height: 16px; background-color: #1877F2;">
+                    <i class="fas fa-check"></i>
+                </span>
+            </div>
+            <div class="size-group">
+                <span class="size-label">Medium (20px):</span>
+                <span class="facebook-verified-badge" style="width: 20px; height: 20px; background-color: #1877F2;">
+                    <i class="fas fa-check"></i>
+                </span>
+            </div>
+            <div class="size-group">
+                <span class="size-label">Large (24px):</span>
+                <span class="facebook-verified-badge" style="width: 24px; height: 24px; background-color: #1877F2;">
+                    <i class="fas fa-check"></i>
+                </span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
