@@ -70,26 +70,24 @@
             margin-top: 4px;
         }
 
-        /* Facebook-style verification badge - circular with scalloped edges */
-        /* Use SVG to create perfect scalloped circle */
+        /* Facebook-style verification badge - perfect circle with centered tick */
         .facebook-verified-badge {
             position: relative;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            /* Remove clip-path for now, use circular shape */
+            text-align: center;
             border-radius: 50%;
+            /* Perfect circle */
+            overflow: hidden;
             filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
             -webkit-filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
-            /* Ensure proper centering */
-            text-align: center;
         }
 
         .facebook-verified-badge i {
             font-size: 10px;
             color: white;
             filter: drop-shadow(0 0.5px 0.5px rgba(0,0,0,0.2));
-            /* Perfect centering */
             display: inline-flex;
             align-items: center;
             justify-content: center;
