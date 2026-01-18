@@ -375,10 +375,12 @@ export async function updateDiscussion(
 
 /**
  * Delete a discussion post
+ * Allows admins to delete any post, or users to delete their own posts
  */
 export async function deleteDiscussion(
   discussionId: string,
-  userId: string
+  userId: string,
+  userEmail?: string
 ): Promise<{ success: boolean; error?: string }> {
   const db = getFirestore();
   if (!db) {
@@ -394,7 +396,16 @@ export async function deleteDiscussion(
     }
 
     const discussion = discussionDoc.data() as Discussion;
-    if (discussion.userId !== userId) {
+    
+    // Check if user is admin (by email) or if user owns the post
+    let isAdmin = false;
+    if (userEmail) {
+      // Import env to check admin emails (lazy import to avoid circular dependencies)
+      const { env } = await import('../env');
+      isAdmin = env.adminEmails.includes(userEmail.toLowerCase());
+    }
+    
+    if (discussion.userId !== userId && !isAdmin) {
       return { success: false, error: 'Unauthorized: You can only delete your own posts' };
     }
 

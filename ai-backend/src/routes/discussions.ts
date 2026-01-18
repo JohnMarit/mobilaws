@@ -340,7 +340,7 @@ router.delete('/:discussionId', optionalFirebaseAuth, async (req: Request, res: 
     }
 
     const { discussionId } = req.params;
-    const result = await deleteDiscussion(discussionId, user.uid);
+    const result = await deleteDiscussion(discussionId, user.uid, user.email);
 
     if (!result.success) {
       const statusCode = result.error?.includes('Unauthorized') ? 403 : 

@@ -8,7 +8,7 @@ import {
   faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye,
   faHouse, faBars, faBell, faSearch, faClock, faChartLine, faBriefcase,
   faUsers, faFileLines, faDatabase, faDownload, faThumbsUp, faComments,
-  faReply, faCrown, faCheck, faEdit, faPencil
+  faReply, faCrown, faCheck, faEdit, faPencil, faEllipsisVertical
 } from '@fortawesome/free-solid-svg-icons';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
@@ -866,10 +873,26 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     }
   };
 
-  // Format time ago
+  // Format time ago - handles Firestore timestamps and regular timestamps
   const formatTimeAgo = (timestamp: any): string => {
     if (!timestamp) return 'Unknown';
-    const seconds = timestamp.seconds || Math.floor(timestamp / 1000);
+    
+    // Handle Firestore Timestamp object (has .seconds property)
+    let seconds: number;
+    if (timestamp.seconds !== undefined) {
+      seconds = timestamp.seconds;
+    } else if (timestamp.toDate) {
+      // Firestore Timestamp with toDate method
+      seconds = Math.floor(timestamp.toDate().getTime() / 1000);
+    } else if (typeof timestamp === 'number') {
+      // Unix timestamp in milliseconds or seconds
+      seconds = timestamp < 10000000000 ? timestamp : Math.floor(timestamp / 1000);
+    } else if (timestamp instanceof Date) {
+      seconds = Math.floor(timestamp.getTime() / 1000);
+    } else {
+      return 'Unknown';
+    }
+    
     const now = Math.floor(Date.now() / 1000);
     const diff = now - seconds;
 
@@ -878,6 +901,15 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
     return `${Math.floor(diff / 604800)}w ago`;
+  };
+
+  // Check if user is admin (based on email whitelist)
+  const isAdmin = (): boolean => {
+    if (!user?.email) return false;
+    // Admin emails are typically configured in backend environment
+    // For now, we'll check common admin email patterns or fetch from API if needed
+    const adminEmails = ['thuchabraham42@gmail.com']; // This should match backend ADMIN_EMAILS
+    return adminEmails.includes(user.email.toLowerCase());
   };
 
   // Get user initials for avatar
@@ -1564,7 +1596,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       const showComments = selectedDiscussionId === discussion.id;
 
                       return (
-                        <Card key={discussion.id} className="bg-white border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                        <Card key={discussion.id} id={`discussion-${discussion.id}`} className="bg-white border-blue-100 shadow-sm hover:shadow-md transition-shadow">
                           <CardContent className="p-4 sm:p-5">
                             <div className="flex items-start gap-3">
                               {discussion.userPicture ? (
@@ -1585,52 +1617,81 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                     {getVerificationBadge(discussion.userTier)}
                                     <span className="text-xs text-slate-500">{timeAgo}</span>
                                   </div>
-                                  {user && discussion.userId === user.id && (
+                                  {editingDiscussionId === discussion.id ? (
                                     <div className="flex items-center gap-2">
-                                      {editingDiscussionId === discussion.id ? (
-                                        <>
-                                          <button
-                                            onClick={() => {
-                                              setEditingDiscussionId(null);
-                                              setEditDiscussionContent(prev => {
-                                                const updated = { ...prev };
-                                                delete updated[discussion.id];
-                                                return updated;
-                                              });
-                                            }}
-                                            className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                                          >
-                                            Cancel
-                                          </button>
-                                          <button
-                                            onClick={() => handleUpdatePost(discussion.id)}
-                                            className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                                          >
-                                            Save
-                                          </button>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <button
-                                            onClick={() => {
-                                              setEditingDiscussionId(discussion.id);
-                                              setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: discussion.content }));
-                                            }}
-                                            className="text-xs text-slate-500 hover:text-blue-600 transition-colors"
-                                            title="Edit post"
-                                          >
-                                            <FontAwesomeIcon icon={faPencil} className="text-xs" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeletePost(discussion.id)}
-                                            className="text-xs text-slate-500 hover:text-red-600 transition-colors"
-                                            title="Delete post"
-                                          >
-                                            <FontAwesomeIcon icon={faTrashCan} className="text-xs" />
-                                          </button>
-                                        </>
-                                      )}
+                                      <button
+                                        onClick={() => {
+                                          setEditingDiscussionId(null);
+                                          setEditDiscussionContent(prev => {
+                                            const updated = { ...prev };
+                                            delete updated[discussion.id];
+                                            return updated;
+                                          });
+                                        }}
+                                        className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdatePost(discussion.id)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                                      >
+                                        Save
+                                      </button>
                                     </div>
+                                  ) : (
+                                    (user && (discussion.userId === user.id || isAdmin())) && (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <button
+                                            className="text-xs text-slate-500 hover:text-slate-700 transition-colors p-1"
+                                            title="More options"
+                                          >
+                                            <FontAwesomeIcon icon={faEllipsisVertical} className="text-xs" />
+                                          </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40">
+                                          {discussion.userId === user.id && (
+                                            <>
+                                              <DropdownMenuItem
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setEditingDiscussionId(discussion.id);
+                                                  setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: discussion.content }));
+                                                }}
+                                                className="cursor-pointer"
+                                              >
+                                                <FontAwesomeIcon icon={faPencil} className="mr-2 text-xs" />
+                                                Edit
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeletePost(discussion.id);
+                                                }}
+                                                className="cursor-pointer text-red-600 focus:text-red-600"
+                                              >
+                                                <FontAwesomeIcon icon={faTrashCan} className="mr-2 text-xs" />
+                                                Delete
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
+                                          {isAdmin() && discussion.userId !== user.id && (
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeletePost(discussion.id);
+                                              }}
+                                              className="cursor-pointer text-red-600 focus:text-red-600"
+                                            >
+                                              <FontAwesomeIcon icon={faTrashCan} className="mr-2 text-xs" />
+                                              Delete (Admin)
+                                            </DropdownMenuItem>
+                                          )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    )
                                   )}
                                 </div>
                                 {editingDiscussionId === discussion.id ? (
@@ -2326,6 +2387,23 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                     if (notification.discussionId) {
                       setActiveNav('learning');
                       setShowNotifications(false);
+                      // Set selected discussion to expand it and scroll to it
+                      setSelectedDiscussionId(notification.discussionId);
+                      // Ensure discussions are loaded, then scroll to the discussion
+                      fetchDiscussions().then(() => {
+                        // Wait for discussions to render, then scroll
+                        setTimeout(() => {
+                          const discussionElement = document.getElementById(`discussion-${notification.discussionId}`);
+                          if (discussionElement) {
+                            discussionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight the post briefly with a border
+                            discussionElement.classList.add('ring-2', 'ring-blue-500', 'transition-all');
+                            setTimeout(() => {
+                              discussionElement.classList.remove('ring-2', 'ring-blue-500');
+                            }, 2000);
+                          }
+                        }, 500);
+                      });
                     }
                   };
 
