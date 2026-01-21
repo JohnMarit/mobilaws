@@ -12,6 +12,14 @@ import { useToast } from '@/hooks/use-toast';
 import CountrySelector from '@/components/CountrySelector';
 import { BookCounsel } from '@/components/BookCounsel';
 import { DonationDialog } from '@/components/DonationDialog';
+import DocumentDrafting from '@/components/DocumentDrafting';
+import LegalResearch from '@/components/LegalResearch';
+import DocumentUpload from '@/components/DocumentUpload';
+import ContractComparison from '@/components/ContractComparison';
+import OCRConverter from '@/components/OCRConverter';
+import DocumentTranslator from '@/components/DocumentTranslator';
+import TemplateGenerator from '@/components/TemplateGenerator';
+import AssistantModeSelector from '@/components/AssistantModeSelector';
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,6 +28,7 @@ const Index = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [showBookCounsel, setShowBookCounsel] = useState(false);
   const [showDonationDialog, setShowDonationDialog] = useState(false);
+  const [activeFeature, setActiveFeature] = useState<string>('chat');
   const { toast } = useToast();
   
   // Check for openChat/chatId/requestId query parameters (from payment success)
@@ -110,6 +119,9 @@ const Index = () => {
   }
 
   const handleNewChat = () => {
+    // Switch to chat feature first
+    setActiveFeature('chat');
+    // Then create a new chat
     addChat('New Chat');
     // addChat will automatically clean up the previous empty chat
     setIsMobileSidebarOpen(false);
@@ -138,6 +150,11 @@ const Index = () => {
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
         onManageSubscription={() => setShowSubscriptionModal(true)}
+        activeFeature={activeFeature}
+        onFeatureSelect={(feature) => {
+          setActiveFeature(feature);
+          setIsMobileSidebarOpen(false);
+        }}
       />
 
       {/* Main Content */}
@@ -190,9 +207,19 @@ const Index = () => {
             </Button>
           </div>
         </div>
-        <ChatInterface
-          onShowDonation={handleMobileShowDonation}
-        />
+        {activeFeature === 'chat' && (
+          <ChatInterface
+            onShowDonation={handleMobileShowDonation}
+          />
+        )}
+        {activeFeature === 'draft' && <DocumentDrafting />}
+        {activeFeature === 'research' && <LegalResearch />}
+        {activeFeature === 'upload' && <DocumentUpload />}
+        {activeFeature === 'compare' && <ContractComparison />}
+        {activeFeature === 'ocr' && <OCRConverter />}
+        {activeFeature === 'translate' && <DocumentTranslator />}
+        {activeFeature === 'templates' && <TemplateGenerator />}
+        {activeFeature === 'mode' && <AssistantModeSelector />}
       </div>
 
       {/* Book Counsel Dialog */}

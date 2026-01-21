@@ -30,6 +30,7 @@ import counselRouter from './routes/counsel';
 import counselChatRouter from './routes/counsel-chat';
 import discussionsRouter from './routes/discussions';
 import notificationsRouter from './routes/notifications';
+import selfStudyRouter from './routes/self-study';
 
 const app = express();
 
@@ -99,6 +100,7 @@ app.use('/api/counsel', counselRouter);
 app.use('/api/counsel', counselChatRouter);
 app.use('/api/discussions', discussionsRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/self-study', selfStudyRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {

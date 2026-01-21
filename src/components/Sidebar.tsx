@@ -6,7 +6,18 @@ import {
   ChevronRight,
   Trash2,
   Edit3,
-  MoreHorizontal
+  MoreHorizontal,
+  FileText,
+  Search,
+  Upload,
+  GitCompare,
+  Scan,
+  Languages,
+  FileCode,
+  User,
+  History,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,6 +51,8 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
   onManageSubscription?: () => void;
+  activeFeature?: string;
+  onFeatureSelect?: (feature: string) => void;
 }
 
 export default function Sidebar({
@@ -53,7 +66,9 @@ export default function Sidebar({
   onRenameChat,
   isMobileOpen = false,
   onMobileClose,
-  onManageSubscription
+  onManageSubscription,
+  activeFeature = 'chat',
+  onFeatureSelect
 }: SidebarProps) {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -61,6 +76,7 @@ export default function Sidebar({
   const [chatToDelete, setChatToDelete] = useState<ChatHistory | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [contextMenuChatId, setContextMenuChatId] = useState<string | null>(null);
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
   const { toast } = useToast();
 
   const handleRenameStart = (chat: ChatHistory) => {
@@ -170,10 +186,79 @@ export default function Sidebar({
           </Button>
         </div>
 
+        {/* Feature Navigation */}
+        <div className="px-2 pb-2 border-b border-gray-700">
+          <div className="space-y-1">
+            {(() => {
+              const features = [
+                { id: 'chat', icon: MessageSquare, label: 'AI Legal Chat' },
+                { id: 'draft', icon: FileText, label: 'Document Drafting' },
+                { id: 'research', icon: Search, label: 'Legal Research' },
+                { id: 'upload', icon: Upload, label: 'Document Upload' },
+                { id: 'compare', icon: GitCompare, label: 'Compare Contracts' },
+                { id: 'ocr', icon: Scan, label: 'OCR Converter' },
+                { id: 'translate', icon: Languages, label: 'Translate Documents' },
+                { id: 'templates', icon: FileCode, label: 'Legal Templates' },
+                { id: 'mode', icon: User, label: 'Assistant Mode' },
+              ];
+
+              const visibleFeatures = showAllFeatures || isCollapsed ? features : features.slice(0, 4);
+              const hasMore = features.length > 4;
+
+              return (
+                <>
+                  {visibleFeatures.map((feature) => {
+                    const Icon = feature.icon;
+                    return (
+                      <button
+                        key={feature.id}
+                        onClick={() => onFeatureSelect?.(feature.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                          activeFeature === feature.id
+                            ? 'bg-gray-800 text-white'
+                            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                        }`}
+                        title={isCollapsed ? feature.label : undefined}
+                      >
+                        <Icon className="h-4 w-4 flex-shrink-0" />
+                        {!isCollapsed && <span className="text-sm">{feature.label}</span>}
+                      </button>
+                    );
+                  })}
+
+                  {/* See More / See Less Button */}
+                  {!isCollapsed && hasMore && (
+                    <button
+                      onClick={() => setShowAllFeatures(!showAllFeatures)}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-gray-300 hover:bg-gray-800 hover:text-white"
+                    >
+                      {showAllFeatures ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 flex-shrink-0" />
+                          <span className="text-sm">See Less</span>
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          <span className="text-sm">See More</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
         {/* New Chat Button */}
         <div className="p-4">
           <Button
-            onClick={onNewChat}
+            onClick={() => {
+              // Switch to chat feature first, then create new chat
+              onFeatureSelect?.('chat');
+              onNewChat();
+            }}
             className="w-full bg-transparent border border-gray-600 text-white hover:bg-gray-800 hover:border-gray-500 transition-colors"
             size="sm"
           >
@@ -187,6 +272,13 @@ export default function Sidebar({
             )}
           </Button>
         </div>
+
+        {/* Chat History Header */}
+        {!isCollapsed && (
+          <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Chat History
+          </div>
+        )}
 
         {/* Chat History */}
         <ScrollArea className="flex-1 px-2">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Heart, GraduationCap, Bot, Bug, Scale } from 'lucide-react';
+import { Heart, GraduationCap, Bot, Bug, Scale, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
@@ -10,6 +10,7 @@ import LoginModal from './LoginModal';
 import LearningHub from './LearningHub';
 import { BookCounsel } from './BookCounsel';
 import { DonationDialog } from './DonationDialog';
+import SelfStudy from './SelfStudy';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
@@ -39,6 +40,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
   const [showLearningHub, setShowLearningHub] = useState(false);
   const [showBookCounsel, setShowBookCounsel] = useState(false);
   const [showDonationDialog, setShowDonationDialog] = useState(false);
+  const [showSelfStudy, setShowSelfStudy] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { currentChatId, addChat, updateCurrentChat, saveChat, loadChat, saveEditedMessage, getEditedMessage, clearEditedMessage } = useChatContext();
@@ -534,6 +536,14 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                     <GraduationCap className="h-4 w-4 mr-2" />
                     Study Law
                   </Button>
+                  <Button
+                    onClick={() => setShowSelfStudy(true)}
+                    variant="outline"
+                    className="px-6 py-2 rounded-lg shadow-md border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Self Study
+                  </Button>
                 </div>
               </div>
             </div>
@@ -593,6 +603,12 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
       <BookCounsel
         open={showBookCounsel}
         onOpenChange={setShowBookCounsel}
+      />
+
+      {/* Self Study Dialog */}
+      <SelfStudy
+        open={showSelfStudy}
+        onOpenChange={setShowSelfStudy}
       />
 
       {/* Login Modal */}
