@@ -149,7 +149,22 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     setIsUploading(true);
 
     try {
-      const token = await user.getIdToken();
+      // Get Firebase User to access getIdToken()
+      const { auth } = await import('@/lib/firebase');
+      const { currentUser } = await import('firebase/auth');
+      const firebaseUser = auth ? currentUser(auth) : null;
+      
+      if (!firebaseUser) {
+        toast({
+          title: 'Authentication error',
+          description: 'Please sign in to upload documents.',
+          variant: 'destructive',
+        });
+        setShowLoginModal(true);
+        return;
+      }
+
+      const token = await firebaseUser.getIdToken();
       if (!token) {
         toast({
           title: 'Authentication error',
@@ -161,9 +176,9 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', user.uid);
-      formData.append('userName', user.displayName || 'User');
-      formData.append('userEmail', user.email || '');
+      formData.append('userId', firebaseUser.uid);
+      formData.append('userName', firebaseUser.displayName || user.name || 'User');
+      formData.append('userEmail', firebaseUser.email || user.email || '');
 
       const response = await fetch(getApiUrl('self-study/upload'), {
         method: 'POST',
