@@ -63,8 +63,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     try {
       // Get Firebase User to access getIdToken()
       const { auth } = await import('@/lib/firebase');
-      const { currentUser } = await import('firebase/auth');
-      const firebaseUser = auth ? currentUser(auth) : null;
+      const firebaseUser = auth?.currentUser;
       
       if (!firebaseUser) {
         console.error('No Firebase user authenticated');
@@ -151,8 +150,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     try {
       // Get Firebase User to access getIdToken()
       const { auth } = await import('@/lib/firebase');
-      const { currentUser } = await import('firebase/auth');
-      const firebaseUser = auth ? currentUser(auth) : null;
+      const firebaseUser = auth?.currentUser;
       
       if (!firebaseUser) {
         toast({
@@ -245,8 +243,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     try {
       // Get Firebase User to access getIdToken()
       const { auth } = await import('@/lib/firebase');
-      const { currentUser } = await import('firebase/auth');
-      const firebaseUser = auth ? currentUser(auth) : null;
+      const firebaseUser = auth?.currentUser;
       
       if (!firebaseUser) {
         toast({
