@@ -88,7 +88,7 @@ async function checkAndUpdateDailyLimit(
   const limitDoc = await limitRef.get();
 
   let count = 0;
-  if (limitDoc.exists()) {
+  if (limitDoc.exists) {
     const data = limitDoc.data();
     // Reset if it's a new day
     if (data?.date === today) {
@@ -121,7 +121,7 @@ async function getDailyCount(userId: string): Promise<number> {
   const limitRef = db.collection('selfStudyLimits').doc(userId);
   const limitDoc = await limitRef.get();
 
-  if (limitDoc.exists()) {
+  if (limitDoc.exists) {
     const data = limitDoc.data();
     if (data?.date === today) {
       return data.count || 0;
@@ -160,6 +160,8 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     const indexedChunks = await ingest([file.path]);
 
     // Generate learning module
+    // Use a self-study specific contentId
+    const contentId = `self-study-${userId}-${Date.now()}`;
     const module = await generateLearningModule(
       file.path,
       moduleName,
@@ -168,8 +170,12 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
       ['free', 'basic', 'standard', 'premium'], // Available to all tiers
       userId, // Owner is the user
       userName || 'User',
-      undefined // No contentId for self-study
+      contentId // Use generated contentId for self-study
     );
+
+    if (!module || !module.id) {
+      throw new Error('Failed to generate learning module');
+    }
 
     // Save module metadata with self-study flag
     const moduleRef = db.collection('generatedModules').doc(module.id);
@@ -193,7 +199,7 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     res.json({
       success: true,
       moduleId: module.id,
-      moduleName: module.name,
+      moduleName: module.title || moduleName,
       indexedChunks,
     });
   } catch (error) {
@@ -317,7 +323,7 @@ router.post('/generate-lessons', verifyFirebaseToken, async (req: Request, res: 
     const existingLessons = moduleData?.lessons || [];
 
     // Get sequential pages for this user
-    const { getNextPagesForLessons } = await import('../lib/document-page-storage');
+    const { getNextPagesForLessons, getUserPageProgress } = await import('../lib/document-page-storage');
     let pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons || 5);
 
     if (!pagesResult || pagesResult.pages.length === 0) {
@@ -428,7 +434,7 @@ Generate ${numberOfLessons || 5} lessons with 8-12 dialogue exchanges, 2-3 case 
 
     const userPrompt = `Create ${numberOfLessons || 5} new INTERACTIVE lessons for: "${moduleName}"
 
-Difficulty Level: ${(difficulty || 'medium').toUpperCase()} - ${difficultyDescriptions[difficulty || 'medium']}
+Difficulty Level: ${(difficulty || 'medium').toUpperCase()} - ${difficultyDescriptions[(difficulty || 'medium') as keyof typeof difficultyDescriptions]}
 Module Description: ${moduleData?.description || 'South Sudan legal education'}
 Existing Lessons: ${existingLessons.length}
 User Tier: ${tier}
@@ -516,10 +522,6 @@ Generate exactly ${numberOfLessons || 5} interactive lessons NOW and return them
       const { updateUserPageProgress } = await import('../lib/document-page-storage');
       await updateUserPageProgress(userId, moduleId, progressInfo.endPage, true);
     }
-
-    // Initialize user progress if not already done
-    const { initializeUserPageProgress } = await import('../lib/document-page-storage');
-    await initializeUserPageProgress(userId, moduleId);
 
     res.json({
       success: true,
