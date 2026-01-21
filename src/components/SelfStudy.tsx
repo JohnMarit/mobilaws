@@ -201,6 +201,8 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       await fetchSelfStudyModules();
+      // Reload Learning Hub modules to show the new self-study module
+      await reloadModules();
     } catch (error) {
       console.error('Error uploading document:', error);
       toast({

@@ -75,6 +75,7 @@ interface LearningHubProps {
 export default function LearningHub({ open, onOpenChange, fullscreen = false }: LearningHubProps) {
   const { user } = useAuth();
   const { tier, modules, progress, getModuleProgress, getLessonProgress, dailyLessonsRemaining, canTakeLesson, reloadModules, modulesLoading } = useLearning();
+  const [isDeletingModule, setIsDeletingModule] = useState<string | null>(null);
   
   // State to store page-based progress for modules
   const [pageBasedProgress, setPageBasedProgress] = useState<Record<string, number>>({});
@@ -454,8 +455,13 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
       });
     }
 
-    // Sort: favorites first, then by name (alphabetically), then by completion
+    // Sort: self-study first, then favorites, then by name (alphabetically), then by completion
     return filtered.sort((a, b) => {
+      // Self-study modules always appear first
+      const aSelfStudy = a.isSelfStudy ? 1 : 0;
+      const bSelfStudy = b.isSelfStudy ? 1 : 0;
+      if (aSelfStudy !== bSelfStudy) return bSelfStudy - aSelfStudy;
+      
       const aFav = favorites.has(a.id) ? 1 : 0;
       const bFav = favorites.has(b.id) ? 1 : 0;
       if (aFav !== bFav) return bFav - aFav;
@@ -1519,7 +1525,56 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-white bg-blue-500/80 rounded-full p-1 shadow-sm" />
                               </div>
                             )}
-                            <div className="absolute top-2 left-2 z-10">
+                            <div className="absolute top-2 left-2 z-10 flex gap-1">
+                              {module.isSelfStudy && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-white/80 hover:bg-white text-red-600 hover:text-red-700"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Are you sure you want to delete "${module.title}"? This action cannot be undone.`)) {
+                                      setIsDeletingModule(module.id);
+                                      try {
+                                        const token = await getAuthToken();
+                                        if (!token) {
+                                          toast.error('Please sign in to delete modules');
+                                          return;
+                                        }
+                                        
+                                        const response = await fetch(getApiUrl(`self-study/modules/${module.id}`), {
+                                          method: 'DELETE',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          },
+                                        });
+
+                                        if (!response.ok) {
+                                          const error = await response.json();
+                                          throw new Error(error.error || 'Failed to delete module');
+                                        }
+
+                                        toast.success('Module deleted successfully');
+                                        await reloadModules();
+                                      } catch (error) {
+                                        console.error('Error deleting module:', error);
+                                        toast.error(error instanceof Error ? error.message : 'Failed to delete module');
+                                      } finally {
+                                        setIsDeletingModule(null);
+                                      }
+                                    }
+                                  }}
+                                  disabled={isDeletingModule === module.id}
+                                  title="Delete self-study module"
+                                >
+                                  {isDeletingModule === module.id ? (
+                                    <FontAwesomeIcon icon={faSpinner} className="text-sm animate-spin" />
+                                  ) : (
+                                    <FontAwesomeIcon icon={faTrashCan} className="text-sm" />
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -2728,6 +2783,54 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               <span className="leading-tight text-center text-slate-900">{module.title}</span>
                             </div>
                             <div className="flex items-center gap-1">
+                              {module.isSelfStudy && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={async () => {
+                                    if (confirm(`Are you sure you want to delete "${module.title}"? This action cannot be undone.`)) {
+                                      setIsDeletingModule(module.id);
+                                      try {
+                                        const token = await getAuthToken();
+                                        if (!token) {
+                                          toast.error('Please sign in to delete modules');
+                                          return;
+                                        }
+                                        
+                                        const response = await fetch(getApiUrl(`self-study/modules/${module.id}`), {
+                                          method: 'DELETE',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                            'Content-Type': 'application/json',
+                                          },
+                                        });
+
+                                        if (!response.ok) {
+                                          const error = await response.json();
+                                          throw new Error(error.error || 'Failed to delete module');
+                                        }
+
+                                        toast.success('Module deleted successfully');
+                                        await reloadModules();
+                                      } catch (error) {
+                                        console.error('Error deleting module:', error);
+                                        toast.error(error instanceof Error ? error.message : 'Failed to delete module');
+                                      } finally {
+                                        setIsDeletingModule(null);
+                                      }
+                                    }
+                                  }}
+                                  disabled={isDeletingModule === module.id}
+                                  title="Delete self-study module"
+                                >
+                                  {isDeletingModule === module.id ? (
+                                    <FontAwesomeIcon icon={faSpinner} className="text-lg animate-spin" />
+                                  ) : (
+                                    <FontAwesomeIcon icon={faTrashCan} className="text-lg" />
+                                  )}
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"

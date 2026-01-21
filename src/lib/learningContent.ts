@@ -83,6 +83,7 @@ export interface Module {
   lessons: Lesson[];
   locked: boolean;
   requiredTier: 'free' | 'basic' | 'standard' | 'premium';
+  isSelfStudy?: boolean; // Flag for self-study modules
 }
 
 /**

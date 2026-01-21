@@ -307,17 +307,18 @@ function convertGeneratedModuleToModule(
     };
   });
 
-  return {
-    id: generatedModule.id,
-    title: generatedModule.title,
-    description: generatedModule.description,
-    icon: generatedModule.icon,
-    imageUrl: generatedModule.imageUrl, // Include course profile image
-    lessons,
-    locked: isModuleLocked,
-    requiredTier,
-  };
-}
+    return {
+      id: generatedModule.id,
+      title: generatedModule.title,
+      description: generatedModule.description,
+      icon: generatedModule.icon,
+      imageUrl: generatedModule.imageUrl, // Include course profile image
+      lessons,
+      locked: isModuleLocked,
+      requiredTier,
+      isSelfStudy: (generatedModule as any).isSelfStudy || false, // Preserve self-study flag
+    };
+  }
 
 /**
  * Fetch user-specific lessons from backend
@@ -362,7 +363,10 @@ async function fetchModulesFromBackend(
   userLessons?: Record<string, GeneratedLesson[]>
 ): Promise<Module[]> {
   try {
-    const apiUrl = getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
+    // Include userId in query to get self-study modules
+    const apiUrl = userId 
+      ? getApiUrl(`tutor-admin/modules/level/${accessLevel}?userId=${encodeURIComponent(userId)}`)
+      : getApiUrl(`tutor-admin/modules/level/${accessLevel}`);
     console.log(`📚 Fetching modules for tier: ${accessLevel} from ${apiUrl}`);
     
     const response = await fetch(apiUrl);

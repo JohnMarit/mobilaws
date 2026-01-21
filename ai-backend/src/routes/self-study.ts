@@ -228,15 +228,43 @@ router.get('/modules', verifyFirebaseToken, async (req: Request, res: Response) 
     }
 
     // Get user's self-study modules (excluding tutor-admin modules)
-    // Also include modules where tutorId matches userId (for backward compatibility)
-    const modulesSnapshot = await db.collection('generatedModules')
-      .where('ownerId', '==', userId)
-      .where('isSelfStudy', '==', true)
-      .orderBy('uploadedAt', 'desc')
-      .get();
+    // Try with orderBy first, if it fails (index missing), try without orderBy
+    let modulesSnapshot;
+    try {
+      modulesSnapshot = await db.collection('generatedModules')
+        .where('ownerId', '==', userId)
+        .where('isSelfStudy', '==', true)
+        .orderBy('uploadedAt', 'desc')
+        .get();
+    } catch (queryError: any) {
+      // If index is missing, try without orderBy
+      if (queryError.code === 9 || queryError.message?.includes('index')) {
+        console.warn('⚠️ Firestore index missing, fetching without orderBy');
+        modulesSnapshot = await db.collection('generatedModules')
+          .where('ownerId', '==', userId)
+          .where('isSelfStudy', '==', true)
+          .get();
+        
+        // Sort in memory
+        const docs = modulesSnapshot.docs.sort((a, b) => {
+          const aTime = a.data().uploadedAt?.toDate?.() || a.createTime?.toDate?.() || new Date(0);
+          const bTime = b.data().uploadedAt?.toDate?.() || b.createTime?.toDate?.() || new Date(0);
+          return bTime.getTime() - aTime.getTime();
+        });
+        modulesSnapshot = { docs } as any;
+      } else {
+        throw queryError;
+      }
+    }
 
     const today = getTodayString();
-    const dailyCount = await getDailyCount(userId);
+    let dailyCount = 0;
+    try {
+      dailyCount = await getDailyCount(userId);
+    } catch (countError) {
+      console.warn('⚠️ Error getting daily count:', countError);
+      // Continue with 0 if daily count fails
+    }
 
     const modules = modulesSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -535,6 +563,59 @@ Generate exactly ${numberOfLessons || 5} interactive lessons NOW and return them
     console.error('❌ Error generating self-study lessons:', error);
     res.status(500).json({
       error: 'Failed to generate lessons',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * Delete self-study module
+ * DELETE /api/self-study/modules/:moduleId
+ */
+router.delete('/modules/:moduleId', verifyFirebaseToken, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.uid;
+    const { moduleId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!moduleId) {
+      return res.status(400).json({ error: 'Module ID required' });
+    }
+
+    const db = getFirestore();
+    if (!db) {
+      return res.status(500).json({ error: 'Database not available' });
+    }
+
+    // Verify module belongs to user and is self-study
+    const moduleRef = db.collection('generatedModules').doc(moduleId);
+    const moduleDoc = await moduleRef.get();
+
+    if (!moduleDoc.exists) {
+      return res.status(404).json({ error: 'Module not found' });
+    }
+
+    const moduleData = moduleDoc.data();
+    if (moduleData?.ownerId !== userId || !moduleData?.isSelfStudy) {
+      return res.status(403).json({ error: 'Unauthorized: You can only delete your own self-study modules' });
+    }
+
+    // Delete the module
+    await moduleRef.delete();
+
+    console.log(`✅ Deleted self-study module ${moduleId} for user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Module deleted successfully',
+    });
+  } catch (error) {
+    console.error('❌ Error deleting self-study module:', error);
+    res.status(500).json({
+      error: 'Failed to delete module',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

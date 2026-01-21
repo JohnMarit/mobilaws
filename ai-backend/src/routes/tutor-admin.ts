@@ -411,6 +411,7 @@ router.get('/tutor-admin/modules', async (req: Request, res: Response) => {
 router.get('/tutor-admin/modules/level/:accessLevel', async (req: Request, res: Response) => {
   try {
     const { accessLevel } = req.params;
+    const userId = req.query.userId as string | undefined; // Optional userId for self-study modules
     
     // Validate access level
     const validLevels = ['free', 'basic', 'standard', 'premium'];
@@ -421,11 +422,47 @@ router.get('/tutor-admin/modules/level/:accessLevel', async (req: Request, res: 
       });
     }
     
-    console.log(`📚 Fetching modules for access level: ${accessLevel}`);
+    console.log(`📚 Fetching modules for access level: ${accessLevel}${userId ? ` (user: ${userId})` : ''}`);
     const modules = await getModulesByAccessLevel(accessLevel as any);
     
-    console.log(`✅ Returning ${modules.length} module(s) for ${accessLevel} tier`);
-    res.json(modules);
+    // If userId is provided, also fetch self-study modules and prepend them
+    let selfStudyModules: any[] = [];
+    if (userId) {
+      try {
+        const db = getFirestore();
+        if (db) {
+          const selfStudySnapshot = await db.collection(GENERATED_MODULES_COLLECTION)
+            .where('ownerId', '==', userId)
+            .where('isSelfStudy', '==', true)
+            .where('published', '==', true)
+            .get();
+          
+          selfStudyModules = selfStudySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            isSelfStudy: true, // Mark as self-study for frontend
+          })) as any[];
+          
+          console.log(`✅ Found ${selfStudyModules.length} self-study module(s) for user ${userId}`);
+        }
+      } catch (selfStudyError) {
+        console.warn('⚠️ Error fetching self-study modules:', selfStudyError);
+        // Continue without self-study modules if there's an error
+      }
+    }
+    
+    // Sort: self-study modules first (by uploadedAt desc), then regular modules (by createdAt desc)
+    const sortedModules = [
+      ...selfStudyModules.sort((a, b) => {
+        const aTime = a.uploadedAt?.toDate?.() || a.createdAt?.toDate?.() || new Date(0);
+        const bTime = b.uploadedAt?.toDate?.() || b.createdAt?.toDate?.() || new Date(0);
+        return bTime.getTime() - aTime.getTime();
+      }),
+      ...modules
+    ];
+    
+    console.log(`✅ Returning ${sortedModules.length} total module(s) (${selfStudyModules.length} self-study + ${modules.length} tutor) for ${accessLevel} tier`);
+    res.json(sortedModules);
   } catch (error: any) {
     console.error('❌ Error fetching modules by access level:', error);
     console.error('Error details:', error.message, error.stack);
