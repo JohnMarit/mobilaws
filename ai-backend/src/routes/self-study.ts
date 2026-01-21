@@ -332,8 +332,8 @@ router.post('/generate-lessons', verifyFirebaseToken, async (req: Request, res: 
       const migrationResult = await migrateModuleDocument(moduleId);
       
       if (migrationResult.success || migrationResult.message?.includes('already exist')) {
-        const { initializeUserPageProgress } = await import('../lib/document-page-storage');
-        await initializeUserPageProgress(userId, moduleId);
+        // getUserPageProgress automatically creates progress if it doesn't exist
+        await getUserPageProgress(userId, moduleId);
         pagesResult = await getNextPagesForLessons(userId, moduleId, numberOfLessons || 5);
       }
     }
@@ -422,7 +422,7 @@ You must respond with valid JSON in the following structure:
   ]
 }
 
-Generate ${numberOfLessons || 5} lessons with 8-12 dialogue exchanges, 2-3 case studies, and ${quizCountByDifficulty[difficulty || 'medium']} quiz questions each.`;
+Generate ${numberOfLessons || 5} lessons with 8-12 dialogue exchanges, 2-3 case studies, and ${quizCountByDifficulty[(difficulty || 'medium') as keyof typeof quizCountByDifficulty]} quiz questions each.`;
     
     const progressInfo = pagesResult.progressUpdate || null;
     const { getDocumentProgressPercentage } = await import('../lib/document-page-storage');
