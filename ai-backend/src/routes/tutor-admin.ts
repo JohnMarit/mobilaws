@@ -40,6 +40,9 @@ import {
   bulkUpdateModuleAccessLevels,
   updateModuleImageUrl
 } from '../lib/ai-content-generator';
+
+// Collection name constant (must match ai-content-generator.ts)
+const GENERATED_MODULES_COLLECTION = 'generatedModules';
 import { ingest } from '../rag';
 import { admin, getFirestore } from '../lib/firebase-admin';
 import { generateSharedLessonsForModule } from '../lib/ai-content-generator';

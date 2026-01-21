@@ -266,7 +266,7 @@ router.get('/modules', verifyFirebaseToken, async (req: Request, res: Response) 
       // Continue with 0 if daily count fails
     }
 
-    const modules = modulesSnapshot.docs.map(doc => {
+    const modules = modulesSnapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => {
       const data = doc.data();
       // Convert Firestore timestamp to ISO string
       let uploadedAt = new Date().toISOString();
