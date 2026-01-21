@@ -61,7 +61,18 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     if (!user) return;
 
     try {
-      const token = await user.getIdToken();
+      // Get Firebase User to access getIdToken()
+      const { auth } = await import('@/lib/firebase');
+      const { currentUser } = await import('firebase/auth');
+      const firebaseUser = auth ? currentUser(auth) : null;
+      
+      if (!firebaseUser) {
+        console.error('No Firebase user authenticated');
+        setShowLoginModal(true);
+        return;
+      }
+
+      const token = await firebaseUser.getIdToken();
       if (!token) {
         console.error('Failed to get auth token');
         return;
@@ -80,6 +91,11 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
       }
     } catch (error) {
       console.error('Error fetching self-study modules:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch self-study modules. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -212,7 +228,22 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
     setIsGenerating(true);
 
     try {
-      const token = await user.getIdToken();
+      // Get Firebase User to access getIdToken()
+      const { auth } = await import('@/lib/firebase');
+      const { currentUser } = await import('firebase/auth');
+      const firebaseUser = auth ? currentUser(auth) : null;
+      
+      if (!firebaseUser) {
+        toast({
+          title: 'Authentication error',
+          description: 'Please sign in to generate lessons.',
+          variant: 'destructive',
+        });
+        setShowLoginModal(true);
+        return;
+      }
+
+      const token = await firebaseUser.getIdToken();
       if (!token) {
         toast({
           title: 'Authentication error',
@@ -233,7 +264,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
           moduleName: selectedModule.name,
           difficulty: selectedDifficulty,
           numberOfLessons: 5,
-          userId: user.uid,
+          userId: firebaseUser.uid,
           tier: userSubscription?.planId?.toLowerCase() || 'free',
         }),
       });
