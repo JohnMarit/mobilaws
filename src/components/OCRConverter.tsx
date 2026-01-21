@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function OCRConverter() {
   const [file, setFile] = useState<File | null>(null);
@@ -172,9 +173,15 @@ export default function OCRConverter() {
                   </div>
 
                   <Button
-                    onClick={handleExtract}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔵 Extract button clicked!', { file: !!file, isProcessing });
+                      handleExtract();
+                    }}
                     disabled={isProcessing}
                     className="w-full"
+                    type="button"
                   >
                     {isProcessing ? (
                       <>
@@ -250,6 +257,12 @@ export default function OCRConverter() {
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function ContractComparison() {
   const [file1, setFile1] = useState<File | null>(null);
@@ -241,10 +242,16 @@ Please provide a side-by-side comparison with clear sections for each difference
           </div>
 
           <Button
-            onClick={handleCompare}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('🔵 Compare button clicked!', { file1: !!file1, file2: !!file2, isComparing });
+              handleCompare();
+            }}
             disabled={isComparing || !file1 || !file2}
             className="w-full"
             size="lg"
+            type="button"
           >
             {isComparing ? (
               <>
@@ -286,6 +293,12 @@ Please provide a side-by-side comparison with clear sections for each difference
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

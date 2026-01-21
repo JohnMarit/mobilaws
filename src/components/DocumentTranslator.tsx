@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function DocumentTranslator() {
   const [file, setFile] = useState<File | null>(null);
@@ -295,9 +296,15 @@ export default function DocumentTranslator() {
               )}
 
               <Button
-                onClick={handleTranslate}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Translate button clicked!', { useFile, file: !!file, textInput: textInput.length, isTranslating });
+                  handleTranslate();
+                }}
                 disabled={isTranslating || (useFile && !file) || (!useFile && !textInput.trim())}
                 className="w-full"
+                type="button"
               >
                 {isTranslating ? (
                   <>
@@ -341,6 +348,12 @@ export default function DocumentTranslator() {
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

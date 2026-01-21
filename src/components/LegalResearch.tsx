@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function LegalResearch() {
   const [researchType, setResearchType] = useState<string>('case');
@@ -138,9 +139,15 @@ export default function LegalResearch() {
               </div>
 
               <Button
-                onClick={handleResearch}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Research button clicked!', { query: query.length, isResearching });
+                  handleResearch();
+                }}
                 disabled={isResearching || !query.trim()}
                 className="w-full"
+                type="button"
               >
                 {isResearching ? (
                   <>
@@ -176,6 +183,12 @@ export default function LegalResearch() {
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

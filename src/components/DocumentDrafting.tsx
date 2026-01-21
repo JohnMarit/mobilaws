@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function DocumentDrafting() {
   const [documentType, setDocumentType] = useState<string>('');
@@ -31,6 +32,8 @@ export default function DocumentDrafting() {
   ];
 
   const handleGenerate = async () => {
+    console.log('🔵 handleGenerate called', { documentType, requirements: requirements.length, user: !!user, canSendPrompt });
+    
     if (!documentType) {
       toast({
         title: 'Document type required',
@@ -50,6 +53,7 @@ export default function DocumentDrafting() {
     }
 
     if (!user) {
+      console.log('⚠️ No user, showing login modal');
       setShowLoginModal(true);
       return;
     }
@@ -63,10 +67,12 @@ export default function DocumentDrafting() {
       return;
     }
 
+    console.log('✅ Starting document generation...');
     setIsGenerating(true);
     setGeneratedDocument('');
 
     try {
+      console.log('📤 Sending request to backend...');
       const prompt = `Generate a South Sudan legal ${documentTypes.find(d => d.value === documentType)?.label.toLowerCase()} document based on the following requirements:
 
 ${requirements}
@@ -74,26 +80,34 @@ ${requirements}
 Please provide a complete, professionally formatted legal document that complies with South Sudan laws and legal practices. Include all necessary sections, clauses, and legal language appropriate for South Sudan jurisdiction.`;
 
       let fullResponse = '';
+      let chunkCount = 0;
       for await (const chunk of backendService.streamChat(
         prompt,
         undefined,
         user.uid
       )) {
+        chunkCount++;
+        console.log(`📥 Received chunk ${chunkCount}:`, chunk.type);
+        
         if (chunk.type === 'token' && chunk.text) {
           fullResponse += chunk.text;
           setGeneratedDocument(fullResponse);
         } else if (chunk.type === 'error') {
+          console.error('❌ Backend error:', chunk.error);
           throw new Error(chunk.error || 'Failed to generate document');
+        } else if (chunk.type === 'done') {
+          console.log('✅ Generation complete');
         }
       }
 
+      console.log(`✅ Document generated successfully (${fullResponse.length} characters)`);
       incrementPromptCount();
       toast({
         title: 'Document generated',
         description: 'Your legal document has been generated successfully.',
       });
     } catch (error) {
-      console.error('Error generating document:', error);
+      console.error('❌ Error generating document:', error);
       toast({
         title: 'Generation failed',
         description: error instanceof Error ? error.message : 'Failed to generate document. Please try again.',
@@ -174,9 +188,15 @@ Please provide a complete, professionally formatted legal document that complies
               </div>
 
               <Button
-                onClick={handleGenerate}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Button clicked!', { documentType, requirements: requirements.length, isGenerating });
+                  handleGenerate();
+                }}
                 disabled={isGenerating || !documentType || !requirements.trim()}
                 className="w-full"
+                type="button"
               >
                 {isGenerating ? (
                   <>
@@ -220,6 +240,12 @@ Please provide a complete, professionally formatted legal document that complies
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

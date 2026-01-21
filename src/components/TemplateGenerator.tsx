@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function TemplateGenerator() {
   const [templateType, setTemplateType] = useState<string>('');
@@ -208,9 +209,15 @@ Please provide a complete, well-structured template.`;
               </div>
 
               <Button
-                onClick={handleGenerate}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Template generate button clicked!', { templateType, isGenerating });
+                  handleGenerate();
+                }}
                 disabled={isGenerating || !templateType}
                 className="w-full"
+                type="button"
               >
                 {isGenerating ? (
                   <>
@@ -269,6 +276,12 @@ Please provide a complete, well-structured template.`;
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import LoginModal from './LoginModal';
 
 export default function DocumentUpload() {
   const [files, setFiles] = useState<File[]>([]);
@@ -192,9 +193,15 @@ Document(s) to analyze:`;
               )}
 
               <Button
-                onClick={handleUploadAndSummarize}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔵 Upload button clicked!', { files: files.length, isProcessing });
+                  handleUploadAndSummarize();
+                }}
                 disabled={isProcessing || files.length === 0}
                 className="w-full"
+                type="button"
               >
                 {isProcessing ? (
                   <>
@@ -230,6 +237,12 @@ Document(s) to analyze:`;
           )}
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
     </div>
   );
 }
