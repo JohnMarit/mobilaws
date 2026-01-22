@@ -6,8 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
+import { computeSidebarTaskTokens, TOKENS_DONE_TITLE, TOKENS_DONE_MESSAGE } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 
 export default function ContractComparison() {
@@ -19,8 +18,7 @@ export default function ContractComparison() {
   const file2InputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
-  const { userSubscription } = useSubscription();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal, setShowSubscriptionModal } = usePromptLimit();
 
   const handleFileSelect = (fileNumber: 1 | 2) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,17 +64,8 @@ export default function ContractComparison() {
 
     const minTokens = 5;
     if (!canAffordTokens(minTokens)) {
-      const planId = userSubscription?.planId?.toLowerCase() || 'free';
-      const isPremium = planId === 'premium';
-      let description = 'This task uses at least 5 tokens. Please upgrade or wait for your limit to reset.';
-      if (isPremium) {
-        description = 'Unable to send request. Please try again or contact support.';
-      } else if (planId === 'free') {
-        description = 'Please upgrade your plan to Basic, Standard, or Premium for more tokens.';
-      } else if (planId === 'basic' || planId === 'standard') {
-        description = 'You have reached your token limit. Upgrade to Premium for unlimited tokens or wait for your tokens to reset.';
-      }
-      toast({ title: 'Not enough tokens', description, variant: 'destructive' });
+      toast({ title: TOKENS_DONE_TITLE, description: TOKENS_DONE_MESSAGE, variant: 'destructive' });
+      setShowSubscriptionModal(true);
       return;
     }
 
@@ -111,7 +100,9 @@ Please provide a side-by-side comparison with clear sections for each difference
       const tokens = computeSidebarTaskTokens(fullResponse.length);
       const ok = await useTokensForSidebarTask(tokens);
       if (!ok) {
-        toast({ title: 'Token deduction failed', description: 'Comparison completed but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        setComparison('');
+        toast({ title: TOKENS_DONE_TITLE, description: TOKENS_DONE_MESSAGE, variant: 'destructive' });
+        setShowSubscriptionModal(true);
         return;
       }
       toast({ title: 'Comparison completed', description: 'The contracts have been compared successfully.' });

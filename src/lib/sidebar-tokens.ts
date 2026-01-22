@@ -7,6 +7,10 @@
  */
 
 export const TOKENS_PER_SIDEBAR_TASK = 5;
+
+/** Shown when user has no tokens (before or after generation). Opens subscription modal so they can purchase. */
+export const TOKENS_DONE_TITLE = 'Tokens used up';
+export const TOKENS_DONE_MESSAGE = 'Your tokens are done. Purchase to continue generating the document you want.';
 export const TOKENS_PER_PAGE_LONG = 7;
 /** ~3000 chars ≈ 1 page (≈500 words) */
 export const CHARS_PER_PAGE = 3000;

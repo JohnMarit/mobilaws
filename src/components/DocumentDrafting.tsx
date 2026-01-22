@@ -10,8 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
-import { useSubscription } from '@/contexts/SubscriptionContext';
-import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
+import { computeSidebarTaskTokens, TOKENS_DONE_TITLE, TOKENS_DONE_MESSAGE } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -34,8 +33,7 @@ export default function DocumentDrafting() {
   const confirmedTextRef = useRef<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
-  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
-  const { userSubscription } = useSubscription();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal, setShowSubscriptionModal } = usePromptLimit();
 
   // Rich text editor for editing generated document
   const editor = useEditor({
@@ -105,17 +103,8 @@ export default function DocumentDrafting() {
 
     const minTokens = 5;
     if (!canAffordTokens(minTokens)) {
-      const planId = userSubscription?.planId?.toLowerCase() || 'free';
-      const isPremium = planId === 'premium';
-      let description = 'This task uses at least 5 tokens. Please upgrade or wait for your limit to reset.';
-      if (isPremium) {
-        description = 'Unable to send request. Please try again or contact support.';
-      } else if (planId === 'free') {
-        description = 'Please upgrade to Basic, Standard, or Premium for more tokens.';
-      } else if (planId === 'basic' || planId === 'standard') {
-        description = 'You need at least 5 tokens. Upgrade to Premium for unlimited or wait for reset.';
-      }
-      toast({ title: 'Not enough tokens', description, variant: 'destructive' });
+      toast({ title: TOKENS_DONE_TITLE, description: TOKENS_DONE_MESSAGE, variant: 'destructive' });
+      setShowSubscriptionModal(true);
       return;
     }
 
@@ -163,11 +152,10 @@ Please provide a complete, professionally formatted legal document that complies
       const tokens = computeSidebarTaskTokens(fullResponse.length);
       const ok = await useTokensForSidebarTask(tokens);
       if (!ok) {
-        toast({
-          title: 'Token deduction failed',
-          description: 'Document was generated but we could not deduct tokens. You may need more tokens for this length.',
-          variant: 'destructive',
-        });
+        setGeneratedDocument('');
+        if (editor) editor.commands.setContent('<p></p>');
+        toast({ title: TOKENS_DONE_TITLE, description: TOKENS_DONE_MESSAGE, variant: 'destructive' });
+        setShowSubscriptionModal(true);
         return;
       }
       toast({
