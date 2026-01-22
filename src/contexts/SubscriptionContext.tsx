@@ -416,8 +416,12 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       return false;
     }
 
+    // Premium users should always be allowed (they have unlimited tokens)
+    const isPremium = userSubscription.planId?.toLowerCase() === 'premium';
+    
     // Don't allow token usage if none remaining (backend will also check)
-    if (userSubscription.tokensRemaining <= 0) {
+    // Exception: Premium users can always use tokens
+    if (!isPremium && userSubscription.tokensRemaining <= 0) {
       console.warn('⚠️ No tokens remaining');
       return false;
     }
@@ -513,7 +517,17 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
-  const canUseToken = !!(userSubscription?.isActive && (userSubscription.tokensRemaining > 0 || userSubscription.isFree));
+  // Premium users should have access even if tokensRemaining is low (they can get more via backend)
+  // For non-premium users, check if tokensRemaining > 0 or if it's a free plan with daily limit
+  const isPremium = userSubscription?.planId?.toLowerCase() === 'premium';
+  const canUseToken = !!(
+    userSubscription?.isActive && 
+    (
+      isPremium || // Premium users have access
+      userSubscription.tokensRemaining > 0 || // Has tokens remaining
+      userSubscription.isFree // Free plan users have daily limit managed separately
+    )
+  );
 
   const value: SubscriptionContextType = {
     plans,

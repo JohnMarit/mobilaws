@@ -237,7 +237,12 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       });
     }
     
-    if (subscription.tokensRemaining <= 0) {
+    // Check if user is premium (unlimited tokens)
+    const isPremium = subscription.planId?.toLowerCase() === 'premium';
+    
+    // For premium users, don't check token limits (they have unlimited)
+    // For other plans, check if tokens are available
+    if (!isPremium && subscription.tokensRemaining <= 0) {
       // For free plans, show hours until reset; for others, no reset
       const hoursUntilReset = (subscription.planId === 'free' && subscription.isFree === true)
         ? getHoursUntilMidnight() 
@@ -252,8 +257,10 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       });
     }
     
-    // Deduct one token
-    subscription.tokensRemaining -= 1;
+    // Deduct one token (but don't go below 0 for premium - they stay at high number)
+    if (!isPremium) {
+      subscription.tokensRemaining -= 1;
+    }
     subscription.tokensUsed += 1;
     
     // Save to Firestore
@@ -267,7 +274,7 @@ router.post('/subscription/:userId/use-token', async (req: Request, res: Respons
       success: true, 
       tokensRemaining: subscription.tokensRemaining,
       tokensUsed: subscription.tokensUsed,
-      canUseToken: subscription.tokensRemaining > 0,
+      canUseToken: isPremium || subscription.tokensRemaining > 0, // Premium always true
       isFree: subscription.isFree === true,
       planId: subscription.planId,
       lastResetDate: subscription.lastResetDate

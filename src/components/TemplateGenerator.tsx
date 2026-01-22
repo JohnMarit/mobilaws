@@ -31,6 +31,7 @@ export default function TemplateGenerator() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { userSubscription } = useSubscription();
 
   const templateTypes = [
     { value: 'contract', label: 'Contract Template' },
@@ -61,9 +62,21 @@ export default function TemplateGenerator() {
     }
 
     if (!canSendPrompt) {
+      const planId = userSubscription?.planId?.toLowerCase() || 'free';
+      const isPremium = planId === 'premium';
+      
+      let description = 'Please upgrade your plan or wait for your limit to reset.';
+      if (isPremium) {
+        description = 'Unable to send request. Please try again or contact support.';
+      } else if (planId === 'free') {
+        description = 'Please upgrade your plan to Basic, Standard, or Premium for more tokens.';
+      } else if (planId === 'basic' || planId === 'standard') {
+        description = 'You have reached your token limit. Upgrade to Premium for unlimited tokens or wait for your tokens to reset.';
+      }
+      
       toast({
         title: 'Prompt limit reached',
-        description: 'Please upgrade your plan or wait for your limit to reset.',
+        description,
         variant: 'destructive',
       });
       return;
