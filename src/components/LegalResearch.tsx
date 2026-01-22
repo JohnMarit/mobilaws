@@ -44,11 +44,11 @@ export default function LegalResearch() {
       return;
     }
 
-    if (!canSendPrompt) {
+    const minTokens = 5;
+    if (!canAffordTokens(minTokens)) {
       const planId = userSubscription?.planId?.toLowerCase() || 'free';
       const isPremium = planId === 'premium';
-      
-      let description = 'Please upgrade your plan or wait for your limit to reset.';
+      let description = 'This task uses at least 5 tokens. Please upgrade or wait for your limit to reset.';
       if (isPremium) {
         description = 'Unable to send request. Please try again or contact support.';
       } else if (planId === 'free') {
@@ -56,12 +56,7 @@ export default function LegalResearch() {
       } else if (planId === 'basic' || planId === 'standard') {
         description = 'You have reached your token limit. Upgrade to Premium for unlimited tokens or wait for your tokens to reset.';
       }
-      
-      toast({
-        title: 'Prompt limit reached',
-        description,
-        variant: 'destructive',
-      });
+      toast({ title: 'Not enough tokens', description, variant: 'destructive' });
       return;
     }
 
@@ -79,7 +74,7 @@ export default function LegalResearch() {
       for await (const chunk of backendService.streamChat(
         researchPrompt,
         undefined,
-        user.uid
+        user.id
       )) {
         if (chunk.type === 'token' && chunk.text) {
           fullResponse += chunk.text;

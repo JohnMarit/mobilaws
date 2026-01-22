@@ -99,7 +99,7 @@ Please provide a complete, well-structured template.`;
       for await (const chunk of backendService.streamChat(
         prompt,
         undefined,
-        user.uid
+        user.id
       )) {
         if (chunk.type === 'token' && chunk.text) {
           fullResponse += chunk.text;

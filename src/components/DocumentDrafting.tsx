@@ -74,7 +74,7 @@ export default function DocumentDrafting() {
   ];
 
   const handleGenerate = async () => {
-    console.log('🔵 handleGenerate called', { documentType, requirements: requirements.length, user: !!user, canSendPrompt });
+    console.log('🔵 handleGenerate called', { documentType, requirements: requirements.length, user: !!user });
     
     if (!documentType) {
       toast({
@@ -133,7 +133,7 @@ Please provide a complete, professionally formatted legal document that complies
       for await (const chunk of backendService.streamChat(
         prompt,
         undefined,
-        user.uid
+        user.id
       )) {
         chunkCount++;
         console.log(`📥 Received chunk ${chunkCount}:`, chunk.type);
