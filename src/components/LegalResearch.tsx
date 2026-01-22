@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Loader2, FileText } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, Loader2, FileText, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,9 @@ export default function LegalResearch() {
   const [query, setQuery] = useState<string>('');
   const [isResearching, setIsResearching] = useState(false);
   const [results, setResults] = useState<string>('');
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const confirmedTextRef = useRef<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
   const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
@@ -28,6 +31,101 @@ export default function LegalResearch() {
     { value: 'statute', label: 'Statute Research' },
     { value: 'general', label: 'General Legal Research' },
   ];
+
+  const stopRecording = () => {
+    setIsRecording(false);
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping recognition:', error);
+    }
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    try {
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          title: 'Voice input not supported',
+          description: 'Your browser does not support speech recognition.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        confirmedTextRef.current = query;
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          confirmedTextRef.current += finalTranscript;
+        }
+
+        const displayText = confirmedTextRef.current + interimTranscript;
+        setQuery(displayText);
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        if (event.error === 'no-speech') {
+          stopRecording();
+        } else if (event.error === 'not-allowed') {
+          toast({
+            title: 'Microphone access denied',
+            description: 'Please allow microphone access to use voice input.',
+            variant: 'destructive',
+          });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        recognitionRef.current = null;
+        setQuery(confirmedTextRef.current);
+        confirmedTextRef.current = '';
+      };
+
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition failed:', error);
+      setIsRecording(false);
+      toast({
+        title: 'Voice input failed',
+        description: 'Unable to start voice recognition. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleResearch = async () => {
     if (!query.trim()) {
@@ -140,14 +238,24 @@ export default function LegalResearch() {
 
               <div className="space-y-2">
                 <Label htmlFor="query">Research Question or Topic</Label>
-                <Textarea
-                  id="query"
-                  placeholder="Enter your legal research question or topic. For example: 'What are the requirements for contract formation in South Sudan?' or 'Search for cases on property rights'..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  rows={6}
-                  className="resize-none"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="query"
+                    placeholder="Enter your legal research question or topic. For example: 'What are the requirements for contract formation in South Sudan?' or 'Search for cases on property rights'..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    rows={6}
+                    className="resize-none pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMicClick}
+                    className={`absolute top-2 right-2 p-2 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-500 hover:text-gray-700'}`}
+                    title={isRecording ? 'Stop voice input' : 'Voice input'}
+                  >
+                    {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button

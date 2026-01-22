@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon, FileAudio } from 'lucide-react';
+import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -44,13 +44,11 @@ export default function ChatInput({
   const [showSuggestions, setShowSuggestions] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [audioNotes, setAudioNotes] = useState<{ blob: Blob; url: string }[]>([]);
+  const confirmedTextRef = useRef<string>('');
   const { toast } = useToast();
 
   // Load recent queries from localStorage
@@ -213,11 +211,13 @@ export default function ChatInput({
   const stopRecording = () => {
     setIsRecording(false);
     try {
-      mediaRecorderRef.current?.stop();
-    } catch {}
-    try {
-      mediaStreamRef.current?.getTracks().forEach(t => t.stop());
-    } catch {}
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping recognition:', error);
+    }
   };
 
   const handleMicClick = async () => {
@@ -228,30 +228,85 @@ export default function ChatInput({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
+      // Check for Speech Recognition API support
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          title: 'Voice input not supported',
+          description: 'Your browser does not support speech recognition.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data);
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        // Store the current input as the base text
+        confirmedTextRef.current = input;
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Update confirmed text with final transcripts
+        if (finalTranscript) {
+          confirmedTextRef.current += finalTranscript;
+        }
+
+        // Update the input with confirmed text + interim transcript in real-time
+        const displayText = confirmedTextRef.current + interimTranscript;
+        setInput(displayText);
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        if (event.error === 'no-speech') {
+          // User didn't speak, just stop
+          stopRecording();
+        } else if (event.error === 'not-allowed') {
+          toast({
+            title: 'Microphone access denied',
+            description: 'Please allow microphone access to use voice input.',
+            variant: 'destructive',
+          });
         }
       };
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        chunksRef.current = [];
-        const url = URL.createObjectURL(blob);
-        setAudioNotes(prev => [...prev, { blob, url }]);
-        onAudioCaptured?.(blob);
+      recognition.onend = () => {
+        setIsRecording(false);
+        recognitionRef.current = null;
+        // Ensure final state is set
+        setInput(confirmedTextRef.current);
+        confirmedTextRef.current = '';
       };
 
-      recorder.start();
-      setIsRecording(true);
+      recognition.start();
     } catch (error) {
-      console.error('Microphone access denied or unavailable', error);
+      console.error('Speech recognition failed:', error);
+      setIsRecording(false);
+      toast({
+        title: 'Voice input failed',
+        description: 'Unable to start voice recognition. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -262,7 +317,7 @@ export default function ChatInput({
         <div className="relative flex items-center">
           <div className="flex-1 relative" onClick={() => inputRef.current?.focus()}>
             {/* Attachment chips - ChatGPT style */}
-            {(attachedFiles.length > 0 || audioNotes.length > 0) && (
+            {attachedFiles.length > 0 && (
               <div className="absolute left-3 right-3 top-1 z-10 flex flex-wrap gap-1.5 pointer-events-auto">
                 {attachedFiles.map((file, idx) => {
                   const isImage = file.type.startsWith('image/');
@@ -286,25 +341,6 @@ export default function ChatInput({
                     </div>
                   );
                 })}
-                {audioNotes.map((note, idx) => (
-                  <div key={`audio-${idx}`} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors">
-                    <FileAudio className="h-3 w-3 text-gray-500" />
-                    <span className="text-gray-600">Voice note</span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        URL.revokeObjectURL(note.url);
-                        setAudioNotes(prev => prev.filter((_, i) => i !== idx));
-                      }}
-                      className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 transition-colors"
-                      aria-label="Remove audio"
-                      title="Remove audio"
-                    >
-                      <X className="h-3 w-3 text-gray-400" />
-                    </button>
-                  </div>
-                ))}
               </div>
             )}
             <input
@@ -316,7 +352,7 @@ export default function ChatInput({
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
-              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length || audioNotes.length ? 'pt-7 pb-2' : 'py-3'} pl-24 ${input && !isLoading ? 'pr-12' : 'pr-12'} text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length ? 'pt-7 pb-2' : 'py-3'} pl-24 ${input && !isLoading ? 'pr-12' : 'pr-12'} text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
@@ -353,7 +389,7 @@ export default function ChatInput({
                 type="button"
                 onClick={handleMicClick}
                 className={`absolute left-12 top-1/2 -translate-y-1/2 p-2.5 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-800'}`}
-                title={isRecording ? 'Stop recording' : 'Record voice'}
+                title={isRecording ? 'Stop voice input' : 'Voice input'}
               >
                 {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>

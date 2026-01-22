@@ -39,10 +39,9 @@ export default function AnimatedSearchInput({
   const [showPlaceholder, setShowPlaceholder] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const confirmedTextRef = useRef<string>('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,11 +114,13 @@ export default function AnimatedSearchInput({
   const stopRecording = () => {
     setIsRecording(false);
     try {
-      mediaRecorderRef.current?.stop();
-    } catch {}
-    try {
-      mediaStreamRef.current?.getTracks().forEach(t => t.stop());
-    } catch {}
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping recognition:', error);
+    }
   };
 
   const handleMicClick = async () => {
@@ -130,28 +131,70 @@ export default function AnimatedSearchInput({
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
+      // Check for Speech Recognition API support
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.error('Speech Recognition API not supported in this browser');
+        return;
+      }
 
-      recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data && event.data.size > 0) {
-          chunksRef.current.push(event.data);
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        // Store the current query as the base text
+        confirmedTextRef.current = query;
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        // Update confirmed text with final transcripts
+        if (finalTranscript) {
+          confirmedTextRef.current += finalTranscript;
+        }
+
+        // Update the query with confirmed text + interim transcript in real-time
+        const displayText = confirmedTextRef.current + interimTranscript;
+        onQueryChange(displayText);
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        if (event.error === 'no-speech') {
+          // User didn't speak, just stop
+          stopRecording();
         }
       };
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        chunksRef.current = [];
-        onAudioCaptured?.(blob);
+      recognition.onend = () => {
+        setIsRecording(false);
+        recognitionRef.current = null;
+        // Ensure final state is set
+        onQueryChange(confirmedTextRef.current);
+        confirmedTextRef.current = '';
       };
 
-      recorder.start();
-      setIsRecording(true);
+      recognition.start();
     } catch (error) {
-      console.error('Microphone access denied or unavailable', error);
+      console.error('Speech recognition failed:', error);
+      setIsRecording(false);
     }
   };
 
@@ -222,7 +265,7 @@ export default function AnimatedSearchInput({
             type="button"
             onClick={handleMicClick}
             className={`absolute right-8 sm:right-10 p-1.5 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-500 hover:text-gray-700'}`}
-            title={isRecording ? 'Stop recording' : 'Record voice'}
+            title={isRecording ? 'Stop voice input' : 'Voice input'}
           >
             {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           </button>

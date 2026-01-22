@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { FileCode, Loader2, Download, Copy, Check, Bold, Italic, Underline, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Heading1, Heading2, Heading3 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { FileCode, Loader2, Download, Copy, Check, Bold, Italic, Underline, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Heading1, Heading2, Heading3, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,9 @@ export default function TemplateGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTemplate, setGeneratedTemplate] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const confirmedTextRef = useRef<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
   const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
@@ -47,6 +50,101 @@ export default function TemplateGenerator() {
     { value: 'power-of-attorney', label: 'Power of Attorney Template' },
     { value: 'lease', label: 'Lease Agreement Template' },
   ];
+
+  const stopRecording = () => {
+    setIsRecording(false);
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error stopping recognition:', error);
+    }
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    try {
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        toast({
+          title: 'Voice input not supported',
+          description: 'Your browser does not support speech recognition.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+        confirmedTextRef.current = customInstructions;
+      };
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + ' ';
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          confirmedTextRef.current += finalTranscript;
+        }
+
+        const displayText = confirmedTextRef.current + interimTranscript;
+        setCustomInstructions(displayText);
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error);
+        setIsRecording(false);
+        if (event.error === 'no-speech') {
+          stopRecording();
+        } else if (event.error === 'not-allowed') {
+          toast({
+            title: 'Microphone access denied',
+            description: 'Please allow microphone access to use voice input.',
+            variant: 'destructive',
+          });
+        }
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        recognitionRef.current = null;
+        setCustomInstructions(confirmedTextRef.current);
+        confirmedTextRef.current = '';
+      };
+
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition failed:', error);
+      setIsRecording(false);
+      toast({
+        title: 'Voice input failed',
+        description: 'Unable to start voice recognition. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleGenerate = async () => {
     if (!templateType) {
@@ -300,14 +398,24 @@ Please provide a complete, well-structured template.`;
 
               <div className="space-y-2">
                 <Label htmlFor="custom-instructions">Custom Instructions (Optional)</Label>
-                <Textarea
-                  id="custom-instructions"
-                  placeholder="Specify any particular clauses, terms, or requirements you want included in the template..."
-                  value={customInstructions}
-                  onChange={(e) => setCustomInstructions(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="custom-instructions"
+                    placeholder="Specify any particular clauses, terms, or requirements you want included in the template..."
+                    value={customInstructions}
+                    onChange={(e) => setCustomInstructions(e.target.value)}
+                    rows={4}
+                    className="resize-none pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleMicClick}
+                    className={`absolute top-2 right-2 p-2 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-500 hover:text-gray-700'}`}
+                    title={isRecording ? 'Stop voice input' : 'Voice input'}
+                  >
+                    {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
