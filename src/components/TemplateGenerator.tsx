@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -30,7 +32,7 @@ export default function TemplateGenerator() {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   const templateTypes = [
@@ -61,24 +63,15 @@ export default function TemplateGenerator() {
       return;
     }
 
-    if (!canSendPrompt) {
+    const minTokens = 5;
+    if (!canAffordTokens(minTokens)) {
       const planId = userSubscription?.planId?.toLowerCase() || 'free';
       const isPremium = planId === 'premium';
-      
-      let description = 'Please upgrade your plan or wait for your limit to reset.';
-      if (isPremium) {
-        description = 'Unable to send request. Please try again or contact support.';
-      } else if (planId === 'free') {
-        description = 'Please upgrade your plan to Basic, Standard, or Premium for more tokens.';
-      } else if (planId === 'basic' || planId === 'standard') {
-        description = 'You have reached your token limit. Upgrade to Premium for unlimited tokens or wait for your tokens to reset.';
-      }
-      
-      toast({
-        title: 'Prompt limit reached',
-        description,
-        variant: 'destructive',
-      });
+      let description = 'This task uses at least 5 tokens. Please upgrade or wait for your limit to reset.';
+      if (isPremium) description = 'Unable to send request. Please try again or contact support.';
+      else if (planId === 'free') description = 'Please upgrade to Basic, Standard, or Premium for more tokens.';
+      else if (planId === 'basic' || planId === 'standard') description = 'You need at least 5 tokens. Upgrade to Premium for unlimited or wait for reset.';
+      toast({ title: 'Not enough tokens', description, variant: 'destructive' });
       return;
     }
 
@@ -123,11 +116,13 @@ Please provide a complete, well-structured template.`;
         }
       }
 
-      incrementPromptCount();
-      toast({
-        title: 'Template generated',
-        description: 'Your legal template has been generated successfully.',
-      });
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({ title: 'Token deduction failed', description: 'Template generated but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Template generated', description: 'Your legal template has been generated successfully.' });
     } catch (error) {
       console.error('Error generating template:', error);
       toast({

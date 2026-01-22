@@ -10,6 +10,7 @@ import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 
 export default function LegalResearch() {
@@ -19,7 +20,7 @@ export default function LegalResearch() {
   const [results, setResults] = useState<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   const researchTypes = [
@@ -88,11 +89,13 @@ export default function LegalResearch() {
         }
       }
 
-      incrementPromptCount();
-      toast({
-        title: 'Research completed',
-        description: 'Your legal research has been completed successfully.',
-      });
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({ title: 'Token deduction failed', description: 'Research completed but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Research completed', description: 'Your legal research has been completed successfully.' });
     } catch (error) {
       console.error('Error conducting research:', error);
       toast({

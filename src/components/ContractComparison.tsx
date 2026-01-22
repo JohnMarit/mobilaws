@@ -7,6 +7,7 @@ import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 
 export default function ContractComparison() {
@@ -18,7 +19,7 @@ export default function ContractComparison() {
   const file2InputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   const handleFileSelect = (fileNumber: 1 | 2) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,11 +113,13 @@ Please provide a side-by-side comparison with clear sections for each difference
         }
       }
 
-      incrementPromptCount();
-      toast({
-        title: 'Comparison completed',
-        description: 'The contracts have been compared successfully.',
-      });
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({ title: 'Token deduction failed', description: 'Comparison completed but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Comparison completed', description: 'The contracts have been compared successfully.' });
     } catch (error) {
       console.error('Error comparing contracts:', error);
       toast({

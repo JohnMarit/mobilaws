@@ -11,6 +11,7 @@ import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -21,7 +22,6 @@ import { Underline as UnderlineExtension } from '@tiptap/extension-underline';
 import { Document, Paragraph, TextRun, Packer, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
 import './ResponseEditor.css';
-import './ResponseEditor.css';
 
 export default function DocumentDrafting() {
   const [documentType, setDocumentType] = useState<string>('');
@@ -31,7 +31,7 @@ export default function DocumentDrafting() {
   const [downloadFormat, setDownloadFormat] = useState<'txt' | 'docx' | 'pdf' | 'html'>('docx');
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   // Rich text editor for editing generated document
@@ -100,24 +100,19 @@ export default function DocumentDrafting() {
       return;
     }
 
-    if (!canSendPrompt) {
+    const minTokens = 5;
+    if (!canAffordTokens(minTokens)) {
       const planId = userSubscription?.planId?.toLowerCase() || 'free';
       const isPremium = planId === 'premium';
-      
-      let description = 'Please upgrade your plan or wait for your limit to reset.';
+      let description = 'This task uses at least 5 tokens. Please upgrade or wait for your limit to reset.';
       if (isPremium) {
         description = 'Unable to send request. Please try again or contact support.';
       } else if (planId === 'free') {
-        description = 'Please upgrade your plan to Basic, Standard, or Premium for more tokens.';
+        description = 'Please upgrade to Basic, Standard, or Premium for more tokens.';
       } else if (planId === 'basic' || planId === 'standard') {
-        description = 'You have reached your token limit. Upgrade to Premium for unlimited tokens or wait for your tokens to reset.';
+        description = 'You need at least 5 tokens. Upgrade to Premium for unlimited or wait for reset.';
       }
-      
-      toast({
-        title: 'Prompt limit reached',
-        description,
-        variant: 'destructive',
-      });
+      toast({ title: 'Not enough tokens', description, variant: 'destructive' });
       return;
     }
 
@@ -162,7 +157,16 @@ Please provide a complete, professionally formatted legal document that complies
       }
 
       console.log(`✅ Document generated successfully (${fullResponse.length} characters)`);
-      incrementPromptCount();
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({
+          title: 'Token deduction failed',
+          description: 'Document was generated but we could not deduct tokens. You may need more tokens for this length.',
+          variant: 'destructive',
+        });
+        return;
+      }
       toast({
         title: 'Document generated',
         description: 'Your legal document has been generated successfully.',

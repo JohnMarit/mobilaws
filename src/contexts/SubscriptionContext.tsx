@@ -31,7 +31,7 @@ interface SubscriptionContextType {
   purchasePlan: (planId: string) => Promise<boolean>;
   initiatePayment: (planId: string) => Promise<{ success: boolean; paymentLink?: string; paymentId?: string; error?: string }>;
   verifyPayment: (paymentId: string) => Promise<boolean>;
-  useToken: () => Promise<boolean>;
+  useToken: (amount?: number) => Promise<boolean>;
   canUseToken: boolean;
   refreshSubscription: () => Promise<void>;
 }
@@ -407,7 +407,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
     }
   }, [isAuthenticated, user, syncFreePlanFromFirestore]);
 
-  const useToken = useCallback(async (): Promise<boolean> => {
+  const useToken = useCallback(async (amount: number = 1): Promise<boolean> => {
     if (!userSubscription || !userSubscription.isActive) {
       return false;
     }
@@ -416,29 +416,24 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
       return false;
     }
 
-    // Premium users should always be allowed (they have unlimited tokens)
+    const amt = Math.max(1, Math.floor(amount));
     const isPremium = userSubscription.planId?.toLowerCase() === 'premium';
-    
-    // Don't allow token usage if none remaining (backend will also check)
-    // Exception: Premium users can always use tokens
-    if (!isPremium && userSubscription.tokensRemaining <= 0) {
-      console.warn('⚠️ No tokens remaining');
+
+    if (!isPremium && userSubscription.tokensRemaining < amt) {
+      console.warn(`⚠️ Not enough tokens: need ${amt}, have ${userSubscription.tokensRemaining}`);
       return false;
     }
 
     try {
-      // ALL authenticated users (free, granted, paid) use the backend subscription API
-      // This ensures proper token consumption order: granted/paid tokens FIRST, then free
       const response = await fetch(getApiUrl(`subscription/${user.id}/use-token`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amt }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Failed to use token:', errorData.error);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to use token:', errorData.error || response.statusText);
         return false;
       }
 
@@ -453,27 +448,22 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps) {
           isFree: result.isFree,
           lastResetDate: result.lastResetDate
         };
-
         setUserSubscription(updatedSubscription);
-        console.log(`✅ Token used (${result.planId}). Remaining: ${result.tokensRemaining}`);
+        console.log(`✅ Tokens used: ${amt} (${result.planId}). Remaining: ${result.tokensRemaining}`);
         return true;
-      } else {
-        console.error('Failed to use token:', result.error);
-        return false;
       }
+      console.error('Failed to use token:', result.error);
+      return false;
     } catch (error) {
       console.error('Error using token via backend:', error);
-      // Fallback to local token management only as last resort
       console.warn('⚠️ Using local token management fallback');
-
       const updatedSubscription = {
         ...userSubscription,
-        tokensRemaining: userSubscription.tokensRemaining - 1,
-        tokensUsed: userSubscription.tokensUsed + 1
+        tokensRemaining: Math.max(0, userSubscription.tokensRemaining - amt),
+        tokensUsed: userSubscription.tokensUsed + amt
       };
-
       setUserSubscription(updatedSubscription);
-      console.log(`✅ Token used locally (fallback). Remaining: ${updatedSubscription.tokensRemaining}`);
+      console.log(`✅ Tokens used locally (fallback): ${amt}. Remaining: ${updatedSubscription.tokensRemaining}`);
       return true;
     }
   }, [userSubscription, user]);

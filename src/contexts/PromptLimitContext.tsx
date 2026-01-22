@@ -8,6 +8,10 @@ interface PromptLimitContextType {
   maxPrompts: number;
   canSendPrompt: boolean;
   incrementPromptCount: () => Promise<boolean>;
+  /** Sidebar tasks (draft, research, etc.): 5 tokens per task, 7 per page when long. */
+  useTokensForSidebarTask: (amount: number) => Promise<boolean>;
+  /** True if user can afford at least `amount` tokens (premium or tokensRemaining >= amount). */
+  canAffordTokens: (amount: number) => boolean;
   resetPromptCount: () => void;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
@@ -95,15 +99,10 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
 
   const incrementPromptCount = useCallback(async (): Promise<boolean> => {
     if (isAuthenticated) {
-      // For authenticated users, always use subscription tokens (including free plan)
       if (userSubscription && userSubscription.isActive) {
-        const tokenUsed = await useToken();
-        if (tokenUsed) {
-          console.log(`✅ Token used for authenticated user. Remaining: ${userSubscription.tokensRemaining - 1}`);
-          // If it's a free plan, update the daily tokens used counter for display
-          if (userSubscription.isFree) {
-            setDailyTokensUsed(userSubscription.tokensUsed + 1);
-          }
+        const tokenUsed = await useToken(1); // AI chat: 1 token per message
+        if (tokenUsed && userSubscription.isFree) {
+          setDailyTokensUsed(userSubscription.tokensUsed + 1);
         }
         return tokenUsed;
       }
@@ -140,10 +139,29 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
     setPromptCount(0);
   }, []);
 
+  const useTokensForSidebarTask = useCallback(async (amount: number): Promise<boolean> => {
+    if (!isAuthenticated) return false;
+    if (!userSubscription || !userSubscription.isActive) return false;
+    return useToken(amount);
+  }, [isAuthenticated, userSubscription, useToken]);
+
+  const canAffordTokens = useCallback((amount: number): boolean => {
+    const n = Math.max(1, Math.floor(amount));
+    if (!userSubscription?.isActive) return false;
+    const isPremium = userSubscription.planId?.toLowerCase() === 'premium';
+    return isPremium || userSubscription.tokensRemaining >= n;
+  }, [userSubscription]);
+
   // Check if user can send prompt based on their authentication status and subscription
   // Authenticated users: allow sending if tokens are available OR while subscription is still loading
   // (token consumption will still be enforced inside incrementPromptCount/useToken).
-  const hasTokensAuthenticated = Boolean(userSubscription && userSubscription.isActive && canUseToken);
+  // Premium users should always have access if subscription is active
+  const isPremium = userSubscription?.planId?.toLowerCase() === 'premium';
+  const hasTokensAuthenticated = Boolean(
+    userSubscription && 
+    userSubscription.isActive && 
+    (isPremium || canUseToken) // Premium users always allowed, others check canUseToken
+  );
   const canSendPrompt = isAuthenticated
     ? (subscriptionLoading ? true : hasTokensAuthenticated)
     : promptCount < maxPrompts;  // Anonymous users: 3 prompts total
@@ -154,6 +172,8 @@ export function PromptLimitProvider({ children }: PromptLimitProviderProps) {
     maxPrompts,
     canSendPrompt,
     incrementPromptCount,
+    useTokensForSidebarTask,
+    canAffordTokens,
     resetPromptCount,
     showLoginModal,
     setShowLoginModal,

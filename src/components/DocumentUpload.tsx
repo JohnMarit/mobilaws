@@ -7,6 +7,7 @@ import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 
 export default function DocumentUpload() {
@@ -16,8 +17,7 @@ export default function DocumentUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
-  const { userSubscription } = useSubscription();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,11 +114,13 @@ Document(s) to analyze:`;
         }
       }
 
-      incrementPromptCount();
-      toast({
-        title: 'Document processed',
-        description: 'Your document has been analyzed and summarized successfully.',
-      });
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({ title: 'Token deduction failed', description: 'Document processed but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Document processed', description: 'Your document has been analyzed and summarized successfully.' });
     } catch (error) {
       console.error('Error processing document:', error);
       toast({

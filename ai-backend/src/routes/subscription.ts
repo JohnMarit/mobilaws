@@ -196,88 +196,91 @@ router.post('/subscription/:userId', async (req: Request, res: Response) => {
 });
 
 /**
- * Use a token from user's subscription
+ * Use tokens from user's subscription
  * POST /api/subscription/:userId/use-token
+ * Body: { amount?: number } — default 1 (AI chat). Sidebar tasks use 5+ (5 per task, 7 per page when long).
  */
 router.post('/subscription/:userId/use-token', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    
+    const amount = Math.max(1, Math.floor(Number(req.body?.amount) || 1));
+
     // Try to get from Firestore first
     let subscription = await getSubscription(userId);
-    
+
     // Fallback to in-memory
     if (!subscription) {
       subscription = subscriptions.get(userId);
     }
-    
+
     // Initialize free plan if no subscription exists
     if (!subscription) {
       subscription = await initializeFreePlan(userId);
     }
-    
+
     // Check if subscription has expired (for paid/granted plans)
     if (subscription && subscription.planId !== 'free' && subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
       console.log(`⏰ Subscription expired for user ${userId}, falling back to free plan`);
-      // Mark as inactive and fall back to free plan
       subscription.isActive = false;
       await saveSubscription(subscription);
       subscription = await initializeFreePlan(userId);
     }
-    
+
     // ONLY reset free tokens if this is a TRUE free plan (not admin_granted or paid)
     if (subscription && subscription.planId === 'free' && subscription.isFree === true) {
       subscription = await initializeFreePlan(userId);
     }
-    
+
     if (!subscription || !subscription.isActive) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No active subscription found',
-        canUseToken: false 
+        canUseToken: false,
       });
     }
-    
-    // Check if user is premium (unlimited tokens)
+
     const isPremium = subscription.planId?.toLowerCase() === 'premium';
-    
-    // For premium users, don't check token limits (they have unlimited)
-    // For other plans, check if tokens are available
+
     if (!isPremium && subscription.tokensRemaining <= 0) {
-      // For free plans, show hours until reset; for others, no reset
       const hoursUntilReset = (subscription.planId === 'free' && subscription.isFree === true)
-        ? getHoursUntilMidnight() 
+        ? getHoursUntilMidnight()
         : null;
-      
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No tokens remaining',
         canUseToken: false,
         hoursUntilReset,
         isFree: subscription.isFree === true,
-        planId: subscription.planId
+        planId: subscription.planId,
       });
     }
-    
-    // Deduct one token (but don't go below 0 for premium - they stay at high number)
-    if (!isPremium) {
-      subscription.tokensRemaining -= 1;
+
+    if (!isPremium && subscription.tokensRemaining < amount) {
+      return res.status(400).json({
+        error: `Not enough tokens. Required: ${amount}, remaining: ${subscription.tokensRemaining}`,
+        canUseToken: false,
+        required: amount,
+        tokensRemaining: subscription.tokensRemaining,
+        planId: subscription.planId,
+      });
     }
-    subscription.tokensUsed += 1;
-    
-    // Save to Firestore
+
+    if (!isPremium) {
+      subscription.tokensRemaining -= amount;
+    }
+    subscription.tokensUsed += amount;
+
     await updateSubscriptionTokens(userId, subscription.tokensRemaining, subscription.tokensUsed);
-    // Also update in-memory
     subscriptions.set(userId, subscription);
-    
-    console.log(`✅ Token used for user ${userId} (${subscription.planId}). Remaining: ${subscription.tokensRemaining}`);
-    
-    res.json({ 
-      success: true, 
+
+    console.log(`✅ Tokens used for user ${userId} (${subscription.planId}): ${amount}. Remaining: ${subscription.tokensRemaining}`);
+
+    res.json({
+      success: true,
       tokensRemaining: subscription.tokensRemaining,
       tokensUsed: subscription.tokensUsed,
-      canUseToken: isPremium || subscription.tokensRemaining > 0, // Premium always true
+      canUseToken: isPremium || subscription.tokensRemaining > 0,
       isFree: subscription.isFree === true,
       planId: subscription.planId,
-      lastResetDate: subscription.lastResetDate
+      lastResetDate: subscription.lastResetDate,
     });
   } catch (error) {
     console.error('❌ Error using token:', error);

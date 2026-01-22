@@ -9,6 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { backendService } from '@/lib/backend-service';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { computeSidebarTaskTokens } from '@/lib/sidebar-tokens';
 import LoginModal from './LoginModal';
 
 export default function DocumentTranslator() {
@@ -22,7 +24,7 @@ export default function DocumentTranslator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { canSendPrompt, incrementPromptCount, showLoginModal, setShowLoginModal } = usePromptLimit();
+  const { useTokensForSidebarTask, canAffordTokens, showLoginModal, setShowLoginModal } = usePromptLimit();
   const { userSubscription } = useSubscription();
 
   const languages = [
@@ -134,11 +136,13 @@ export default function DocumentTranslator() {
         }
       }
 
-      incrementPromptCount();
-      toast({
-        title: 'Translation completed',
-        description: 'Your document has been translated successfully.',
-      });
+      const tokens = computeSidebarTaskTokens(fullResponse.length);
+      const ok = await useTokensForSidebarTask(tokens);
+      if (!ok) {
+        toast({ title: 'Token deduction failed', description: 'Translation completed but we could not deduct tokens. You may need more tokens for this length.', variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Translation completed', description: 'Your document has been translated successfully.' });
     } catch (error) {
       console.error('Error translating document:', error);
       toast({
