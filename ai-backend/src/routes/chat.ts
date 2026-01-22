@@ -177,22 +177,34 @@ router.post('/chat', verifyApiKey, upload.any(), async (req: Request, res: Respo
     // Send metadata event
     writeEvent(res, 'metadata', { convoId: convoId || null, timestamp: new Date().toISOString() });
 
-    // Fetch subscription tier for learning path restrictions
+    // Fetch subscription tier for learning path restrictions (must match frontend / GET subscription)
     let subscriptionTier: 'basic' | 'standard' | 'premium' | 'free' = 'free';
     if (userId) {
       try {
         const subscription = await getSubscription(userId);
         if (subscription && subscription.isActive) {
-          // Map planId to subscription tier
-          const planId = subscription.planId.toLowerCase();
-          if (planId === 'basic') subscriptionTier = 'basic';
-          else if (planId === 'standard') subscriptionTier = 'standard';
-          else if (planId === 'premium') subscriptionTier = 'premium';
-          else subscriptionTier = 'free'; // free or unknown plans
+          // Treat expired paid/granted plans as inactive (same as GET /subscription/:userId)
+          const expired = subscription.planId !== 'free' &&
+            subscription.expiryDate &&
+            new Date(subscription.expiryDate) < new Date();
+          if (expired) {
+            subscriptionTier = 'free';
+            console.log(`📋 Chat subscription: user ${userId} plan expired, tier=free`);
+          } else {
+            const raw = subscription.planId;
+            const planId = (raw && typeof raw === 'string') ? raw.trim().toLowerCase() : '';
+            if (planId === 'basic') subscriptionTier = 'basic';
+            else if (planId === 'standard') subscriptionTier = 'standard';
+            else if (planId === 'premium') subscriptionTier = 'premium';
+            else if (planId === 'admin_granted') subscriptionTier = 'premium'; // granted users get full AI access
+            else subscriptionTier = 'free';
+            console.log(`📋 Chat subscription: user ${userId} planId=${subscription.planId} -> tier=${subscriptionTier}`);
+          }
+        } else {
+          console.log(`📋 Chat subscription: user ${userId} no active sub -> tier=free`);
         }
       } catch (error) {
         console.warn('⚠️ Could not fetch subscription tier, defaulting to free:', error);
-        // Default to 'free' if subscription fetch fails
       }
     }
 
