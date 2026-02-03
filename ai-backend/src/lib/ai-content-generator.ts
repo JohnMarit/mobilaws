@@ -930,10 +930,16 @@ export async function getAllGeneratedModules(): Promise<GeneratedModule[]> {
       .orderBy('createdAt', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as GeneratedModule[];
+    // Filter out self-study modules - they should only be accessible through owner-specific endpoints
+    return snapshot.docs
+      .filter(doc => {
+        const data = doc.data();
+        return !data.isSelfStudy; // Exclude self-study modules
+      })
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as GeneratedModule[];
   } catch (error) {
     console.error('❌ Error fetching generated modules:', error);
     return [];
@@ -964,13 +970,19 @@ export async function getModulesByAccessLevel(
 
     console.log(`✅ Found ${snapshot.size} published module(s) for ${accessLevel} tier`);
     
-    const modules = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data
-      };
-    }) as GeneratedModule[];
+    // Filter out self-study modules - they should only be accessible through owner-specific endpoints
+    const modules = snapshot.docs
+      .filter(doc => {
+        const data = doc.data();
+        return !data.isSelfStudy; // Exclude self-study modules
+      })
+      .map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        };
+      }) as GeneratedModule[];
     
     console.log(`  - ${modules.filter(m => m.imageUrl).length} module(s) have images`);
 
@@ -1303,13 +1315,19 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
         .orderBy('createdAt', 'desc')
         .get();
 
-      const modules = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data
-        };
-      }) as GeneratedModule[];
+      // Filter out self-study modules - they should only be accessible through owner-specific endpoints
+      const modules = snapshot.docs
+        .filter(doc => {
+          const data = doc.data();
+          return !data.isSelfStudy; // Exclude self-study modules
+        })
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data
+          };
+        }) as GeneratedModule[];
       
       console.log(`✅ Found ${modules.length} module(s) with orderBy`);
       
@@ -1344,13 +1362,19 @@ export async function getModulesByTutorId(tutorId: string): Promise<GeneratedMod
           .where('tutorId', '==', tutorId)
           .get();
 
-        const modules = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data
-          };
-        }) as GeneratedModule[];
+        // Filter out self-study modules - they should only be accessible through owner-specific endpoints
+        const modules = snapshot.docs
+          .filter(doc => {
+            const data = doc.data();
+            return !data.isSelfStudy; // Exclude self-study modules
+          })
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data
+            };
+          }) as GeneratedModule[];
         
         // Sort in memory
         modules.sort((a, b) => {

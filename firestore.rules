@@ -180,7 +180,9 @@ service cloud.firestore {
     
     // Generated modules (published modules from tutor admin)
     match /generatedModules/{moduleId} {
-      allow read: if isAuthenticated(); // Authenticated users can read published modules
+      // Self-study modules: only the owner can read
+      allow read: if isAuthenticated() && 
+                     (!resource.data.isSelfStudy || resource.data.ownerId == request.auth.uid);
       allow write: if false; // Only backend (Admin SDK) can write modules
     }
     
