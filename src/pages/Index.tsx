@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Menu, Heart, GraduationCap, Scale } from 'lucide-react';
+import { Loader2, Menu, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
@@ -21,7 +21,6 @@ import DocumentTranslator from '@/components/DocumentTranslator';
 import TemplateGenerator from '@/components/TemplateGenerator';
 import AssistantModeSelector from '@/components/AssistantModeSelector';
 import SubscriptionManager from '@/components/SubscriptionManager';
-import CourtSimulatorButton from '@/components/court-simulator/CourtSimulatorButton';
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,10 +132,6 @@ const Index = () => {
     setShowDonationDialog(true);
   };
 
-  const handleMobileOpenLearningPath = () => {
-    window.dispatchEvent(new Event('open-learning-path'));
-  };
-
   return (
     <div className="h-screen bg-white flex overflow-hidden">
       {/* Sidebar - Hidden on mobile by default */}
@@ -176,16 +171,6 @@ const Index = () => {
             <CountrySelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
-            <CourtSimulatorButton variant="compact" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowBookCounsel(true)}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              title="Book a Counsel"
-            >
-              <Scale className="h-4 w-4" />
-            </Button>
             <UserProfileNav
               onManageSubscription={() => setShowSubscriptionModal(true)}
               compact={true}
@@ -198,15 +183,6 @@ const Index = () => {
               title="Donate"
             >
               <Heart className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMobileOpenLearningPath}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              title="Learning Paths"
-            >
-              <GraduationCap className="h-4 w-4" />
             </Button>
           </div>
         </div>
