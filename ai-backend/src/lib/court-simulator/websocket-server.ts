@@ -23,6 +23,8 @@ interface ActiveSession {
   analysisInProgress: boolean;
   isActive: boolean;
   analyzeTimer: NodeJS.Timeout | null;
+  maxDuration: number;
+  minDuration: number;
 }
 
 const activeSessions = new Map<string, ActiveSession>();
@@ -103,6 +105,11 @@ export function attachWebSocketServer(server: HttpServer): WebSocketServer {
 async function handleSessionStart(ws: WebSocket, message: any): Promise<ActiveSession> {
   const sessionId = message.sessionId || uuidv4();
   const userId = message.userId || 'anonymous';
+  const requestedMaxDuration = Number(message.maxDuration);
+  const maxDuration = Number.isFinite(requestedMaxDuration)
+    ? Math.max(300, Math.min(3600, Math.round(requestedMaxDuration)))
+    : env.COURT_SIM_MAX_DURATION;
+  const minDuration = Math.min(env.COURT_SIM_MIN_DURATION, maxDuration);
 
   const deepgram = new DeepgramStreamer();
 
@@ -122,6 +129,8 @@ async function handleSessionStart(ws: WebSocket, message: any): Promise<ActiveSe
     analysisInProgress: false,
     isActive: true,
     analyzeTimer: null,
+    maxDuration,
+    minDuration,
   };
 
   activeSessions.set(sessionId, session);
@@ -162,8 +171,8 @@ async function handleSessionStart(ws: WebSocket, message: any): Promise<ActiveSe
   sendMessage(ws, {
     type: 'session_ready',
     sessionId,
-    maxDuration: env.COURT_SIM_MAX_DURATION,
-    minDuration: env.COURT_SIM_MIN_DURATION,
+    maxDuration: session.maxDuration,
+    minDuration: session.minDuration,
   });
 
   console.log(`⚖️  Court session started: ${sessionId} for user ${userId}`);

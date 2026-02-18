@@ -17,6 +17,11 @@ export interface SessionEvaluation {
   weaknesses: string[];
   recommendations: string[];
   legal_references: string[];
+  legal_quotes: Array<{
+    reference: string;
+    quote: string;
+    relevance: string;
+  }>;
   credibility_assessment: string;
   emotion_profile: string;
   summary: string;
@@ -53,6 +58,10 @@ EVALUATE the testimony across these dimensions (0-100 each):
 
 ALSO PROVIDE:
 - **legal_references**: List 2-4 specific articles of the Constitution or sections of the Penal Code that are relevant to what the witness discussed. Format: ["Article 9 - Right to Life", "Penal Code Section 206 - Murder"]
+- **legal_quotes**: List 2-4 quoted provisions from those same legal references. Each item must include:
+  - "reference": article/section label (for example: "Article 11 - Equality before the Law")
+  - "quote": a short direct quote or paraphrased extract in quotation marks from the legal provision (max 220 chars)
+  - "relevance": one sentence explaining why this provision supports or challenges the witness claim
 - **credibility_assessment**: 2-3 sentences analyzing whether the testimony appears truthful, fabricated, exaggerated, or uncertain. Note specific indicators (vague timing = less credible, specific consistent details = more credible, emotional incongruence = suspicious).
 - **emotion_profile**: 2-3 sentences describing the emotional arc of the testimony. Was the witness calm, increasingly nervous, defensive when challenged, etc.? How did emotions affect testimony quality?
 - **strengths**: 2-4 specific things done well
@@ -69,6 +78,7 @@ Respond with JSON only:
   "credibility": 0-100,
   "legal_accuracy": 0-100,
   "legal_references": ["..."],
+  "legal_quotes": [{ "reference": "...", "quote": "\"...\"", "relevance": "..." }],
   "credibility_assessment": "...",
   "emotion_profile": "...",
   "strengths": ["..."],
@@ -144,6 +154,7 @@ Evaluate this testimony against the Transitional Constitution and Penal Code of 
       weaknesses: ensureStringArray(parsed.weaknesses),
       recommendations: ensureStringArray(parsed.recommendations),
       legal_references: ensureStringArray(parsed.legal_references),
+      legal_quotes: ensureLegalQuotes(parsed.legal_quotes),
       credibility_assessment: String(parsed.credibility_assessment || ''),
       emotion_profile: String(parsed.emotion_profile || ''),
       summary: String(parsed.summary || 'Evaluation complete.'),
@@ -162,6 +173,7 @@ Evaluate this testimony against the Transitional Constitution and Penal Code of 
       weaknesses: ['Evaluation could not be fully generated'],
       recommendations: ['Study the Transitional Constitution, particularly the Bill of Rights (Articles 9-34)'],
       legal_references: [],
+      legal_quotes: [],
       credibility_assessment: 'Could not be assessed.',
       emotion_profile: 'Could not be assessed.',
       summary: 'The evaluation encountered an error. Please try again.',
@@ -201,4 +213,17 @@ function clampScore(val: any): number {
 function ensureStringArray(val: any): string[] {
   if (Array.isArray(val)) return val.map(String).filter(Boolean);
   return [];
+}
+
+function ensureLegalQuotes(
+  val: any,
+): Array<{ reference: string; quote: string; relevance: string }> {
+  if (!Array.isArray(val)) return [];
+  return val
+    .map((item) => ({
+      reference: String(item?.reference || '').trim(),
+      quote: String(item?.quote || '').trim(),
+      relevance: String(item?.relevance || '').trim(),
+    }))
+    .filter((item) => item.reference && item.quote);
 }

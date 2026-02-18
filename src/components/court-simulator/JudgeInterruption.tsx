@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Gavel } from 'lucide-react';
+import { Gavel, RotateCcw } from 'lucide-react';
 import { type Interruption } from '@/contexts/CourtSimulatorContext';
+import { Button } from '@/components/ui/button';
 
 interface JudgeInterruptionProps {
   interruption: Interruption;
   isSpeaking: boolean;
+  onRepeat?: () => void;
+  onContinue?: () => void;
 }
 
-export default function JudgeInterruption({ interruption, isSpeaking }: JudgeInterruptionProps) {
+export default function JudgeInterruption({
+  interruption,
+  isSpeaking,
+  onRepeat,
+  onContinue,
+}: JudgeInterruptionProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -36,14 +44,14 @@ export default function JudgeInterruption({ interruption, isSpeaking }: JudgeInt
 
         <div className="p-6">
           <p className="text-gray-900 text-base font-medium leading-relaxed">
-            "{interruption.question}"
+            The judge question is delivered as audio.
           </p>
-          <p className="text-gray-500 text-sm mt-3 italic">
-            {interruption.reason}
+          <p className="text-gray-500 text-sm mt-3">
+            Use repeat if you need to hear it again before continuing.
           </p>
         </div>
 
-        <div className="px-6 pb-4">
+        <div className="px-6 pb-4 space-y-3">
           {isSpeaking ? (
             <div className="flex items-center gap-2 text-amber-700">
               <div className="flex gap-0.5">
@@ -61,9 +69,15 @@ export default function JudgeInterruption({ interruption, isSpeaking }: JudgeInt
               <span className="text-sm font-medium">Judge is speaking...</span>
             </div>
           ) : (
-            <p className="text-sm text-green-600 font-medium">
-              Resuming session...
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <Button type="button" size="sm" variant="outline" onClick={onRepeat}>
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Repeat audio
+              </Button>
+              <Button type="button" size="sm" onClick={onContinue}>
+                Continue testimony
+              </Button>
+            </div>
           )}
         </div>
       </div>

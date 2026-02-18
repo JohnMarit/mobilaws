@@ -46,6 +46,11 @@ export interface SessionEvaluation {
   weaknesses: string[];
   recommendations: string[];
   legal_references: string[];
+  legal_quotes?: Array<{
+    reference: string;
+    quote: string;
+    relevance: string;
+  }>;
   credibility_assessment: string;
   emotion_profile: string;
   summary: string;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Video, VideoOff, Mic, Play, Square, Loader2, AlertCircle, WifiOff } from 'lucide-react';
+import { X, Video, VideoOff, Mic, Play, Square, Loader2, AlertCircle, WifiOff, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCourtSimulator } from '@/contexts/CourtSimulatorContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
@@ -25,6 +25,9 @@ const ANALYSIS_INTERVAL_MS = 6000;
 const SEVERITY_THRESHOLD = 0.45;
 const MIN_SECONDS_BEFORE_INTERRUPT = 12;
 const INTERRUPT_COOLDOWN_MS = 12000;
+const MIN_MANUAL_DURATION_MINUTES = 5;
+const DEFAULT_MANUAL_DURATION_MINUTES = 5;
+const MAX_MANUAL_DURATION_MINUTES = 60;
 
 export default function CourtSimulatorModal() {
   const { state, dispatch, closeSimulator } = useCourtSimulator();
@@ -47,10 +50,15 @@ export default function CourtSimulatorModal() {
   const interruptingRef = useRef(false);
   const sessionStartTimeRef = useRef(0);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const interruptionQuestionRef = useRef('');
+  const interruptionReasonRef = useRef('');
+  const preferredCameraFacingModeRef = useRef<'user' | 'environment'>('user');
 
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [cameraSwitchAvailable, setCameraSwitchAvailable] = useState(false);
+  const [manualDurationMinutes, setManualDurationMinutes] = useState(DEFAULT_MANUAL_DURATION_MINUTES);
 
   const { isModalOpen, sessionState, mediaStream } = state;
 
@@ -87,7 +95,11 @@ export default function CourtSimulatorModal() {
     async function initMedia() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: preferredCameraFacingModeRef.current,
+          },
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
 
@@ -97,6 +109,8 @@ export default function CourtSimulatorModal() {
         }
 
         dispatch({ type: 'SET_MEDIA_STREAM', stream });
+        setCameraError(null);
+        detectCameraSwitchAvailability();
       } catch (err: any) {
         const msg = err.name === 'NotAllowedError'
           ? 'Camera and microphone access denied. Please allow permissions and try again.'
@@ -110,6 +124,21 @@ export default function CourtSimulatorModal() {
 
     return () => { cancelled = true; };
   }, [sessionState, dispatch]);
+
+  async function detectCameraSwitchAvailability() {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      setCameraSwitchAvailable(false);
+      return;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+      setCameraSwitchAvailable(videoInputs.length > 1);
+    } catch {
+      setCameraSwitchAvailable(false);
+    }
+  }
 
   // Session tick timer
   useEffect(() => {
@@ -150,6 +179,8 @@ export default function CourtSimulatorModal() {
     previousQuestionsRef.current = [];
     interruptingRef.current = false;
     sessionStartTimeRef.current = 0;
+    interruptionQuestionRef.current = '';
+    interruptionReasonRef.current = '';
 
     audioStreamerRef.current?.stop();
     audioStreamerRef.current = null;
@@ -248,6 +279,9 @@ export default function CourtSimulatorModal() {
     if (interruptingRef.current) return;
     interruptingRef.current = true;
 
+    interruptionQuestionRef.current = interruption.question || '';
+    interruptionReasonRef.current = interruption.reason || '';
+
     dispatch({ type: 'TRIGGER_INTERRUPT', interruption });
 
     audioStreamerRef.current?.pause();
@@ -258,15 +292,23 @@ export default function CourtSimulatorModal() {
     setTtsSpeaking(true);
     await ttsRef.current.speak(interruption.question);
     setTtsSpeaking(false);
+  }
 
+  async function repeatInterruptionAudio() {
+    if (!interruptionQuestionRef.current || !ttsRef.current) return;
+    setTtsSpeaking(true);
+    await ttsRef.current.speak(interruptionQuestionRef.current);
+    setTtsSpeaking(false);
+  }
+
+  function resumeAfterInterruption() {
     dispatch({ type: 'RESUME_RECORDING' });
-
     audioStreamerRef.current?.resume();
     speechRecRef.current?.resume();
-
     lastInterruptTimeRef.current = Date.now();
     interruptingRef.current = false;
-
+    interruptionQuestionRef.current = '';
+    interruptionReasonRef.current = '';
     setTimeout(() => {
       dispatch({ type: 'TO_RECORDING' });
     }, 500);
@@ -369,6 +411,10 @@ export default function CourtSimulatorModal() {
     dispatch({ type: 'SET_ERROR', error: '' });
 
     const sessionId = `cs_${Date.now()}`;
+    const requestedDurationSeconds = Math.max(
+      MIN_MANUAL_DURATION_MINUTES,
+      Math.min(MAX_MANUAL_DURATION_MINUTES, Number(manualDurationMinutes) || DEFAULT_MANUAL_DURATION_MINUTES),
+    ) * 60;
     sessionStartTimeRef.current = Date.now();
     let ws: WebSocket | null = null;
 
@@ -379,6 +425,7 @@ export default function CourtSimulatorModal() {
         type: 'session_start',
         userId: user?.id || 'anonymous',
         sessionId,
+        maxDuration: requestedDurationSeconds,
       }));
     } catch (err) {
       console.warn('WebSocket unavailable, starting in local mode:', err);
@@ -387,7 +434,7 @@ export default function CourtSimulatorModal() {
       dispatch({
         type: 'START_SESSION',
         sessionId,
-        maxDuration: 120,
+        maxDuration: requestedDurationSeconds,
         minDuration: 60,
       });
     }
@@ -502,10 +549,16 @@ export default function CourtSimulatorModal() {
             clarity: 50,
             logical_consistency: 50,
             emotional_control: 50,
+            credibility: 50,
+            legal_accuracy: 50,
             overall_score: 50,
             strengths: ['Session completed'],
             weaknesses: ['Evaluation server was unreachable'],
             recommendations: ['Ensure the backend is running for full AI analysis'],
+            legal_references: [],
+            legal_quotes: [],
+            credibility_assessment: 'Could not be assessed.',
+            emotion_profile: 'Could not be assessed.',
             summary: 'Session captured but full evaluation could not be generated.',
           },
           transcript: fullTranscriptRef.current,
@@ -518,6 +571,49 @@ export default function CourtSimulatorModal() {
   function handleClose() {
     cleanupAll();
     closeSimulator();
+  }
+
+  async function handleSwitchCamera() {
+    if (!cameraSwitchAvailable || sessionState !== 'PREVIEW') return;
+
+    const nextFacing = preferredCameraFacingModeRef.current === 'user' ? 'environment' : 'user';
+    const previousFacing = preferredCameraFacingModeRef.current;
+    preferredCameraFacingModeRef.current = nextFacing;
+
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      dispatch({ type: 'SET_MEDIA_STREAM', stream: null });
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: nextFacing,
+        },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      dispatch({ type: 'SET_MEDIA_STREAM', stream });
+      setCameraError(null);
+      detectCameraSwitchAvailability();
+    } catch (err: any) {
+      preferredCameraFacingModeRef.current = previousFacing;
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: previousFacing,
+          },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        dispatch({ type: 'SET_MEDIA_STREAM', stream: fallbackStream });
+      } catch {
+        // Ignore fallback errors; the user will see the camera error below.
+      }
+      setCameraError('Could not switch camera. Please check your device camera permissions.');
+    }
   }
 
   if (!isModalOpen) return null;
@@ -604,6 +700,18 @@ export default function CourtSimulatorModal() {
                         <Loader2 className="h-8 w-8 text-white animate-spin" />
                       </div>
                     )}
+                    {cameraSwitchAvailable && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="absolute top-3 right-3 bg-white/90 hover:bg-white text-gray-800"
+                        onClick={handleSwitchCamera}
+                      >
+                        <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                        Switch camera
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -632,8 +740,32 @@ export default function CourtSimulatorModal() {
                 <p className="text-gray-600 text-sm leading-relaxed">
                   You will deliver oral testimony before an AI judge. Speak clearly about
                   any legal matter. The judge may interrupt to seek clarification.
-                  Minimum session time is <strong>60 seconds</strong>.
+                  Session duration is manually set to at least <strong>5 minutes</strong>.
                 </p>
+                <div className="text-left bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <label htmlFor="session-minutes" className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Session duration (minutes)
+                  </label>
+                  <input
+                    id="session-minutes"
+                    type="number"
+                    min={MIN_MANUAL_DURATION_MINUTES}
+                    max={MAX_MANUAL_DURATION_MINUTES}
+                    value={manualDurationMinutes}
+                    onChange={(e) => {
+                      const raw = Number(e.target.value);
+                      const clamped = Math.max(
+                        MIN_MANUAL_DURATION_MINUTES,
+                        Math.min(MAX_MANUAL_DURATION_MINUTES, Number.isFinite(raw) ? raw : DEFAULT_MANUAL_DURATION_MINUTES),
+                      );
+                      setManualDurationMinutes(clamped);
+                    }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Minimum 5 minutes, maximum 60 minutes.
+                  </p>
+                </div>
                 <Button
                   onClick={handleBeginSession}
                   disabled={!mediaStream || !!cameraError || isStarting}
@@ -678,6 +810,8 @@ export default function CourtSimulatorModal() {
                     <JudgeInterruption
                       interruption={state.currentInterruption}
                       isSpeaking={ttsSpeaking}
+                      onRepeat={repeatInterruptionAudio}
+                      onContinue={resumeAfterInterruption}
                     />
                   )}
                 </div>

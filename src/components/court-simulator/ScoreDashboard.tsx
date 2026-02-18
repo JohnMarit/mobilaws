@@ -74,6 +74,16 @@ export default function ScoreDashboard({
         ? evaluation.legal_references.map(r => `  - ${r}`)
         : ['  (No specific references identified)']),
       '',
+      'QUOTED LEGAL PROVISIONS',
+      '-'.repeat(40),
+      ...(evaluation.legal_quotes?.length
+        ? evaluation.legal_quotes.flatMap((item, i) => [
+          `  ${i + 1}. ${item.reference}`,
+          `     Quote: ${item.quote}`,
+          `     Relevance: ${item.relevance || '(No relevance note provided)'}`,
+        ])
+        : ['  (No legal provision quotes available)']),
+      '',
       'CREDIBILITY ASSESSMENT',
       '-'.repeat(40),
       evaluation.credibility_assessment || '(Not assessed)',
@@ -176,6 +186,27 @@ export default function ScoreDashboard({
           <p className="text-[10px] text-indigo-400 mt-2 italic">
             Based on the Transitional Constitution of South Sudan, 2011 & Penal Code Act, 2008
           </p>
+        </div>
+      )}
+
+      {/* Quoted Legal Provisions */}
+      {evaluation.legal_quotes && evaluation.legal_quotes.length > 0 && (
+        <div className="bg-violet-50 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Scale className="h-4 w-4 text-violet-600" />
+            <h4 className="font-semibold text-violet-800">Quoted Legal Provisions</h4>
+          </div>
+          <ul className="space-y-3">
+            {evaluation.legal_quotes.map((item, i) => (
+              <li key={i} className="text-violet-800 text-sm">
+                <p className="font-semibold">{item.reference}</p>
+                <p className="italic text-violet-700 mt-1">{item.quote}</p>
+                {item.relevance && (
+                  <p className="text-violet-700 mt-1">{item.relevance}</p>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
