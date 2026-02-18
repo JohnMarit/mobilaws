@@ -2,21 +2,53 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   X, Video, VideoOff, Mic, Play, Square, Loader2,
   AlertCircle, WifiOff, RotateCw, Smartphone, Monitor,
+  Scale, User, Shield, ScanFace, CheckCircle2, XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useCourtSimulator } from '@/contexts/CourtSimulatorContext';
+import { useCourtSimulator, type UserRole } from '@/contexts/CourtSimulatorContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { AudioStreamer } from '@/lib/court-simulator/audio-streamer';
 import { VideoFrameCapture } from '@/lib/court-simulator/video-capture';
 import { TTSEngine } from '@/lib/court-simulator/tts-engine';
 import { BrowserSpeechRecognition } from '@/lib/court-simulator/speech-recognition';
 import { saveCourtSession, scoreToGrade } from '@/lib/court-simulator/session-history';
+import { detectFace, type FaceStatus } from '@/lib/court-simulator/face-detector';
 import MicLevelIndicator from './MicLevelIndicator';
 import SessionTimer from './SessionTimer';
 import EmotionIndicator from './EmotionIndicator';
 import TranscriptDisplay from './TranscriptDisplay';
 import JudgeInterruption from './JudgeInterruption';
 import ScoreDashboard from './ScoreDashboard';
+
+const ROLE_OPTIONS: Array<{
+  id: UserRole;
+  label: string;
+  subtitle: string;
+  Icon: React.FC<{ className?: string }>;
+  description: string;
+}> = [
+  {
+    id: 'counsellor',
+    label: 'Counsellor',
+    subtitle: 'Legal Representative',
+    Icon: Scale,
+    description: 'Advocate or lawyer presenting on behalf of a client. Held to the highest legal standard.',
+  },
+  {
+    id: 'claimant',
+    label: 'Claimant',
+    subtitle: 'Petitioner / Complainant',
+    Icon: User,
+    description: 'Civilian raising a concern or seeking justice for a wrong done to them.',
+  },
+  {
+    id: 'accused',
+    label: 'Accused',
+    subtitle: 'Defendant',
+    Icon: Shield,
+    description: 'Person being tried or answering charges. Presumption of innocence applies.',
+  },
+];
 
 const BACKEND_BASE = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000')
   .replace(/\/api\/?$/, '');
@@ -61,13 +93,20 @@ export default function CourtSimulatorModal() {
   const interruptionQuestionRef = useRef('');
   const preferredFacingRef    = useRef<'user' | 'environment'>('user');
 
+  const faceCheckTimerRef     = useRef<NodeJS.Timeout | null>(null);
+
   /* ── State ── */
   const [ttsSpeaking,         setTtsSpeaking]         = useState(false);
   const [cameraError,         setCameraError]         = useState<string | null>(null);
   const [isStarting,          setIsStarting]          = useState(false);
   const [cameraSwitchAvail,   setCameraSwitchAvail]   = useState(false);
   const [manualDurationMin,   setManualDurationMin]   = useState(DEFAULT_MANUAL_DURATION_MINUTES);
-  const [isPortrait,          setIsPortrait]          = useState(true); // portrait = video top / transcript below
+  const [isPortrait,          setIsPortrait]          = useState(true);
+  // Role selection
+  const [selectedRole,        setSelectedRole]        = useState<UserRole | null>(null);
+  const [participantName,     setParticipantName]     = useState('');
+  // Face detection
+  const [faceStatus,          setFaceStatus]          = useState<FaceStatus>('scanning');
 
   const { isModalOpen, sessionState, mediaStream } = state;
 
@@ -113,6 +152,30 @@ export default function CourtSimulatorModal() {
     return () => { cancelled = true; };
   }, [sessionState, dispatch]);
 
+  /* ── Face detection loop during PREVIEW ── */
+  useEffect(() => {
+    if (sessionState !== 'PREVIEW' || !mediaStream) {
+      setFaceStatus('scanning');
+      if (faceCheckTimerRef.current) { clearInterval(faceCheckTimerRef.current); faceCheckTimerRef.current = null; }
+      return;
+    }
+
+    async function runCheck() {
+      if (!videoRef.current) return;
+      const result = await detectFace(videoRef.current);
+      setFaceStatus(result);
+    }
+
+    // Small delay so the video element has had time to populate
+    const boot = setTimeout(runCheck, 1200);
+    faceCheckTimerRef.current = setInterval(runCheck, 4000);
+
+    return () => {
+      clearTimeout(boot);
+      if (faceCheckTimerRef.current) { clearInterval(faceCheckTimerRef.current); faceCheckTimerRef.current = null; }
+    };
+  }, [sessionState, mediaStream]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── Save session to localStorage when COMPLETE ── */
   useEffect(() => {
     if (state.sessionState === 'COMPLETE' && state.evaluation && state.sessionId) {
@@ -125,6 +188,8 @@ export default function CourtSimulatorModal() {
         summary: state.evaluation.summary,
         transcript: state.fullTranscript,
         interruptionCount: state.interruptions.length,
+        userRole: state.userRole ?? undefined,
+        userName: state.userName || undefined,
       });
     }
   }, [state.sessionState]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,18 +219,19 @@ export default function CourtSimulatorModal() {
   useEffect(() => { if (!isModalOpen) cleanupAll(); }, [isModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function cleanupAll() {
-    if (timerRef.current)       { clearInterval(timerRef.current);  timerRef.current = null; }
-    if (analysisTimerRef.current){ clearInterval(analysisTimerRef.current); analysisTimerRef.current = null; }
-    if (pauseTimerRef.current)  { clearTimeout(pauseTimerRef.current); pauseTimerRef.current = null; }
+    if (timerRef.current)         { clearInterval(timerRef.current);        timerRef.current         = null; }
+    if (analysisTimerRef.current) { clearInterval(analysisTimerRef.current); analysisTimerRef.current = null; }
+    if (pauseTimerRef.current)    { clearTimeout(pauseTimerRef.current);     pauseTimerRef.current    = null; }
+    if (faceCheckTimerRef.current){ clearInterval(faceCheckTimerRef.current);faceCheckTimerRef.current= null; }
 
-    elapsedRef.current           = 0;
-    fullTranscriptRef.current    = '';
-    recentChunkRef.current       = '';
-    isLocalModeRef.current       = false;
-    lastInterruptTimeRef.current = 0;
-    previousQuestionsRef.current = [];
-    interruptingRef.current      = false;
-    sessionStartTimeRef.current  = 0;
+    elapsedRef.current              = 0;
+    fullTranscriptRef.current       = '';
+    recentChunkRef.current          = '';
+    isLocalModeRef.current          = false;
+    lastInterruptTimeRef.current    = 0;
+    previousQuestionsRef.current    = [];
+    interruptingRef.current         = false;
+    sessionStartTimeRef.current     = 0;
     interruptionQuestionRef.current = '';
 
     audioStreamerRef.current?.stop();  audioStreamerRef.current = null;
@@ -178,6 +244,9 @@ export default function CourtSimulatorModal() {
     setCameraError(null);
     setTtsSpeaking(false);
     setIsStarting(false);
+    setFaceStatus('scanning');
+    setSelectedRole(null);
+    setParticipantName('');
   }
 
   /* ════════ WebSocket handling ════════ */
@@ -298,6 +367,8 @@ export default function CourtSimulatorModal() {
           sessionElapsedSeconds: elapsed,
           previousQuestions: previousQuestionsRef.current,
           triggerReason: 'pause',
+          userRole: state.userRole ?? selectedRole,
+          userName: state.userName || participantName.trim(),
         }),
       });
       if (!res.ok) return;
@@ -333,6 +404,8 @@ export default function CourtSimulatorModal() {
           emotionState: {},
           sessionElapsedSeconds: elapsed,
           previousQuestions: previousQuestionsRef.current,
+          userRole: state.userRole ?? selectedRole,
+          userName: state.userName || participantName.trim(),
         }),
       });
       if (!res.ok) return;
@@ -361,9 +434,12 @@ export default function CourtSimulatorModal() {
   }
 
   async function handleBeginSession() {
-    if (!mediaStream || isStarting) return;
+    if (!mediaStream || isStarting || !selectedRole) return;
+    if (faceStatus === 'not-detected') return; // hard block when face confirmed absent
+
     setIsStarting(true);
     dispatch({ type: 'SET_ERROR', error: '' });
+    dispatch({ type: 'SET_ROLE', role: selectedRole, name: participantName.trim() });
 
     const sessionId = `cs_${Date.now()}`;
     const maxDurationSecs = Math.max(MIN_MANUAL_DURATION_MINUTES, Math.min(MAX_MANUAL_DURATION_MINUTES, manualDurationMin)) * 60;
@@ -375,7 +451,14 @@ export default function CourtSimulatorModal() {
 
     try {
       ws = await connectWebSocket();
-      ws.send(JSON.stringify({ type: 'session_start', userId: user?.id || 'anonymous', sessionId, maxDuration: maxDurationSecs }));
+      ws.send(JSON.stringify({
+        type: 'session_start',
+        userId: user?.id || 'anonymous',
+        sessionId,
+        maxDuration: maxDurationSecs,
+        userRole: selectedRole,
+        userName: participantName.trim(),
+      }));
     } catch {
       ws = null;
       isLocalModeRef.current = true;
@@ -565,81 +648,210 @@ export default function CourtSimulatorModal() {
 
           {/* PREVIEW */}
           {sessionState === 'PREVIEW' && (
-            <div className="p-6 space-y-6">
-              <div className="relative aspect-video bg-black rounded-xl overflow-hidden max-w-lg mx-auto">
-                {cameraError ? (
-                  <div className="absolute inset-0 flex items-center justify-center text-center p-6">
-                    <div><VideoOff className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-300 text-sm">{cameraError}</p></div>
-                  </div>
-                ) : (
-                  <>
-                    <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
-                    {!mediaStream && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 className="h-8 w-8 text-white animate-spin" />
-                      </div>
-                    )}
-                    {cameraSwitchAvail && (
-                      <Button
-                        type="button" variant="secondary" size="sm"
-                        className="absolute top-3 right-3 bg-white/90 hover:bg-white text-gray-800"
-                        onClick={handleSwitchCamera}
+            <div className="p-5 space-y-5 max-w-2xl mx-auto w-full">
+
+              {/* ── Step 1: Role selection ── */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Step 1 — Select your role
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {ROLE_OPTIONS.map(({ id, label, subtitle, Icon, description }) => {
+                    const active = selectedRole === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setSelectedRole(id)}
+                        className={[
+                          'relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-400',
+                          active
+                            ? 'border-amber-700 bg-amber-50 shadow-sm'
+                            : 'border-gray-200 bg-white hover:border-amber-300 hover:bg-amber-50/40',
+                        ].join(' ')}
+                        title={description}
                       >
-                        <RotateCw className="h-3.5 w-3.5 mr-1.5" />Switch camera
-                      </Button>
-                    )}
-                  </>
+                        <div className={[
+                          'flex h-10 w-10 items-center justify-center rounded-full',
+                          active ? 'bg-amber-100' : 'bg-gray-100',
+                        ].join(' ')}>
+                          <Icon className={`h-5 w-5 ${active ? 'text-amber-700' : 'text-gray-500'}`} />
+                        </div>
+                        <div>
+                          <p className={`text-sm font-semibold ${active ? 'text-amber-800' : 'text-gray-800'}`}>{label}</p>
+                          <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{subtitle}</p>
+                        </div>
+                        {active && (
+                          <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-amber-600" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedRole && (
+                  <p className="mt-2 text-xs text-gray-500 text-center leading-relaxed">
+                    {ROLE_OPTIONS.find(r => r.id === selectedRole)?.description}
+                  </p>
                 )}
               </div>
 
-              {mediaStream && !cameraError && (
-                <div className="flex items-center justify-center gap-6">
-                  <div className="flex items-center gap-2 text-green-600"><Video className="h-4 w-4" /><span className="text-sm">Camera ready</span></div>
-                  <div className="flex items-center gap-2 text-green-600"><Mic className="h-4 w-4" /><span className="text-sm">Microphone ready</span></div>
+              {/* ── Step 2: Name (optional) ── */}
+              {selectedRole && (
+                <div>
+                  <label htmlFor="participant-name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                    Step 2 — Your name{' '}
+                    <span className="normal-case font-normal text-gray-400">(optional — the judge will address you by name)</span>
+                  </label>
+                  <input
+                    id="participant-name"
+                    type="text"
+                    placeholder={
+                      selectedRole === 'counsellor' ? 'e.g. Amara Deng'
+                      : selectedRole === 'claimant' ? 'e.g. John Okello'
+                      : 'e.g. Samuel Lado'
+                    }
+                    value={participantName}
+                    onChange={e => setParticipantName(e.target.value)}
+                    maxLength={60}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+              )}
+
+              {/* ── Step 3: Camera + face detection ── */}
+              {selectedRole && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Step 3 — Camera &amp; face verification
+                  </p>
+
+                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden max-w-sm mx-auto">
+                    {cameraError ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-center p-6">
+                        <div>
+                          <VideoOff className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-300 text-sm">{cameraError}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
+                        {!mediaStream && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 text-white animate-spin" />
+                          </div>
+                        )}
+                        {/* Face detection badge */}
+                        {mediaStream && (
+                          <div className={[
+                            'absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm',
+                            faceStatus === 'detected'      ? 'bg-green-600/90 text-white'
+                            : faceStatus === 'not-detected' ? 'bg-red-600/90 text-white'
+                            : faceStatus === 'unsupported'  ? 'bg-gray-700/80 text-gray-200'
+                            :                                  'bg-black/60 text-gray-200',
+                          ].join(' ')}>
+                            {faceStatus === 'detected' && <><CheckCircle2 className="h-3.5 w-3.5" /> Face detected</>}
+                            {faceStatus === 'not-detected' && <><XCircle className="h-3.5 w-3.5" /> No face detected</>}
+                            {faceStatus === 'scanning' && <><ScanFace className="h-3.5 w-3.5 animate-pulse" /> Scanning…</>}
+                            {faceStatus === 'unsupported' && <><ScanFace className="h-3.5 w-3.5" /> Position face in frame</>}
+                          </div>
+                        )}
+                        {cameraSwitchAvail && (
+                          <Button
+                            type="button" variant="secondary" size="sm"
+                            className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-800 text-xs px-2 py-1 h-auto"
+                            onClick={handleSwitchCamera}
+                          >
+                            <RotateCw className="h-3 w-3 mr-1" />Flip
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Status row */}
+                  {mediaStream && !cameraError && (
+                    <div className="flex items-center justify-center gap-5 mt-2">
+                      <div className="flex items-center gap-1.5 text-green-600 text-xs"><Video className="h-3.5 w-3.5" />Camera ready</div>
+                      <div className="flex items-center gap-1.5 text-green-600 text-xs"><Mic className="h-3.5 w-3.5" />Microphone ready</div>
+                    </div>
+                  )}
+
+                  {/* Hard block: face not detected */}
+                  {faceStatus === 'not-detected' && (
+                    <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                      <p className="text-red-700 text-sm">
+                        No face was detected in the camera feed. Please position yourself directly in front of the camera and ensure the lighting is adequate, then wait for the scan to retry.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Unsupported notice */}
+                  {faceStatus === 'unsupported' && (
+                    <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-amber-800 text-xs leading-relaxed">
+                        Automatic face detection is unavailable in this browser. Please ensure your face is clearly visible in the camera frame before starting.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {state.error && state.error.length > 0 && (
-                <div className="max-w-md mx-auto flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                   <p className="text-red-700 text-sm">{state.error}</p>
                 </div>
               )}
 
-              <div className="max-w-md mx-auto text-center space-y-3">
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  You will deliver oral testimony before an AI judge. Speak clearly about any legal matter.
-                  The judge may interrupt or comment at any pause. Session duration below.
-                </p>
-                <div className="text-left bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-                  <label htmlFor="session-minutes" className="block text-xs font-medium text-gray-700 mb-1.5">
-                    Session duration (minutes)
-                  </label>
-                  <input
-                    id="session-minutes"
-                    type="number"
-                    min={MIN_MANUAL_DURATION_MINUTES}
-                    max={MAX_MANUAL_DURATION_MINUTES}
-                    value={manualDurationMin}
-                    onChange={e => {
-                      const v = Number(e.target.value);
-                      setManualDurationMin(Math.max(MIN_MANUAL_DURATION_MINUTES, Math.min(MAX_MANUAL_DURATION_MINUTES, Number.isFinite(v) ? v : DEFAULT_MANUAL_DURATION_MINUTES)));
-                    }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                  />
-                  <p className="text-[11px] text-gray-500 mt-1">Min 5 min · Max 60 min</p>
+              {/* ── Step 4: Duration + begin ── */}
+              {selectedRole && (
+                <div className="space-y-3">
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                    <label htmlFor="session-minutes" className="block text-xs font-medium text-gray-700 mb-1.5">
+                      Session duration (minutes)
+                    </label>
+                    <input
+                      id="session-minutes"
+                      type="number"
+                      min={MIN_MANUAL_DURATION_MINUTES}
+                      max={MAX_MANUAL_DURATION_MINUTES}
+                      value={manualDurationMin}
+                      onChange={e => {
+                        const v = Number(e.target.value);
+                        setManualDurationMin(Math.max(MIN_MANUAL_DURATION_MINUTES, Math.min(MAX_MANUAL_DURATION_MINUTES, Number.isFinite(v) ? v : DEFAULT_MANUAL_DURATION_MINUTES)));
+                      }}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">Min 5 min · Max 60 min</p>
+                  </div>
+
+                  {(() => {
+                    const faceOk = faceStatus === 'detected' || faceStatus === 'unsupported';
+                    const canStart = !!mediaStream && !cameraError && faceOk && !!selectedRole && !isStarting;
+                    return (
+                      <Button
+                        onClick={handleBeginSession}
+                        disabled={!canStart}
+                        className="w-full bg-amber-700 hover:bg-amber-800 text-white py-3 text-base font-semibold rounded-xl shadow-lg disabled:opacity-50"
+                        size="lg"
+                      >
+                        {isStarting ? (
+                          <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Connecting…</>
+                        ) : faceStatus === 'scanning' ? (
+                          <><ScanFace className="h-5 w-5 mr-2 animate-pulse" />Verifying face…</>
+                        ) : faceStatus === 'not-detected' ? (
+                          <><XCircle className="h-5 w-5 mr-2" />Face required to start</>
+                        ) : (
+                          <><Play className="h-5 w-5 mr-2" />Begin Session</>
+                        )}
+                      </Button>
+                    );
+                  })()}
                 </div>
-                <Button
-                  onClick={handleBeginSession}
-                  disabled={!mediaStream || !!cameraError || isStarting}
-                  className="bg-amber-700 hover:bg-amber-800 text-white px-8 py-3 text-base font-semibold rounded-xl shadow-lg disabled:opacity-50"
-                  size="lg"
-                >
-                  {isStarting
-                    ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Connecting...</>
-                    : <><Play className="h-5 w-5 mr-2" />Begin Session</>}
-                </Button>
-              </div>
+              )}
             </div>
           )}
 

@@ -1,5 +1,7 @@
 import { createContext, useContext, useReducer, useCallback, ReactNode, useRef } from 'react';
 
+export type UserRole = 'counsellor' | 'claimant' | 'accused';
+
 export type SessionState =
   | 'IDLE'
   | 'PREVIEW'
@@ -74,6 +76,8 @@ interface SimulatorState {
   micLevel: number;
   error: string | null;
   isConnected: boolean;
+  userRole: UserRole | null;
+  userName: string;
 }
 
 type SimulatorAction =
@@ -94,7 +98,8 @@ type SimulatorAction =
   | { type: 'SET_ERROR'; error: string }
   | { type: 'RESET' }
   | { type: 'TO_ANALYZING' }
-  | { type: 'TO_RECORDING' };
+  | { type: 'TO_RECORDING' }
+  | { type: 'SET_ROLE'; role: UserRole; name: string };
 
 const initialState: SimulatorState = {
   sessionState: 'IDLE',
@@ -114,6 +119,8 @@ const initialState: SimulatorState = {
   micLevel: 0,
   error: null,
   isConnected: false,
+  userRole: null,
+  userName: '',
 };
 
 function simulatorReducer(state: SimulatorState, action: SimulatorAction): SimulatorState {
@@ -202,6 +209,9 @@ function simulatorReducer(state: SimulatorState, action: SimulatorAction): Simul
 
     case 'SET_ERROR':
       return { ...state, error: action.error };
+
+    case 'SET_ROLE':
+      return { ...state, userRole: action.role, userName: action.name };
 
     case 'RESET':
       return { ...initialState };

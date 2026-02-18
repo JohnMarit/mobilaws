@@ -7,6 +7,8 @@ export interface CourtSessionRecord {
   summary: string;
   transcript: string;
   interruptionCount: number;
+  userRole?: string;
+  userName?: string;
 }
 
 const STORAGE_KEY = 'mobilaws_court_sessions';
