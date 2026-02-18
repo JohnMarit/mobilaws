@@ -311,6 +311,7 @@ export default function CourtSimulatorModal() {
   async function repeatInterruptionAudio() {
     if (!interruptionQuestionRef.current) return;
     if (!ttsRef.current) ttsRef.current = new TTSEngine();
+    ttsRef.current.warmUp(); // user gesture (click) — re-unlock if needed
     setTtsSpeaking(true);
     await speakWithTimeout(interruptionQuestionRef.current);
     setTtsSpeaking(false);
@@ -446,8 +447,10 @@ export default function CourtSimulatorModal() {
     sessionStartTimeRef.current = Date.now();
     let ws: WebSocket | null = null;
 
-    // Pre-warm TTS so voice list is loaded before first interruption
+    // Pre-warm TTS — MUST happen inside this click handler (user gesture)
+    // so that AudioContext + SpeechSynthesis are unlocked on mobile
     if (!ttsRef.current) ttsRef.current = new TTSEngine();
+    ttsRef.current.warmUp();
 
     try {
       ws = await connectWebSocket();
@@ -587,9 +590,13 @@ export default function CourtSimulatorModal() {
   const isActiveSession = ['RECORDING', 'ANALYZING', 'INTERRUPTING', 'RESUMING'].includes(sessionState);
   const canEnd          = isActiveSession && state.elapsedSeconds >= state.minDuration;
 
+  const modalSizeClass = isPortrait
+    ? 'max-w-4xl max-h-[95vh]'
+    : 'max-w-[98vw] max-h-[96vh] w-full';
+
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className={`bg-white rounded-2xl w-full ${modalSizeClass} overflow-hidden shadow-2xl flex flex-col transition-all duration-300`}>
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
@@ -626,12 +633,12 @@ export default function CourtSimulatorModal() {
                 <SessionTimer elapsedSeconds={state.elapsedSeconds} maxDuration={state.maxDuration} minDuration={state.minDuration} />
                 {/* Portrait / Landscape toggle */}
                 <Button
-                  variant="ghost" size="sm"
-                  className="h-7 w-7 p-0 text-gray-500 hover:text-amber-700"
-                  title={isPortrait ? 'Switch to landscape' : 'Switch to portrait'}
+                  variant="outline" size="sm"
+                  className="h-7 gap-1 px-2 text-[11px] text-gray-600 hover:text-amber-700 border-gray-200"
+                  title={isPortrait ? 'Switch to landscape (wider)' : 'Switch to portrait (stacked)'}
                   onClick={() => setIsPortrait(p => !p)}
                 >
-                  {isPortrait ? <Monitor className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+                  {isPortrait ? <><Monitor className="h-3.5 w-3.5" /> Landscape</> : <><Smartphone className="h-3.5 w-3.5" /> Portrait</>}
                 </Button>
               </>
             )}
@@ -857,22 +864,14 @@ export default function CourtSimulatorModal() {
 
           {/* ACTIVE SESSION — portrait = stacked, landscape = side-by-side */}
           {isActiveSession && (
-            <div className={`flex ${isPortrait ? 'flex-col' : 'flex-row'} h-full min-h-[400px]`}>
+            <div className={`relative flex ${isPortrait ? 'flex-col' : 'flex-row'} h-full ${isPortrait ? 'min-h-[400px]' : 'min-h-[360px]'}`}>
               {/* Video Panel */}
-              <div className={`${isPortrait ? 'w-full' : 'w-1/2'} p-3 relative`}>
-                <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
+              <div className={`${isPortrait ? 'w-full' : 'w-1/2'} p-3 relative flex flex-col`}>
+                <div className="relative aspect-video bg-black rounded-xl overflow-hidden flex-shrink-0">
                   <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
                   <div className="absolute top-2 left-2 flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> REC
                   </div>
-                  {sessionState === 'INTERRUPTING' && state.currentInterruption && (
-                    <JudgeInterruption
-                      interruption={state.currentInterruption}
-                      isSpeaking={ttsSpeaking}
-                      onRepeat={repeatInterruptionAudio}
-                      onContinue={resumeAfterInterruption}
-                    />
-                  )}
                 </div>
 
                 <div className="flex items-center justify-between mt-3 px-1">
@@ -897,6 +896,16 @@ export default function CourtSimulatorModal() {
                 </div>
                 <TranscriptDisplay entries={state.transcriptEntries} interruptions={state.interruptions} className="flex-1" />
               </div>
+
+              {/* Judge Interruption Overlay — covers entire active session area, NOT inside overflow-hidden video */}
+              {sessionState === 'INTERRUPTING' && state.currentInterruption && (
+                <JudgeInterruption
+                  interruption={state.currentInterruption}
+                  isSpeaking={ttsSpeaking}
+                  onRepeat={repeatInterruptionAudio}
+                  onContinue={resumeAfterInterruption}
+                />
+              )}
             </div>
           )}
 
