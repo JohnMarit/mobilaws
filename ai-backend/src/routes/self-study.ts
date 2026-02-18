@@ -6,11 +6,13 @@ import { getFirestore } from '../lib/firebase-admin';
 import { verifyFirebaseToken } from '../middleware/auth';
 import { generateLearningModule } from '../lib/ai-content-generator';
 import { ingest } from '../rag';
+import { loadFile } from '../rag/loaders';
 import { env } from '../env';
 import OpenAI from 'openai';
 import { admin } from '../lib/firebase-admin';
 
 const router = Router();
+const openai = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
 
 // Configure multer for file uploads
 const uploadDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'tmp');
@@ -62,6 +64,108 @@ function getDailyLimit(tier: string): number {
  */
 function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+interface LegalValidationResult {
+  isLegal: boolean;
+  confidence: number;
+  reason: string;
+}
+
+function safeDeleteFile(filePath: string): void {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (err) {
+    console.warn('Failed to delete temp file:', err);
+  }
+}
+
+async function validateLegalDocument(filePath: string, fileName: string): Promise<LegalValidationResult> {
+  const docs = await loadFile(filePath);
+  const text = docs.map(d => d.pageContent || '').join('\n').toLowerCase().slice(0, 12000);
+
+  if (!text || text.trim().length < 100) {
+    return {
+      isLegal: false,
+      confidence: 0.2,
+      reason: 'The document has insufficient readable text to verify it as legal content.',
+    };
+  }
+
+  const legalTerms = [
+    'constitution', 'penal code', 'article', 'section', 'act', 'clause', 'law', 'legal',
+    'court', 'judge', 'judgment', 'offence', 'criminal', 'civil', 'plaintiff', 'defendant',
+    'evidence', 'tribunal', 'rights', 'obligation', 'liability', 'statute', 'regulation',
+    'decree', 'appeal', 'prosecution', 'defence', 'contract', 'breach', 'injunction',
+  ];
+  const nonLegalTerms = [
+    'recipe', 'cooking', 'ingredients', 'football', 'soccer', 'travel itinerary',
+    'poem', 'lyrics', 'romance', 'novel', 'marketing plan', 'sales pitch',
+    'astrology', 'horoscope', 'workout routine',
+  ];
+
+  const legalHits = legalTerms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
+  const nonLegalHits = nonLegalTerms.reduce((count, term) => count + (text.includes(term) ? 1 : 0), 0);
+
+  // Fast-path acceptance for strongly legal docs
+  if (legalHits >= 4 && legalHits > nonLegalHits * 2) {
+    return {
+      isLegal: true,
+      confidence: Math.min(0.95, 0.55 + legalHits * 0.05),
+      reason: `Detected strong legal context (${legalHits} legal indicators).`,
+    };
+  }
+
+  // Fast-path rejection for obviously non-legal docs
+  if (nonLegalHits >= 3 && legalHits <= 1) {
+    return {
+      isLegal: false,
+      confidence: 0.9,
+      reason: 'The uploaded file appears to be non-legal content.',
+    };
+  }
+
+  // AI fallback classification for edge cases
+  if (openai) {
+    try {
+      const snippet = text.slice(0, 4000);
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content: 'Classify whether a document is legal study material. Accept constitutions, statutes, penal codes, court judgments, legal contracts, case law notes, legal memos, legal procedures, and legal rights documents. Reject clearly non-legal content like recipes, entertainment, generic business marketing, fiction, sports news. Return JSON: {"isLegal": boolean, "confidence": 0-1, "reason": "short reason"}',
+          },
+          {
+            role: 'user',
+            content: `Filename: ${fileName}\n\nDocument excerpt:\n${snippet}`,
+          },
+        ],
+      });
+
+      const raw = response.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(raw);
+      return {
+        isLegal: Boolean(parsed.isLegal),
+        confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0)),
+        reason: String(parsed.reason || 'Classification completed.'),
+      };
+    } catch (err) {
+      console.warn('AI legal classification failed, falling back to heuristic decision:', err);
+    }
+  }
+
+  return {
+    isLegal: legalHits >= 2 && legalHits > nonLegalHits,
+    confidence: 0.55,
+    reason: legalHits >= 2
+      ? 'Document has some legal indicators.'
+      : 'The content does not appear sufficiently legal for self-study.',
+  };
 }
 
 /**
@@ -156,6 +260,16 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     // Extract document name from filename
     const moduleName = path.basename(file.originalname, path.extname(file.originalname));
 
+    // Validate that uploaded content is legal before ingesting
+    const legalValidation = await validateLegalDocument(file.path, file.originalname);
+    if (!legalValidation.isLegal) {
+      safeDeleteFile(file.path);
+      return res.status(400).json({
+        error: 'Only legal content is allowed for Self Study',
+        message: legalValidation.reason || 'Please upload legal documents only (constitution, penal code, statutes, judgments, contracts, legal notes).',
+      });
+    }
+
     // Ingest document into vector store
     const indexedChunks = await ingest([file.path]);
 
@@ -190,11 +304,7 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     }, { merge: true });
 
     // Clean up temp file
-    try {
-      fs.unlinkSync(file.path);
-    } catch (e) {
-      console.warn('Failed to delete temp file:', e);
-    }
+    safeDeleteFile(file.path);
 
     res.json({
       success: true,
@@ -204,6 +314,10 @@ router.post('/upload', verifyFirebaseToken, upload.single('file'), async (req: R
     });
   } catch (error) {
     console.error('❌ Self-study upload error:', error);
+    const uploadedFile = req.file;
+    if (uploadedFile?.path) {
+      safeDeleteFile(uploadedFile.path);
+    }
     res.status(500).json({
       error: 'Upload failed',
       message: error instanceof Error ? error.message : 'Unknown error',

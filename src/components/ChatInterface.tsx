@@ -11,6 +11,7 @@ import LearningHub from './LearningHub';
 import { BookCounsel } from './BookCounsel';
 import { DonationDialog } from './DonationDialog';
 import SelfStudy from './SelfStudy';
+import CourtSimulatorButton from './court-simulator/CourtSimulatorButton';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
@@ -463,6 +464,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
               <Bug className="h-4 w-4" />
             </Button>
           )}
+          <CourtSimulatorButton variant="compact" />
           <Button
             variant="ghost"
             size="sm"
@@ -518,29 +520,30 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 <p className="text-lg text-gray-600">
                   I am Your South Sudan Legal Assistant
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-4">
+                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mt-4">
+                  <CourtSimulatorButton className="w-full justify-center" />
                   <Button
                     onClick={() => setShowBookCounsel(true)}
-                    className="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg shadow-md"
+                    className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg shadow-md w-full justify-center"
                   >
-                    <Scale className="h-4 w-4 mr-2" />
-                    Book a Counsel
+                    <Scale className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate">Book a Counsel</span>
                   </Button>
                   <Button
                     onClick={() => setShowLearningHub(true)}
                     variant="outline"
-                    className="px-6 py-2 rounded-lg shadow-md"
+                    className="px-4 py-2 rounded-lg shadow-md w-full justify-center"
                   >
-                    <GraduationCap className="h-4 w-4 mr-2" />
-                    Study Law
+                    <GraduationCap className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate">Study Law</span>
                   </Button>
                   <Button
                     onClick={() => setShowSelfStudy(true)}
                     variant="outline"
-                    className="px-6 py-2 rounded-lg shadow-md border-blue-300 text-blue-700 hover:bg-blue-50"
+                    className="px-4 py-2 rounded-lg shadow-md border-blue-300 text-blue-700 hover:bg-blue-50 w-full justify-center"
                   >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Self Study
+                    <BookOpen className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="truncate">Self Study</span>
                   </Button>
                 </div>
               </div>

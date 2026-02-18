@@ -33,6 +33,7 @@
     "@types/nodemailer": "^7.0.2",
     "@types/pdf-parse": "^1.1.4",
     "@types/pdfkit": "^0.13.5",
+    "@types/ws": "^8.18.1",
     "chromadb": "^1.8.0",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
@@ -50,6 +51,7 @@
     "pdfkit": "^0.15.0",
     "typescript": "^5.4.0",
     "uuid": "^9.0.1",
+    "ws": "^8.19.0",
     "xlsx": "^0.18.5",
     "zod": "^3.23.0"
   },

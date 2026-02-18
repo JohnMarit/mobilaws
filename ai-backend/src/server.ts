@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import http from 'http';
 import cors from 'cors';
 import { env } from './env';
 import { ensureStorageDirectories } from './rag';
@@ -31,6 +32,10 @@ import counselChatRouter from './routes/counsel-chat';
 import discussionsRouter from './routes/discussions';
 import notificationsRouter from './routes/notifications';
 import selfStudyRouter from './routes/self-study';
+import courtSimulatorRouter from './routes/court-simulator';
+
+// Import WebSocket server for court simulator
+import { attachWebSocketServer } from './lib/court-simulator/websocket-server';
 
 const app = express();
 
@@ -101,6 +106,7 @@ app.use('/api/counsel', counselChatRouter);
 app.use('/api/discussions', discussionsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/self-study', selfStudyRouter);
+app.use('/api', courtSimulatorRouter);
 
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
@@ -149,6 +155,12 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
+// Create HTTP server (needed for WebSocket upgrade)
+const server = http.createServer(app);
+
+// Attach WebSocket server for court simulator
+attachWebSocketServer(server);
+
 // Initialize server
 async function startServer() {
   try {
@@ -156,7 +168,7 @@ async function startServer() {
     ensureStorageDirectories();
     
     // Start listening
-    app.listen(env.PORT, () => {
+    server.listen(env.PORT, () => {
       console.log('\n🚀 Mobilaws AI Backend Server Started');
       console.log('=====================================');
       console.log(`🌍 Environment: ${env.NODE_ENV}`);
@@ -167,6 +179,7 @@ async function startServer() {
       console.log(`🗄️  Vector Backend: ${env.VECTOR_BACKEND}`);
       console.log(`📁 Documents Directory: ${env.docsPath}`);
       console.log(`🔐 API Key Required: ${env.API_KEY_REQUIRED}`);
+      console.log(`⚖️  Court Simulator: WebSocket enabled`);
       console.log('=====================================');
       console.log('\n✅ Server ready to accept requests\n');
     });

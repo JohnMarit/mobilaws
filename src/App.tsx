@@ -11,6 +11,8 @@ import { LearningProvider } from "@/contexts/LearningContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { TutorAdminProvider } from "@/contexts/TutorAdminContext";
+import { CourtSimulatorProvider } from "@/contexts/CourtSimulatorContext";
+import CourtSimulatorModal from "@/components/court-simulator/CourtSimulatorModal";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/AdminLogin";
@@ -33,8 +35,10 @@ const App = () => (
               <PromptLimitProvider>
                   <CountryProvider>
                     <ChatProvider>
+                      <CourtSimulatorProvider>
                       <Toaster />
                       <Sonner />
+                      <CourtSimulatorModal />
                       <BrowserRouter>
                         <Routes>
                           <Route path="/" element={<Index />} />
@@ -48,6 +52,7 @@ const App = () => (
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </BrowserRouter>
+                    </CourtSimulatorProvider>
                     </ChatProvider>
                   </CountryProvider>
               </PromptLimitProvider>

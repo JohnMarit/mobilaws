@@ -366,7 +366,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
               <CardHeader>
                 <CardTitle>Upload Document</CardTitle>
                 <CardDescription>
-                  Upload a PDF, DOC, DOCX, or TXT file to create your self-study module
+                  Upload legal documents only (Constitution, Penal Code, statutes, judgments, contracts, legal notes) in PDF, DOC, DOCX, or TXT format.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -421,7 +421,7 @@ export default function SelfStudy({ open, onOpenChange }: SelfStudyProps) {
                       Click to upload or drag and drop
                     </p>
                     <p className="text-sm text-gray-500">
-                      PDF, DOC, DOCX, or TXT (max 50MB)
+                      Legal content only • PDF, DOC, DOCX, or TXT (max 50MB)
                     </p>
                     <input
                       ref={fileInputRef}

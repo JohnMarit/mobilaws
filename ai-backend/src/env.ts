@@ -68,6 +68,14 @@ const envSchema = z.object({
   TOP_K: z.string().default('5').transform(Number),
   CHUNK_SIZE: z.string().default('1000').transform(Number),
   CHUNK_OVERLAP: z.string().default('150').transform(Number),
+
+  // Court Simulator
+  DEEPGRAM_API_KEY: z.string().optional(),
+  COURT_SIM_MAX_DURATION: z.string().default('120').transform(Number),
+  COURT_SIM_MIN_DURATION: z.string().default('60').transform(Number),
+  COURT_SIM_INTERRUPT_COOLDOWN: z.string().default('10').transform(Number),
+  COURT_SIM_SEVERITY_THRESHOLD: z.string().default('0.45').transform(Number),
+  COURT_SIM_FRAME_INTERVAL: z.string().default('4').transform(Number),
 });
 
 // Parse and export config

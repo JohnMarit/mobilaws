@@ -21,6 +21,7 @@ import DocumentTranslator from '@/components/DocumentTranslator';
 import TemplateGenerator from '@/components/TemplateGenerator';
 import AssistantModeSelector from '@/components/AssistantModeSelector';
 import SubscriptionManager from '@/components/SubscriptionManager';
+import CourtSimulatorButton from '@/components/court-simulator/CourtSimulatorButton';
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -175,6 +176,7 @@ const Index = () => {
             <CountrySelector className="text-xs" />
           </div>
           <div className="flex items-center gap-1">
+            <CourtSimulatorButton variant="compact" />
             <Button
               variant="ghost"
               size="sm"
