@@ -1,5 +1,5 @@
 import { Server as HttpServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../env';
 import { DeepgramStreamer, TranscriptResult } from './deepgram-streaming';
@@ -33,16 +33,22 @@ export function attachWebSocketServer(server: HttpServer): WebSocketServer {
   wss.on('connection', (ws: WebSocket) => {
     let session: ActiveSession | null = null;
 
-    ws.on('message', async (data: Buffer | string) => {
+    ws.on('message', async (data: RawData, isBinary: boolean) => {
       try {
-        if (Buffer.isBuffer(data) || (data instanceof ArrayBuffer)) {
+        const rawBuffer = Array.isArray(data)
+          ? Buffer.concat(data.map((chunk) => Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)))
+          : Buffer.isBuffer(data)
+            ? data
+            : Buffer.from(data);
+
+        if (isBinary) {
           if (session?.isActive) {
-            session.deepgram.sendAudio(Buffer.isBuffer(data) ? data : Buffer.from(data));
+            session.deepgram.sendAudio(rawBuffer);
           }
           return;
         }
 
-        const message = JSON.parse(data.toString());
+        const message = JSON.parse(rawBuffer.toString('utf8'));
 
         switch (message.type) {
           case 'session_start':
