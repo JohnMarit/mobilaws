@@ -1,102 +1,106 @@
 export class TTSEngine {
   private synth: SpeechSynthesis;
   private isSpeaking = false;
-  private queue: Array<{ text: string; resolve: () => void }> = [];
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private watchdog: ReturnType<typeof setTimeout> | null = null;
+  private keepAlive: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this.synth = window.speechSynthesis;
-    this.primeVoices();
+    // Pre-warm the voice list immediately so voices are ready before first speak()
+    this.loadVoices();
+    if (typeof this.synth.onvoiceschanged !== 'undefined') {
+      this.synth.addEventListener('voiceschanged', () => this.loadVoices());
+    }
   }
 
-  speak(text: string): Promise<void> {
-    return new Promise((resolve) => {
-      if (this.isSpeaking) {
-        this.queue.push({ text, resolve });
-        return;
-      }
+  private loadVoices(): void {
+    this.synth.getVoices(); // triggers voice list population
+  }
 
-      this.playUtterance(text, resolve);
+  /** Speak text. Always resolves (never rejects), even on error or timeout. */
+  speak(text: string): Promise<void> {
+    return new Promise<void>((resolve) => {
+      // Stop anything currently running first
+      this.stopCurrent();
+
+      // Small delay lets the browser fully process the cancel() before we speak
+      setTimeout(() => {
+        this.doSpeak(text.trim(), resolve);
+      }, 120);
     });
   }
 
-  private playUtterance(text: string, onDone: () => void): void {
-    this.isSpeaking = true;
-    this.synth.cancel();
-    this.synth.resume();
-    const utterance = new SpeechSynthesisUtterance(text);
-    this.currentUtterance = utterance;
-
-    const voices = this.synth.getVoices();
-    const preferred = voices.find(v =>
-      v.lang.startsWith('en') && v.localService
-    ) || voices.find(v =>
-      v.lang.startsWith('en-US')
-    ) || voices.find(v =>
-      v.lang.startsWith('en-GB')
-    ) || voices.find(v =>
-      v.lang.startsWith('en')
-    );
-
-    if (preferred) {
-      utterance.voice = preferred;
+  private doSpeak(text: string, onDone: () => void): void {
+    if (!text) {
+      onDone();
+      return;
     }
 
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1;
-    const maxDurationMs = Math.min(20000, Math.max(6000, text.length * 90));
-    const watchdog = setTimeout(() => {
-      this.finishCurrent(onDone);
-    }, maxDurationMs);
+    this.isSpeaking = true;
 
-    const settle = () => {
-      clearTimeout(watchdog);
-      this.finishCurrent(onDone);
-    };
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = this.pickVoice();
+    utterance.rate   = 0.88;
+    utterance.pitch  = 1.0;
+    utterance.volume = 1.0;
 
-    utterance.onend = settle;
-    utterance.onerror = (event) => {
-      console.error('TTS error:', event);
-      settle();
+    // Watchdog — if browser never fires onend/onerror (mobile Chrome bug), resolve anyway
+    const maxMs = Math.max(8000, text.length * 85);
+    this.watchdog = setTimeout(() => {
+      this.finishUp(onDone);
+    }, maxMs);
+
+    // Android Chrome pauses speechSynthesis after ~14 words. Periodic resume() keeps it alive.
+    this.keepAlive = setInterval(() => {
+      if (this.synth.paused) this.synth.resume();
+    }, 4000);
+
+    utterance.onend = () => this.finishUp(onDone);
+    utterance.onerror = (evt) => {
+      // 'interrupted' / 'canceled' happen when cancel() is called — not a real error
+      if (evt.error !== 'interrupted' && evt.error !== 'canceled') {
+        console.warn('TTS error:', evt.error, '— text:', text.slice(0, 60));
+      }
+      this.finishUp(onDone);
     };
 
     this.synth.speak(utterance);
   }
 
-  private finishCurrent(onDone: () => void): void {
-    if (!this.isSpeaking) return;
+  private finishUp(onDone: () => void): void {
+    if (!this.isSpeaking) return; // already finished
     this.isSpeaking = false;
-    this.currentUtterance = null;
+    this.clearTimers();
     onDone();
-    this.processQueue();
   }
 
-  private primeVoices(): void {
-    if (this.synth.getVoices().length > 0) {
-      return;
-    }
-
-    const onVoicesChanged = () => {
-      if (this.synth.getVoices().length > 0) {
-        this.synth.removeEventListener('voiceschanged', onVoicesChanged);
-      }
-    };
-    this.synth.addEventListener('voiceschanged', onVoicesChanged);
+  private stopCurrent(): void {
+    this.isSpeaking = false;
+    this.clearTimers();
+    try { this.synth.cancel(); } catch { /* ignore */ }
   }
 
-  private processQueue(): void {
-    if (this.queue.length === 0) return;
-    const next = this.queue.shift()!;
-    this.playUtterance(next.text, next.resolve);
+  private clearTimers(): void {
+    if (this.watchdog)   { clearTimeout(this.watchdog);   this.watchdog  = null; }
+    if (this.keepAlive)  { clearInterval(this.keepAlive); this.keepAlive = null; }
+  }
+
+  private pickVoice(): SpeechSynthesisVoice | null {
+    const voices = this.synth.getVoices();
+    // Prefer a local English voice for reliability on mobile
+    return (
+      voices.find(v => v.lang === 'en-US'  && v.localService) ||
+      voices.find(v => v.lang === 'en-GB'  && v.localService) ||
+      voices.find(v => v.lang.startsWith('en') && v.localService) ||
+      voices.find(v => v.lang === 'en-US')  ||
+      voices.find(v => v.lang === 'en-GB')  ||
+      voices.find(v => v.lang.startsWith('en')) ||
+      null
+    );
   }
 
   cancel(): void {
-    this.synth.cancel();
-    this.isSpeaking = false;
-    this.currentUtterance = null;
-    this.queue.forEach(q => q.resolve());
-    this.queue = [];
+    this.stopCurrent();
   }
 
   getIsSpeaking(): boolean {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Plus,
@@ -15,10 +15,12 @@ import {
   Languages,
   FileCode,
   User,
-  History,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Gavel,
+  Award,
 } from 'lucide-react';
+import { loadCourtSessions, deleteCourtSession, type CourtSessionRecord } from '@/lib/court-simulator/session-history';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -77,7 +79,30 @@ export default function Sidebar({
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [contextMenuChatId, setContextMenuChatId] = useState<string | null>(null);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [courtSessions, setCourtSessions] = useState<CourtSessionRecord[]>([]);
+  const [showCourtSessions, setShowCourtSessions] = useState(true);
   const { toast } = useToast();
+
+  // Load court sessions from localStorage and refresh when new ones are saved
+  useEffect(() => {
+    const refresh = () => setCourtSessions(loadCourtSessions());
+    refresh();
+    window.addEventListener('court_session_saved', refresh);
+    return () => window.removeEventListener('court_session_saved', refresh);
+  }, []);
+
+  const handleDeleteCourtSession = (session: CourtSessionRecord) => {
+    deleteCourtSession(session.id);
+    toast({ title: 'Session deleted', description: 'Court session removed from history.' });
+  };
+
+  const gradeColor = (grade: string) => {
+    if (grade === 'A+' || grade === 'A') return 'text-green-400';
+    if (grade === 'B') return 'text-blue-400';
+    if (grade === 'C') return 'text-yellow-400';
+    if (grade === 'D') return 'text-orange-400';
+    return 'text-red-400';
+  };
 
   const handleRenameStart = (chat: ChatHistory) => {
     setEditingChatId(chat.id);
@@ -389,9 +414,58 @@ export default function Sidebar({
           </div>
         </ScrollArea>
 
+        {/* Court Session History */}
+        {!isCollapsed && courtSessions.length > 0 && (
+          <div className="border-t border-gray-700">
+            <button
+              className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
+              onClick={() => setShowCourtSessions(s => !s)}
+            >
+              <div className="flex items-center gap-1.5">
+                <Gavel className="h-3.5 w-3.5" />
+                Court Sessions
+              </div>
+              {showCourtSessions ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+
+            {showCourtSessions && (
+              <ScrollArea className="max-h-48 px-2">
+                <div className="space-y-1 pb-2">
+                  {courtSessions.map(session => (
+                    <div
+                      key={session.id}
+                      className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-800 cursor-default"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Award className={`h-3 w-3 flex-shrink-0 ${gradeColor(session.grade)}`} />
+                          <span className={`text-xs font-bold ${gradeColor(session.grade)}`}>{session.grade}</span>
+                          <span className="text-xs text-gray-400 font-medium">{session.overallScore}/100</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                          {new Date(session.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}
+                          {' · '}{Math.floor(session.durationSeconds / 60)}m
+                          {' · '}{session.interruptionCount} interruption{session.interruptionCount !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost" size="sm"
+                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 flex-shrink-0 transition-opacity"
+                        onClick={() => handleDeleteCourtSession(session)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        )}
+
         {/* Subscription Status Section - Fixed at bottom */}
         {!isCollapsed && onManageSubscription && (
-          <div className="mt-auto border-t border-gray-700 px-4 py-3 bg-gray-900">
+          <div className="border-t border-gray-700 px-4 py-3 bg-gray-900">
             <SubscriptionStatus
               compact={true}
               onManageSubscription={onManageSubscription}

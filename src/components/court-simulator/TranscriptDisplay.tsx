@@ -49,8 +49,8 @@ export default function TranscriptDisplay({ entries, interruptions, className = 
                   Severity: {(event.severity * 100).toFixed(0)}%
                 </span>
               </div>
-              <p className="text-amber-900 font-medium text-sm">
-                Judge interruption delivered in audio.
+              <p className="text-amber-900 font-medium text-sm italic">
+                "{event.question}"
               </p>
             </div>
           );
