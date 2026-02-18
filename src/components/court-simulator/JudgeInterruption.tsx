@@ -47,13 +47,14 @@ export default function JudgeInterruption({
             The judge question is delivered as audio.
           </p>
           <p className="text-gray-500 text-sm mt-3">
-            Use repeat if you need to hear it again before continuing.
+            After the question, tap Continue testimony or request Repeat audio.
           </p>
         </div>
 
         <div className="px-6 pb-4 space-y-3">
-          {isSpeaking ? (
-            <div className="flex items-center gap-2 text-amber-700">
+          <div className="flex items-center gap-2 text-amber-700">
+            {isSpeaking ? (
+              <>
               <div className="flex gap-0.5">
                 {[0, 1, 2].map(i => (
                   <div
@@ -67,18 +68,20 @@ export default function JudgeInterruption({
                 ))}
               </div>
               <span className="text-sm font-medium">Judge is speaking...</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={onRepeat}>
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                Repeat audio
-              </Button>
-              <Button type="button" size="sm" onClick={onContinue}>
-                Continue testimony
-              </Button>
-            </div>
-          )}
+              </>
+            ) : (
+              <span className="text-sm font-medium text-green-700">Question complete. Choose an action below.</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={onRepeat} disabled={isSpeaking}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Repeat audio
+            </Button>
+            <Button type="button" size="sm" onClick={onContinue} disabled={isSpeaking}>
+              Continue testimony
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -28,6 +28,7 @@ const INTERRUPT_COOLDOWN_MS = 12000;
 const MIN_MANUAL_DURATION_MINUTES = 5;
 const DEFAULT_MANUAL_DURATION_MINUTES = 5;
 const MAX_MANUAL_DURATION_MINUTES = 60;
+const INTERRUPTION_TTS_TIMEOUT_MS = 15000;
 
 export default function CourtSimulatorModal() {
   const { state, dispatch, closeSimulator } = useCourtSimulator();
@@ -290,15 +291,23 @@ export default function CourtSimulatorModal() {
     if (!ttsRef.current) ttsRef.current = new TTSEngine();
 
     setTtsSpeaking(true);
-    await ttsRef.current.speak(interruption.question);
+    await speakInterruptionAudio(interruption.question);
     setTtsSpeaking(false);
   }
 
   async function repeatInterruptionAudio() {
     if (!interruptionQuestionRef.current || !ttsRef.current) return;
     setTtsSpeaking(true);
-    await ttsRef.current.speak(interruptionQuestionRef.current);
+    await speakInterruptionAudio(interruptionQuestionRef.current);
     setTtsSpeaking(false);
+  }
+
+  async function speakInterruptionAudio(text: string) {
+    if (!text || !ttsRef.current) return;
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(resolve, INTERRUPTION_TTS_TIMEOUT_MS);
+    });
+    await Promise.race([ttsRef.current.speak(text), timeoutPromise]);
   }
 
   function resumeAfterInterruption() {
