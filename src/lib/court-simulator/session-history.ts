@@ -1,3 +1,5 @@
+import { type SessionEvaluation, type Interruption, type EmotionSnapshot } from '@/contexts/CourtSimulatorContext';
+
 export interface CourtSessionRecord {
   id: string;
   date: number;            // Unix timestamp ms
@@ -9,6 +11,10 @@ export interface CourtSessionRecord {
   interruptionCount: number;
   userRole?: string;
   userName?: string;
+  // Full evaluation data for viewing the report later
+  evaluation?: SessionEvaluation;
+  interruptions?: Interruption[];
+  emotionTimeline?: EmotionSnapshot[];
 }
 
 const STORAGE_KEY = 'mobilaws_court_sessions';

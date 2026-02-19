@@ -190,6 +190,10 @@ export default function CourtSimulatorModal() {
         interruptionCount: state.interruptions.length,
         userRole: state.userRole ?? undefined,
         userName: state.userName || undefined,
+        // Save full data for reopening the report later
+        evaluation: state.evaluation,
+        interruptions: state.interruptions,
+        emotionTimeline: state.emotionTimeline,
       });
     }
   }, [state.sessionState]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -653,221 +657,210 @@ export default function CourtSimulatorModal() {
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto min-h-0">
 
-          {/* PREVIEW */}
+          {/* PREVIEW — video sticky, controls scrollable */}
           {sessionState === 'PREVIEW' && (
-            <div className="p-5 space-y-5 max-w-2xl mx-auto w-full">
-
-              {/* ── Step 1: Role selection ── */}
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Step 1 — Select your role
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {ROLE_OPTIONS.map(({ id, label, subtitle, Icon, description }) => {
-                    const active = selectedRole === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setSelectedRole(id)}
-                        className={[
-                          'relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all focus:outline-none focus:ring-2 focus:ring-amber-400',
-                          active
-                            ? 'border-amber-700 bg-amber-50 shadow-sm'
-                            : 'border-gray-200 bg-white hover:border-amber-300 hover:bg-amber-50/40',
-                        ].join(' ')}
-                        title={description}
-                      >
+            <div className="flex flex-col h-full overflow-hidden">
+              {/* ── Large Video Preview (STICKY at top) ── */}
+              <div className="flex-shrink-0 bg-gradient-to-br from-gray-900 to-gray-800 p-4 flex items-center justify-center">
+                <div className="relative w-full max-w-2xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl">
+                  {cameraError ? (
+                    <div className="absolute inset-0 flex items-center justify-center text-center p-6">
+                      <div>
+                        <VideoOff className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-300 text-sm leading-relaxed">{cameraError}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
+                      {!mediaStream && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <Loader2 className="h-10 w-10 text-white animate-spin" />
+                        </div>
+                      )}
+                      {/* Face detection badge */}
+                      {mediaStream && (
                         <div className={[
-                          'flex h-10 w-10 items-center justify-center rounded-full',
-                          active ? 'bg-amber-100' : 'bg-gray-100',
+                          'absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur-md shadow-lg',
+                          faceStatus === 'detected'      ? 'bg-green-600/95 text-white'
+                          : faceStatus === 'not-detected' ? 'bg-red-600/95 text-white'
+                          : faceStatus === 'unsupported'  ? 'bg-gray-700/90 text-gray-200'
+                          :                                  'bg-black/70 text-gray-200',
                         ].join(' ')}>
-                          <Icon className={`h-5 w-5 ${active ? 'text-amber-700' : 'text-gray-500'}`} />
+                          {faceStatus === 'detected' && <><CheckCircle2 className="h-4 w-4" /> Face detected</>}
+                          {faceStatus === 'not-detected' && <><XCircle className="h-4 w-4" /> No face detected</>}
+                          {faceStatus === 'scanning' && <><ScanFace className="h-4 w-4 animate-pulse" /> Scanning…</>}
+                          {faceStatus === 'unsupported' && <><ScanFace className="h-4 w-4" /> Position your face</>}
                         </div>
-                        <div>
-                          <p className={`text-sm font-semibold ${active ? 'text-amber-800' : 'text-gray-800'}`}>{label}</p>
-                          <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{subtitle}</p>
+                      )}
+                      {/* Camera status pills */}
+                      {mediaStream && !cameraError && (
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          <div className="flex items-center gap-1.5 bg-green-600/90 backdrop-blur-sm text-white text-[11px] font-medium px-2 py-1 rounded-full">
+                            <Video className="h-3 w-3" />Camera
+                          </div>
+                          <div className="flex items-center gap-1.5 bg-green-600/90 backdrop-blur-sm text-white text-[11px] font-medium px-2 py-1 rounded-full">
+                            <Mic className="h-3 w-3" />Mic
+                          </div>
                         </div>
-                        {active && (
-                          <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-amber-600" />
-                        )}
-                      </button>
-                    );
-                  })}
+                      )}
+                      {/* Camera switch button */}
+                      {cameraSwitchAvail && (
+                        <Button
+                          type="button" variant="secondary" size="sm"
+                          className="absolute top-3 right-3 bg-white/95 hover:bg-white text-gray-800 text-xs px-3 py-1.5 h-auto shadow-md"
+                          onClick={handleSwitchCamera}
+                        >
+                          <RotateCw className="h-3.5 w-3.5 mr-1.5" />Flip Camera
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
-                {selectedRole && (
-                  <p className="mt-2 text-xs text-gray-500 text-center leading-relaxed">
-                    {ROLE_OPTIONS.find(r => r.id === selectedRole)?.description}
-                  </p>
-                )}
               </div>
 
-              {/* ── Step 2: Name (optional) ── */}
-              {selectedRole && (
-                <div>
-                  <label htmlFor="participant-name" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Step 2 — Your name{' '}
-                    <span className="normal-case font-normal text-gray-400">(optional — the judge will address you by name)</span>
-                  </label>
-                  <input
-                    id="participant-name"
-                    type="text"
-                    placeholder={
-                      selectedRole === 'counsellor' ? 'e.g. Amara Deng'
-                      : selectedRole === 'claimant' ? 'e.g. John Okello'
-                      : 'e.g. Samuel Lado'
-                    }
-                    value={participantName}
-                    onChange={e => setParticipantName(e.target.value)}
-                    maxLength={60}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                  />
-                </div>
-              )}
-
-              {/* ── Step 3: Camera + face detection ── */}
-              {selectedRole && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Step 3 — Camera &amp; face verification
-                  </p>
-
-                  <div className="relative aspect-video bg-black rounded-xl overflow-hidden max-w-sm mx-auto">
-                    {cameraError ? (
-                      <div className="absolute inset-0 flex items-center justify-center text-center p-6">
-                        <div>
-                          <VideoOff className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                          <p className="text-gray-300 text-sm">{cameraError}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
-                        {!mediaStream && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Loader2 className="h-8 w-8 text-white animate-spin" />
-                          </div>
-                        )}
-                        {/* Face detection badge */}
-                        {mediaStream && (
-                          <div className={[
-                            'absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold backdrop-blur-sm',
-                            faceStatus === 'detected'      ? 'bg-green-600/90 text-white'
-                            : faceStatus === 'not-detected' ? 'bg-red-600/90 text-white'
-                            : faceStatus === 'unsupported'  ? 'bg-gray-700/80 text-gray-200'
-                            :                                  'bg-black/60 text-gray-200',
-                          ].join(' ')}>
-                            {faceStatus === 'detected' && <><CheckCircle2 className="h-3.5 w-3.5" /> Face detected</>}
-                            {faceStatus === 'not-detected' && <><XCircle className="h-3.5 w-3.5" /> No face detected</>}
-                            {faceStatus === 'scanning' && <><ScanFace className="h-3.5 w-3.5 animate-pulse" /> Scanning…</>}
-                            {faceStatus === 'unsupported' && <><ScanFace className="h-3.5 w-3.5" /> Position face in frame</>}
-                          </div>
-                        )}
-                        {cameraSwitchAvail && (
-                          <Button
-                            type="button" variant="secondary" size="sm"
-                            className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-800 text-xs px-2 py-1 h-auto"
-                            onClick={handleSwitchCamera}
+              {/* ── Compact Setup Controls Below Video (SCROLLABLE) ── */}
+              <div className="flex-1 overflow-y-auto bg-white border-t border-gray-200">
+                <div className="max-w-4xl mx-auto px-6 py-5 space-y-5">
+                  
+                  {/* Role Selection — 3 horizontal cards */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2.5">
+                      1. Select Your Role
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {ROLE_OPTIONS.map(({ id, label, Icon }) => {
+                        const active = selectedRole === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setSelectedRole(id)}
+                            className={[
+                              'relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all focus:outline-none focus:ring-2 focus:ring-amber-400',
+                              active
+                                ? 'border-amber-600 bg-amber-50 shadow-md'
+                                : 'border-gray-200 bg-white hover:border-amber-300 hover:shadow-sm',
+                            ].join(' ')}
                           >
-                            <RotateCw className="h-3 w-3 mr-1" />Flip
-                          </Button>
-                        )}
-                      </>
-                    )}
+                            <div className={[
+                              'flex h-9 w-9 items-center justify-center rounded-full',
+                              active ? 'bg-amber-600' : 'bg-gray-100',
+                            ].join(' ')}>
+                              <Icon className={`h-4.5 w-4.5 ${active ? 'text-white' : 'text-gray-600'}`} />
+                            </div>
+                            <p className={`text-sm font-semibold leading-tight ${active ? 'text-amber-900' : 'text-gray-700'}`}>
+                              {label}
+                            </p>
+                            {active && (
+                              <CheckCircle2 className="absolute -top-1.5 -right-1.5 h-5 w-5 text-amber-600 bg-white rounded-full" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Status row */}
-                  {mediaStream && !cameraError && (
-                    <div className="flex items-center justify-center gap-5 mt-2">
-                      <div className="flex items-center gap-1.5 text-green-600 text-xs"><Video className="h-3.5 w-3.5" />Camera ready</div>
-                      <div className="flex items-center gap-1.5 text-green-600 text-xs"><Mic className="h-3.5 w-3.5" />Microphone ready</div>
+                  {/* Name + Duration — side by side */}
+                  {selectedRole && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="participant-name" className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                          2. Your Name <span className="normal-case text-gray-400 font-normal text-[11px]">(optional)</span>
+                        </label>
+                        <input
+                          id="participant-name"
+                          type="text"
+                          placeholder={
+                            selectedRole === 'counsellor' ? 'e.g. Amara Deng'
+                            : selectedRole === 'claimant' ? 'e.g. John Okello'
+                            : 'e.g. Samuel Lado'
+                          }
+                          value={participantName}
+                          onChange={e => setParticipantName(e.target.value)}
+                          maxLength={60}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="session-minutes" className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                          3. Session Duration <span className="normal-case text-gray-400 font-normal text-[11px]">(minutes)</span>
+                        </label>
+                        <input
+                          id="session-minutes"
+                          type="number"
+                          min={MIN_MANUAL_DURATION_MINUTES}
+                          max={MAX_MANUAL_DURATION_MINUTES}
+                          value={manualDurationMin}
+                          onChange={e => {
+                            const v = Number(e.target.value);
+                            setManualDurationMin(Math.max(MIN_MANUAL_DURATION_MINUTES, Math.min(MAX_MANUAL_DURATION_MINUTES, Number.isFinite(v) ? v : DEFAULT_MANUAL_DURATION_MINUTES)));
+                          }}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">Min {MIN_MANUAL_DURATION_MINUTES} · Max {MAX_MANUAL_DURATION_MINUTES} minutes</p>
+                      </div>
                     </div>
                   )}
 
-                  {/* Hard block: face not detected */}
+                  {/* Warnings */}
                   {faceStatus === 'not-detected' && (
-                    <div className="mt-2 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                      <p className="text-red-700 text-sm">
-                        No face was detected in the camera feed. Please position yourself directly in front of the camera and ensure the lighting is adequate, then wait for the scan to retry.
+                      <p className="text-red-700 text-xs leading-relaxed">
+                        No face detected. Please position yourself in front of the camera with good lighting.
                       </p>
                     </div>
                   )}
-
-                  {/* Unsupported notice */}
                   {faceStatus === 'unsupported' && (
-                    <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                       <p className="text-amber-800 text-xs leading-relaxed">
-                        Automatic face detection is unavailable in this browser. Please ensure your face is clearly visible in the camera frame before starting.
+                        Automatic face detection unavailable. Ensure your face is visible before starting.
                       </p>
                     </div>
                   )}
-                </div>
-              )}
+                  {state.error && state.error.length > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                      <p className="text-red-700 text-sm">{state.error}</p>
+                    </div>
+                  )}
 
-              {state.error && state.error.length > 0 && (
-                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                  <p className="text-red-700 text-sm">{state.error}</p>
-                </div>
-              )}
-
-              {/* ── Step 4: Duration + begin ── */}
-              {selectedRole && (
-                <div className="space-y-3">
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-                    <label htmlFor="session-minutes" className="block text-xs font-medium text-gray-700 mb-1.5">
-                      Session duration (minutes)
-                    </label>
-                    <input
-                      id="session-minutes"
-                      type="number"
-                      min={MIN_MANUAL_DURATION_MINUTES}
-                      max={MAX_MANUAL_DURATION_MINUTES}
-                      value={manualDurationMin}
-                      onChange={e => {
-                        const v = Number(e.target.value);
-                        setManualDurationMin(Math.max(MIN_MANUAL_DURATION_MINUTES, Math.min(MAX_MANUAL_DURATION_MINUTES, Number.isFinite(v) ? v : DEFAULT_MANUAL_DURATION_MINUTES)));
-                      }}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    />
-                    <p className="text-[11px] text-gray-500 mt-1">Min 5 min · Max 60 min</p>
-                  </div>
-
-                  {(() => {
+                  {/* Begin Button */}
+                  {selectedRole && (() => {
                     const faceOk = faceStatus === 'detected' || faceStatus === 'unsupported';
                     const canStart = !!mediaStream && !cameraError && faceOk && !!selectedRole && !isStarting;
                     return (
                       <Button
                         onClick={handleBeginSession}
                         disabled={!canStart}
-                        className="w-full bg-amber-700 hover:bg-amber-800 text-white py-3 text-base font-semibold rounded-xl shadow-lg disabled:opacity-50"
+                        className="w-full bg-amber-700 hover:bg-amber-800 text-white py-3.5 text-base font-semibold rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         size="lg"
                       >
                         {isStarting ? (
                           <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Connecting…</>
                         ) : faceStatus === 'scanning' ? (
-                          <><ScanFace className="h-5 w-5 mr-2 animate-pulse" />Verifying face…</>
+                          <><ScanFace className="h-5 w-5 mr-2 animate-pulse" />Verifying Face…</>
                         ) : faceStatus === 'not-detected' ? (
-                          <><XCircle className="h-5 w-5 mr-2" />Face required to start</>
+                          <><XCircle className="h-5 w-5 mr-2" />Face Required to Start</>
                         ) : (
-                          <><Play className="h-5 w-5 mr-2" />Begin Session</>
+                          <><Play className="h-5 w-5 mr-2" />Begin Court Session</>
                         )}
                       </Button>
                     );
                   })()}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
           {/* ACTIVE SESSION — portrait = stacked, landscape = side-by-side */}
           {isActiveSession && (
             <div className={`relative flex ${isPortrait ? 'flex-col' : 'flex-row'} h-full ${isPortrait ? 'min-h-[400px]' : 'min-h-[360px]'}`}>
-              {/* Video Panel */}
-              <div className={`${isPortrait ? 'w-full' : 'w-1/2'} p-3 relative flex flex-col`}>
-                <div className="relative aspect-video bg-black rounded-xl overflow-hidden flex-shrink-0">
+              {/* Video Panel — STICKY in portrait mode */}
+              <div className={`${isPortrait ? 'w-full sticky top-0 z-10 bg-white' : 'w-1/2'} p-3 relative flex flex-col flex-shrink-0`}>
+                <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
                   <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover -scale-x-100" />
                   <div className="absolute top-2 left-2 flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> REC
@@ -888,9 +881,9 @@ export default function CourtSimulatorModal() {
                 )}
               </div>
 
-              {/* Transcript Panel */}
-              <div className={`${isPortrait ? 'w-full border-t' : 'w-1/2 border-l'} border-gray-100 flex flex-col min-h-[200px]`}>
-                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between flex-shrink-0">
+              {/* Transcript Panel — SCROLLABLE */}
+              <div className={`${isPortrait ? 'w-full border-t' : 'w-1/2 border-l'} border-gray-100 flex flex-col ${isPortrait ? 'flex-1 overflow-y-auto' : 'min-h-[200px]'}`}>
+                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between flex-shrink-0 sticky top-0 z-5">
                   <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Live Transcript</h3>
                   <EmotionIndicator emotion={state.currentEmotion} compact />
                 </div>

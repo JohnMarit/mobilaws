@@ -19,8 +19,10 @@ import {
   ChevronUp,
   Gavel,
   Award,
+  FileSearch,
 } from 'lucide-react';
 import { loadCourtSessions, deleteCourtSession, type CourtSessionRecord } from '@/lib/court-simulator/session-history';
+import { useCourtSimulator } from '@/contexts/CourtSimulatorContext';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -82,6 +84,7 @@ export default function Sidebar({
   const [courtSessions, setCourtSessions] = useState<CourtSessionRecord[]>([]);
   const [showCourtSessions, setShowCourtSessions] = useState(true);
   const { toast } = useToast();
+  const { dispatch } = useCourtSimulator();
 
   // Load court sessions from localStorage and refresh when new ones are saved
   useEffect(() => {
@@ -91,9 +94,33 @@ export default function Sidebar({
     return () => window.removeEventListener('court_session_saved', refresh);
   }, []);
 
-  const handleDeleteCourtSession = (session: CourtSessionRecord) => {
+  const handleDeleteCourtSession = (session: CourtSessionRecord, e: React.MouseEvent) => {
+    e.stopPropagation();
     deleteCourtSession(session.id);
     toast({ title: 'Session deleted', description: 'Court session removed from history.' });
+  };
+
+  const handleViewCourtSession = (session: CourtSessionRecord) => {
+    if (!session.evaluation) {
+      toast({ 
+        title: 'Report unavailable', 
+        description: 'This session was saved without full evaluation data.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    dispatch({
+      type: 'RESTORE_SESSION',
+      sessionId: session.id,
+      evaluation: session.evaluation,
+      transcript: session.transcript,
+      interruptions: session.interruptions || [],
+      emotionTimeline: session.emotionTimeline || [],
+      elapsedSeconds: session.durationSeconds,
+      userRole: session.userRole as any,
+      userName: session.userName,
+    });
   };
 
   const gradeColor = (grade: string) => {
@@ -434,7 +461,8 @@ export default function Sidebar({
                   {courtSessions.map(session => (
                     <div
                       key={session.id}
-                      className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-800 cursor-default"
+                      className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-800 cursor-pointer transition-colors"
+                      onClick={() => handleViewCourtSession(session)}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -448,13 +476,18 @@ export default function Sidebar({
                           {' · '}{session.interruptionCount} interruption{session.interruptionCount !== 1 ? 's' : ''}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 flex-shrink-0 transition-opacity"
-                        onClick={() => handleDeleteCourtSession(session)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <FileSearch className="h-3.5 w-3.5 text-gray-400" title="View Report" />
+                        </div>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity"
+                          onClick={(e) => handleDeleteCourtSession(session, e)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

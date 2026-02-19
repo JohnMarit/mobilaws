@@ -99,7 +99,18 @@ type SimulatorAction =
   | { type: 'RESET' }
   | { type: 'TO_ANALYZING' }
   | { type: 'TO_RECORDING' }
-  | { type: 'SET_ROLE'; role: UserRole; name: string };
+  | { type: 'SET_ROLE'; role: UserRole; name: string }
+  | { 
+      type: 'RESTORE_SESSION'; 
+      sessionId: string;
+      evaluation: SessionEvaluation;
+      transcript: string;
+      interruptions: Interruption[];
+      emotionTimeline: EmotionSnapshot[];
+      elapsedSeconds: number;
+      userRole?: UserRole;
+      userName?: string;
+    };
 
 const initialState: SimulatorState = {
   sessionState: 'IDLE',
@@ -212,6 +223,21 @@ function simulatorReducer(state: SimulatorState, action: SimulatorAction): Simul
 
     case 'SET_ROLE':
       return { ...state, userRole: action.role, userName: action.name };
+
+    case 'RESTORE_SESSION':
+      return {
+        ...state,
+        sessionState: 'COMPLETE',
+        isModalOpen: true,
+        sessionId: action.sessionId,
+        evaluation: action.evaluation,
+        fullTranscript: action.transcript,
+        interruptions: action.interruptions,
+        emotionTimeline: action.emotionTimeline,
+        elapsedSeconds: action.elapsedSeconds,
+        userRole: action.userRole || null,
+        userName: action.userName || '',
+      };
 
     case 'RESET':
       return { ...initialState };
