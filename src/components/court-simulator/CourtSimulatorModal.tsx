@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   X, Video, VideoOff, Mic, Play, Square, Loader2,
   AlertCircle, WifiOff, RotateCw, Smartphone, Monitor,
-  Scale, User, Shield, ScanFace, CheckCircle2, XCircle,
+  Scale, User, Shield, ScanFace, CheckCircle2, XCircle, Coins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCourtSimulator, type UserRole } from '@/contexts/CourtSimulatorContext';
@@ -13,6 +13,8 @@ import { TTSEngine } from '@/lib/court-simulator/tts-engine';
 import { BrowserSpeechRecognition } from '@/lib/court-simulator/speech-recognition';
 import { saveCourtSession, scoreToGrade } from '@/lib/court-simulator/session-history';
 import { detectFace, type FaceStatus } from '@/lib/court-simulator/face-detector';
+import { canStartCourtSession, useMultipleTokens, getTokenUsage } from '@/lib/tokenService';
+import { getAnonymousUserId } from '@/lib/browser-fingerprint';
 import MicLevelIndicator from './MicLevelIndicator';
 import SessionTimer from './SessionTimer';
 import EmotionIndicator from './EmotionIndicator';
@@ -108,6 +110,10 @@ export default function CourtSimulatorModal() {
   const [sessionName,         setSessionName]         = useState('');
   // Face detection
   const [faceStatus,          setFaceStatus]          = useState<FaceStatus>('scanning');
+  // Token checking
+  const [tokenCheckStatus,    setTokenCheckStatus]    = useState<'checking' | 'ok' | 'insufficient' | null>(null);
+  const [tokensAvailable,     setTokensAvailable]     = useState<number>(0);
+  const [tokensNeeded,        setTokensNeeded]        = useState<number>(0);
 
   const { isModalOpen, sessionState, mediaStream } = state;
 
@@ -176,6 +182,38 @@ export default function CourtSimulatorModal() {
       if (faceCheckTimerRef.current) { clearInterval(faceCheckTimerRef.current); faceCheckTimerRef.current = null; }
     };
   }, [sessionState, mediaStream]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Check tokens when duration changes ── */
+  useEffect(() => {
+    if (sessionState !== 'PREVIEW' || !selectedRole) {
+      setTokenCheckStatus(null);
+      return;
+    }
+
+    async function checkTokens() {
+      try {
+        setTokenCheckStatus('checking');
+        const userId = user?.id || await getAnonymousUserId();
+        const isAnonymous = !user?.id;
+        
+        const result = await canStartCourtSession(userId, isAnonymous, manualDurationMin);
+        
+        setTokensAvailable(result.tokensAvailable);
+        setTokensNeeded(result.tokensNeeded);
+        
+        if (result.canStart) {
+          setTokenCheckStatus('ok');
+        } else {
+          setTokenCheckStatus('insufficient');
+        }
+      } catch (error) {
+        console.error('Token check error:', error);
+        setTokenCheckStatus('ok'); // Allow on error (graceful degradation)
+      }
+    }
+
+    checkTokens();
+  }, [sessionState, manualDurationMin, selectedRole, user]);
 
   /* ── Save session to localStorage when COMPLETE (REMOVED - now saves on End Session click) ── */
   // Removed auto-save - user clicks End Session to save
@@ -424,6 +462,25 @@ export default function CourtSimulatorModal() {
   async function handleBeginSession() {
     if (!mediaStream || isStarting || !selectedRole) return;
     if (faceStatus === 'not-detected') return; // hard block when face confirmed absent
+
+    // Check and deduct tokens
+    try {
+      const userId = user?.id || await getAnonymousUserId();
+      const isAnonymous = !user?.id;
+      
+      const tokenResult = await useMultipleTokens(userId, isAnonymous, manualDurationMin, user?.email);
+      
+      if (!tokenResult.success) {
+        dispatch({ 
+          type: 'SET_ERROR', 
+          error: `Insufficient tokens. You need ${manualDurationMin} tokens for this session but only have ${tokenResult.tokensRemaining} available.${tokenResult.hoursUntilReset ? ` Tokens reset in ${tokenResult.hoursUntilReset} hours.` : ''}` 
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Token deduction error:', error);
+      // Allow session to continue on error (graceful degradation)
+    }
 
     setIsStarting(true);
     dispatch({ type: 'SET_ERROR', error: '' });
@@ -787,6 +844,28 @@ export default function CourtSimulatorModal() {
                   )}
 
                   {/* Warnings */}
+                  {tokenCheckStatus === 'insufficient' && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <Coins className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-red-700 text-sm font-semibold">Insufficient Tokens</p>
+                        <p className="text-red-600 text-xs leading-relaxed mt-1">
+                          This session requires {tokensNeeded} token{tokensNeeded !== 1 ? 's' : ''} ({tokensNeeded} minute{tokensNeeded !== 1 ? 's' : ''}), 
+                          but you only have {tokensAvailable} token{tokensAvailable !== 1 ? 's' : ''} available. 
+                          Reduce the session duration or wait for your daily token reset.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {tokenCheckStatus === 'ok' && (
+                    <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <Coins className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                      <p className="text-green-700 text-xs leading-relaxed">
+                        This session will use {tokensNeeded} token{tokensNeeded !== 1 ? 's' : ''} (1 token = 1 minute). 
+                        You have {tokensAvailable} token{tokensAvailable !== 1 ? 's' : ''} available.
+                      </p>
+                    </div>
+                  )}
                   {faceStatus === 'not-detected' && (
                     <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
@@ -813,7 +892,8 @@ export default function CourtSimulatorModal() {
                   {/* Begin Button */}
                   {selectedRole && (() => {
                     const faceOk = faceStatus === 'detected' || faceStatus === 'unsupported';
-                    const canStart = !!mediaStream && !cameraError && faceOk && !!selectedRole && !isStarting;
+                    const tokensOk = tokenCheckStatus === 'ok' || tokenCheckStatus === null; // Allow if not checked yet
+                    const canStart = !!mediaStream && !cameraError && faceOk && tokensOk && !!selectedRole && !isStarting;
                     return (
                       <Button
                         onClick={handleBeginSession}
@@ -823,6 +903,10 @@ export default function CourtSimulatorModal() {
                       >
                         {isStarting ? (
                           <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Connecting…</>
+                        ) : tokenCheckStatus === 'checking' ? (
+                          <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Checking Tokens…</>
+                        ) : tokenCheckStatus === 'insufficient' ? (
+                          <><Coins className="h-5 w-5 mr-2" />Insufficient Tokens</>
                         ) : faceStatus === 'scanning' ? (
                           <><ScanFace className="h-5 w-5 mr-2 animate-pulse" />Verifying Face…</>
                         ) : faceStatus === 'not-detected' ? (
