@@ -580,6 +580,26 @@ export default function CourtSimulatorModal() {
         if (!res.ok) throw new Error(`${res.status}`);
         const data = await res.json();
         dispatch({ type: 'SET_EVALUATION', evaluation: data.evaluation, transcript: fullTranscriptRef.current });
+        
+        // Auto-save when session ends (e.g., timer expires)
+        if (state.sessionId) {
+          saveCourtSession({
+            id: state.sessionId,
+            sessionName: sessionName.trim() || undefined,
+            date: Date.now(),
+            durationSeconds: elapsedRef.current,
+            overallScore: data.evaluation.overall_score,
+            grade: scoreToGrade(data.evaluation.overall_score),
+            summary: data.evaluation.summary,
+            transcript: fullTranscriptRef.current,
+            interruptionCount: state.interruptions.length,
+            userRole: state.userRole ?? undefined,
+            userName: state.userName || undefined,
+            evaluation: data.evaluation,
+            interruptions: state.interruptions,
+            emotionTimeline: state.emotionTimeline,
+          });
+        }
       } catch {
         dispatch({
           type: 'SET_EVALUATION',
@@ -597,6 +617,37 @@ export default function CourtSimulatorModal() {
           },
           transcript: fullTranscriptRef.current,
         });
+        
+        // Also auto-save even on error
+        if (state.sessionId) {
+          saveCourtSession({
+            id: state.sessionId,
+            sessionName: sessionName.trim() || undefined,
+            date: Date.now(),
+            durationSeconds: elapsedRef.current,
+            overallScore: 50,
+            grade: scoreToGrade(50),
+            summary: 'Session captured but full evaluation could not be generated.',
+            transcript: fullTranscriptRef.current,
+            interruptionCount: state.interruptions.length,
+            userRole: state.userRole ?? undefined,
+            userName: state.userName || undefined,
+            evaluation: {
+              legal_reasoning: 50, clarity: 50, logical_consistency: 50,
+              emotional_control: 50, credibility: 50, legal_accuracy: 50,
+              overall_score: 50,
+              strengths: ['Session completed'],
+              weaknesses: ['Evaluation server was unreachable'],
+              recommendations: ['Ensure the backend is running for full AI analysis'],
+              legal_references: [], legal_quotes: [],
+              credibility_assessment: 'Could not be assessed.',
+              emotion_profile: 'Could not be assessed.',
+              summary: 'Session captured but full evaluation could not be generated.',
+            },
+            interruptions: state.interruptions,
+            emotionTimeline: state.emotionTimeline,
+          });
+        }
       }
       cleanupAll();
     }
@@ -950,28 +1001,7 @@ export default function CourtSimulatorModal() {
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
                     />
                     <Button 
-                      onClick={() => {
-                        // Save session when user clicks End Session
-                        if (state.evaluation && state.sessionId) {
-                          saveCourtSession({
-                            id: state.sessionId,
-                            sessionName: sessionName.trim() || undefined,
-                            date: Date.now(),
-                            durationSeconds: state.elapsedSeconds,
-                            overallScore: state.evaluation.overall_score,
-                            grade: scoreToGrade(state.evaluation.overall_score),
-                            summary: state.evaluation.summary,
-                            transcript: state.fullTranscript,
-                            interruptionCount: state.interruptions.length,
-                            userRole: state.userRole ?? undefined,
-                            userName: state.userName || undefined,
-                            evaluation: state.evaluation,
-                            interruptions: state.interruptions,
-                            emotionTimeline: state.emotionTimeline,
-                          });
-                        }
-                        endSession();
-                      }} 
+                      onClick={endSession} 
                       variant="destructive" 
                       className="w-full"
                     >
@@ -1021,6 +1051,9 @@ export default function CourtSimulatorModal() {
               interruptions={state.interruptions}
               emotionTimeline={state.emotionTimeline}
               durationSeconds={state.elapsedSeconds}
+              userName={state.userName}
+              userRole={state.userRole ?? undefined}
+              sessionName={sessionName.trim() || undefined}
             />
           )}
         </div>

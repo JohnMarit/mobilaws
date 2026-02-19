@@ -9,6 +9,9 @@ interface ScoreDashboardProps {
   interruptions: Interruption[];
   emotionTimeline: EmotionSnapshot[];
   durationSeconds: number;
+  userName?: string;
+  userRole?: string;
+  sessionName?: string;
 }
 
 const DIMENSION_META: Record<string, { label: string; color: string }> = {
@@ -26,6 +29,9 @@ export default function ScoreDashboard({
   interruptions,
   emotionTimeline,
   durationSeconds,
+  userName,
+  userRole,
+  sessionName,
 }: ScoreDashboardProps) {
   const overallGrade = useMemo(() => {
     const s = evaluation.overall_score;
@@ -52,6 +58,9 @@ export default function ScoreDashboard({
       'AI COURT SIMULATION - JUDICIAL EVALUATION REPORT',
       '='.repeat(55),
       '',
+      ...(sessionName ? [`Session: ${sessionName}`, ''] : []),
+      ...(userName ? [`Participant: ${userName}`, ''] : []),
+      ...(userRole ? [`Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1)}`, ''] : []),
       `Date: ${new Date().toLocaleDateString()}`,
       `Duration: ${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`,
       `Overall Score: ${evaluation.overall_score}/100 (${overallGrade.letter})`,
@@ -125,6 +134,26 @@ export default function ScoreDashboard({
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 p-4 sm:p-6">
+      {/* Participant Name Header */}
+      {(userName || sessionName) && (
+        <div className="text-center space-y-1">
+          {sessionName && (
+            <h3 className="text-lg font-bold text-gray-800">{sessionName}</h3>
+          )}
+          {userName && (
+            <div className="flex items-center justify-center gap-2">
+              <Scale className="h-4 w-4 text-amber-600" />
+              <p className="text-base font-semibold text-gray-700">
+                {userName}
+                {userRole && <span className="text-gray-500 text-sm font-normal ml-1.5">
+                  ({userRole.charAt(0).toUpperCase() + userRole.slice(1)})
+                </span>}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Overall Score */}
       <div className="text-center">
         <div className={`inline-flex flex-col items-center ${overallGrade.bg} rounded-2xl px-8 py-6`}>
