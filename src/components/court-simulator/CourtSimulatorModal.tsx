@@ -105,6 +105,7 @@ export default function CourtSimulatorModal() {
   // Role selection
   const [selectedRole,        setSelectedRole]        = useState<UserRole | null>(null);
   const [participantName,     setParticipantName]     = useState('');
+  const [sessionName,         setSessionName]         = useState('');
   // Face detection
   const [faceStatus,          setFaceStatus]          = useState<FaceStatus>('scanning');
 
@@ -176,27 +177,8 @@ export default function CourtSimulatorModal() {
     };
   }, [sessionState, mediaStream]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Save session to localStorage when COMPLETE ── */
-  useEffect(() => {
-    if (state.sessionState === 'COMPLETE' && state.evaluation && state.sessionId) {
-      saveCourtSession({
-        id: state.sessionId,
-        date: Date.now(),
-        durationSeconds: state.elapsedSeconds,
-        overallScore: state.evaluation.overall_score,
-        grade: scoreToGrade(state.evaluation.overall_score),
-        summary: state.evaluation.summary,
-        transcript: state.fullTranscript,
-        interruptionCount: state.interruptions.length,
-        userRole: state.userRole ?? undefined,
-        userName: state.userName || undefined,
-        // Save full data for reopening the report later
-        evaluation: state.evaluation,
-        interruptions: state.interruptions,
-        emotionTimeline: state.emotionTimeline,
-      });
-    }
-  }, [state.sessionState]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ── Save session to localStorage when COMPLETE (REMOVED - now saves on End Session click) ── */
+  // Removed auto-save - user clicks End Session to save
 
   async function detectCameraSwitch() {
     try {
@@ -251,6 +233,7 @@ export default function CourtSimulatorModal() {
     setFaceStatus('scanning');
     setSelectedRole(null);
     setParticipantName('');
+    setSessionName('');
   }
 
   /* ════════ WebSocket handling ════════ */
@@ -761,9 +744,9 @@ export default function CourtSimulatorModal() {
                     </div>
                   </div>
 
-                  {/* Name + Duration — side by side */}
+                  {/* Name + Duration — side by side on larger screens, stacked on mobile */}
                   {selectedRole && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="participant-name" className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                           2. Your Name <span className="normal-case text-gray-400 font-normal text-[11px]">(optional)</span>
@@ -873,9 +856,42 @@ export default function CourtSimulatorModal() {
                 </div>
 
                 {canEnd && (
-                  <div className="mt-3">
-                    <Button onClick={endSession} variant="destructive" className="w-full">
-                      <Square className="h-4 w-4 mr-2" />End Session
+                  <div className="mt-3 space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Session name (optional)"
+                      value={sessionName}
+                      onChange={e => setSessionName(e.target.value)}
+                      maxLength={80}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                    />
+                    <Button 
+                      onClick={() => {
+                        // Save session when user clicks End Session
+                        if (state.evaluation && state.sessionId) {
+                          saveCourtSession({
+                            id: state.sessionId,
+                            sessionName: sessionName.trim() || undefined,
+                            date: Date.now(),
+                            durationSeconds: state.elapsedSeconds,
+                            overallScore: state.evaluation.overall_score,
+                            grade: scoreToGrade(state.evaluation.overall_score),
+                            summary: state.evaluation.summary,
+                            transcript: state.fullTranscript,
+                            interruptionCount: state.interruptions.length,
+                            userRole: state.userRole ?? undefined,
+                            userName: state.userName || undefined,
+                            evaluation: state.evaluation,
+                            interruptions: state.interruptions,
+                            emotionTimeline: state.emotionTimeline,
+                          });
+                        }
+                        endSession();
+                      }} 
+                      variant="destructive" 
+                      className="w-full"
+                    >
+                      <Square className="h-4 w-4 mr-2" />End & Save Session
                     </Button>
                   </div>
                 )}

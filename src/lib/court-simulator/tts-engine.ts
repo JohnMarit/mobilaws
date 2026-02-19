@@ -175,13 +175,60 @@ export class TTSEngine {
 
   private cacheVoice(): void {
     const voices = this.synth.getVoices();
+    
+    // Priority 1: Female African English voices
+    // Common African English voice names from various browsers:
+    // - "Microsoft Zira" (Nigerian English, female)
+    // - "Google UK English Female" / "Google British English Female" (closest to African accent)
+    // - "Samantha" (South African on some systems)
+    // - Look for "South African", "Nigerian", "Kenyan" in voice names
+    
+    const isFemaleVoice = (v: SpeechSynthesisVoice) => {
+      const name = v.name.toLowerCase();
+      return name.includes('female') || 
+             name.includes('woman') ||
+             name.includes('zira') || 
+             name.includes('samantha') ||
+             name.includes('fiona') ||
+             name.includes('karen') ||
+             name.includes('moira') ||
+             name.includes('tessa') ||
+             name.includes('veena') ||
+             !name.includes('male'); // if gender not specified, assume female (default on most systems)
+    };
+
+    const isAfricanOrSimilar = (v: SpeechSynthesisVoice) => {
+      const fullText = `${v.name} ${v.lang}`.toLowerCase();
+      return fullText.includes('south africa') ||
+             fullText.includes('nigeria') ||
+             fullText.includes('kenya') ||
+             fullText.includes('ghana') ||
+             fullText.includes('zira') || // Microsoft Nigerian voice
+             fullText.includes('en-za') || // South African locale
+             fullText.includes('en-ng') || // Nigerian locale
+             fullText.includes('en-ke') || // Kenyan locale
+             fullText.includes('british') || // British accent is closer to African than American
+             fullText.includes('uk') ||
+             fullText.includes('en-gb');
+    };
+
+    // Try to find: Female + African/British
     this.cachedVoice =
-      voices.find(v => v.lang === 'en-US'  && v.localService) ||
-      voices.find(v => v.lang === 'en-GB'  && v.localService) ||
-      voices.find(v => v.lang.startsWith('en') && v.localService) ||
-      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => isFemaleVoice(v) && isAfricanOrSimilar(v)) ||
+      // Fallback: Any female English voice
+      voices.find(v => isFemaleVoice(v) && v.lang.startsWith('en')) ||
+      // Fallback: British/African (any gender)
+      voices.find(v => isAfricanOrSimilar(v)) ||
+      // Fallback: en-GB (closest to African accent)
+      voices.find(v => v.lang === 'en-GB' && v.localService) ||
       voices.find(v => v.lang === 'en-GB') ||
+      // Last resort: any English voice
       voices.find(v => v.lang.startsWith('en')) ||
       null;
+
+    // Debug log to help users see what voice was selected
+    if (this.cachedVoice) {
+      console.log('TTS Voice selected:', this.cachedVoice.name, '|', this.cachedVoice.lang);
+    }
   }
 }

@@ -470,6 +470,11 @@ export default function Sidebar({
                           <span className={`text-xs font-bold ${gradeColor(session.grade)}`}>{session.grade}</span>
                           <span className="text-xs text-gray-400 font-medium">{session.overallScore}/100</span>
                         </div>
+                        {session.sessionName && (
+                          <div className="text-[11px] text-gray-300 font-medium mt-0.5 truncate">
+                            {session.sessionName}
+                          </div>
+                        )}
                         <div className="text-[10px] text-gray-500 mt-0.5 truncate">
                           {new Date(session.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}
                           {' · '}{Math.floor(session.durationSeconds / 60)}m

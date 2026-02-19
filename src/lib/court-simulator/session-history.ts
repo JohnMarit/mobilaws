@@ -2,6 +2,7 @@ import { type SessionEvaluation, type Interruption, type EmotionSnapshot } from 
 
 export interface CourtSessionRecord {
   id: string;
+  sessionName?: string;     // User-provided name for this session
   date: number;            // Unix timestamp ms
   durationSeconds: number;
   overallScore: number;
