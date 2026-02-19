@@ -57,6 +57,12 @@ export async function getTokenUsage(
 
         if (docSnap.exists()) {
             const data = docSnap.data() as TokenUsage;
+            const expectedMax = isAnonymous ? 5 : 15;
+            // Migrate old limits to new: anonymous 5/day, authenticated 15/day
+            if (data.maxTokens !== expectedMax) {
+                await updateDoc(docRef, { maxTokens: expectedMax, updatedAt: serverTimestamp() });
+                data.maxTokens = expectedMax;
+            }
 
             // Ensure resetAfter is set to midnight for daily resets
             const resetAfter = data.resetAfter;
@@ -74,7 +80,7 @@ export async function getTokenUsage(
             };
         } else {
             // Create new document with initial state
-            const maxTokens = isAnonymous ? 3 : 5;
+            const maxTokens = isAnonymous ? 5 : 15;
             const initialData: Partial<TokenUsage> = {
                 userId,
                 isAnonymous,

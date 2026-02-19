@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useCourtSimulator, type UserRole } from '@/contexts/CourtSimulatorContext';
 import { useAuth } from '@/contexts/FirebaseAuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { AudioStreamer } from '@/lib/court-simulator/audio-streamer';
 import { VideoFrameCapture } from '@/lib/court-simulator/video-capture';
 import { TTSEngine } from '@/lib/court-simulator/tts-engine';
@@ -72,6 +73,7 @@ const PAUSE_TRIGGER_MS             = 3000; // silence → judge comment
 export default function CourtSimulatorModal() {
   const { state, dispatch, closeSimulator } = useCourtSimulator();
   const { user } = useAuth();
+  const { userSubscription, useToken: useSubscriptionToken } = useSubscription();
 
   /* ── Refs ── */
   const videoRef          = useRef<HTMLVideoElement | null>(null);
@@ -193,18 +195,36 @@ export default function CourtSimulatorModal() {
     async function checkTokens() {
       try {
         setTokenCheckStatus('checking');
-        const userId = user?.id || await getAnonymousUserId();
-        const isAnonymous = !user?.id;
         
-        const result = await canStartCourtSession(userId, isAnonymous, manualDurationMin);
-        
-        setTokensAvailable(result.tokensAvailable);
-        setTokensNeeded(result.tokensNeeded);
-        
-        if (result.canStart) {
-          setTokenCheckStatus('ok');
+        // Check subscription plan first (for authenticated users with paid plans)
+        if (user?.id && userSubscription && userSubscription.planId !== 'free') {
+          // User has a paid plan - check subscription tokens
+          const tokensAvailable = userSubscription.tokensRemaining || 0;
+          const tokensNeeded = manualDurationMin;
+          
+          setTokensAvailable(tokensAvailable);
+          setTokensNeeded(tokensNeeded);
+          
+          if (tokensAvailable >= tokensNeeded) {
+            setTokenCheckStatus('ok');
+          } else {
+            setTokenCheckStatus('insufficient');
+          }
         } else {
-          setTokenCheckStatus('insufficient');
+          // Free user or anonymous - use tokenService
+          const userId = user?.id || await getAnonymousUserId();
+          const isAnonymous = !user?.id;
+          
+          const result = await canStartCourtSession(userId, isAnonymous, manualDurationMin);
+          
+          setTokensAvailable(result.tokensAvailable);
+          setTokensNeeded(result.tokensNeeded);
+          
+          if (result.canStart) {
+            setTokenCheckStatus('ok');
+          } else {
+            setTokenCheckStatus('insufficient');
+          }
         }
       } catch (error) {
         console.error('Token check error:', error);
@@ -213,7 +233,7 @@ export default function CourtSimulatorModal() {
     }
 
     checkTokens();
-  }, [sessionState, manualDurationMin, selectedRole, user]);
+  }, [sessionState, manualDurationMin, selectedRole, user, userSubscription]);
 
   /* ── Save session to localStorage when COMPLETE (REMOVED - now saves on End Session click) ── */
   // Removed auto-save - user clicks End Session to save
@@ -465,17 +485,40 @@ export default function CourtSimulatorModal() {
 
     // Check and deduct tokens
     try {
-      const userId = user?.id || await getAnonymousUserId();
-      const isAnonymous = !user?.id;
-      
-      const tokenResult = await useMultipleTokens(userId, isAnonymous, manualDurationMin, user?.email);
-      
-      if (!tokenResult.success) {
-        dispatch({ 
-          type: 'SET_ERROR', 
-          error: `Insufficient tokens. You need ${manualDurationMin} tokens for this session but only have ${tokenResult.tokensRemaining} available.${tokenResult.hoursUntilReset ? ` Tokens reset in ${tokenResult.hoursUntilReset} hours.` : ''}` 
-        });
-        return;
+      // For paid plans, use subscription token system
+      if (user?.id && userSubscription && userSubscription.planId !== 'free') {
+        // Check if user has enough tokens
+        if (userSubscription.tokensRemaining < manualDurationMin) {
+          dispatch({ 
+            type: 'SET_ERROR', 
+            error: `Insufficient tokens. You need ${manualDurationMin} tokens for this session but only have ${userSubscription.tokensRemaining} available. Please upgrade your plan or wait for token renewal.` 
+          });
+          return;
+        }
+        
+        // Deduct tokens via subscription system
+        const success = await useSubscriptionToken(manualDurationMin);
+        if (!success) {
+          dispatch({ 
+            type: 'SET_ERROR', 
+            error: `Failed to deduct tokens. Please try again or contact support.` 
+          });
+          return;
+        }
+      } else {
+        // For free users, use tokenService
+        const userId = user?.id || await getAnonymousUserId();
+        const isAnonymous = !user?.id;
+        
+        const tokenResult = await useMultipleTokens(userId, isAnonymous, manualDurationMin, user?.email);
+        
+        if (!tokenResult.success) {
+          dispatch({ 
+            type: 'SET_ERROR', 
+            error: `Insufficient tokens. You need ${manualDurationMin} tokens for this session but only have ${tokenResult.tokensRemaining} available.${tokenResult.hoursUntilReset ? ` Tokens reset in ${tokenResult.hoursUntilReset} hours.` : ''}` 
+          });
+          return;
+        }
       }
     } catch (error) {
       console.error('Token deduction error:', error);
@@ -902,8 +945,12 @@ export default function CourtSimulatorModal() {
                         <p className="text-red-700 text-sm font-semibold">Insufficient Tokens</p>
                         <p className="text-red-600 text-xs leading-relaxed mt-1">
                           This session requires {tokensNeeded} token{tokensNeeded !== 1 ? 's' : ''} ({tokensNeeded} minute{tokensNeeded !== 1 ? 's' : ''}), 
-                          but you only have {tokensAvailable} token{tokensAvailable !== 1 ? 's' : ''} available. 
-                          Reduce the session duration or wait for your daily token reset.
+                          but you only have {tokensAvailable} token{tokensAvailable !== 1 ? 's' : ''} available.
+                          {userSubscription && userSubscription.planId !== 'free' ? (
+                            <span> Please upgrade your plan for more tokens.</span>
+                          ) : (
+                            <span> Reduce the session duration or wait for your daily token reset.</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -912,7 +959,10 @@ export default function CourtSimulatorModal() {
                     <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <Coins className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                       <p className="text-green-700 text-xs leading-relaxed">
-                        This session will use {tokensNeeded} token{tokensNeeded !== 1 ? 's' : ''} (1 token = 1 minute). 
+                        This session will use {tokensNeeded} token{tokensNeeded !== 1 ? 's' : ''} (1 token = 1 minute).
+                        {userSubscription && userSubscription.planId !== 'free' && (
+                          <span className="font-semibold"> {userSubscription.planId.charAt(0).toUpperCase() + userSubscription.planId.slice(1)} Plan: </span>
+                        )}
                         You have {tokensAvailable} token{tokensAvailable !== 1 ? 's' : ''} available.
                       </p>
                     </div>
