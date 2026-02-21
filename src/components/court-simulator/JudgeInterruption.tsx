@@ -38,9 +38,9 @@ export default function JudgeInterruption({
             <Gavel className="h-5 w-5 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-white font-bold text-base leading-tight">Judge Intervenes</h3>
+            <h3 className="text-white font-bold text-base leading-tight">Judge Speaking</h3>
             <p className="text-amber-200 text-[11px]">
-              Severity: {(interruption.severity * 100).toFixed(0)}%
+              Importance: {(interruption.severity * 100).toFixed(0)}%
             </p>
           </div>
           {isSpeaking && (
@@ -76,11 +76,11 @@ export default function JudgeInterruption({
           {isSpeaking ? (
             <p className="text-amber-700 text-sm font-medium flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              Judge is speaking — please listen...
+              The Judge is speaking — please listen carefully...
             </p>
           ) : (
             <p className="text-green-700 text-sm font-medium">
-              Question delivered. Read above, replay, or continue.
+              Read the Judge's statement above, then replay or continue.
             </p>
           )}
 

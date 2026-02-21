@@ -56,6 +56,7 @@ export interface SessionEvaluation {
   credibility_assessment: string;
   emotion_profile: string;
   summary: string;
+  personal_advice?: string;
 }
 
 interface SimulatorState {

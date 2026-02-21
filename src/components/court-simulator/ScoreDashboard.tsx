@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Download, Award, AlertTriangle, Lightbulb, BarChart3, Scale, ShieldCheck, Brain, BookOpen } from 'lucide-react';
+import { Download, Award, AlertTriangle, Lightbulb, BarChart3, Scale, ShieldCheck, Brain, BookOpen, MessageCircleHeart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { type SessionEvaluation, type Interruption, type EmotionSnapshot } from '@/contexts/CourtSimulatorContext';
 
@@ -66,6 +66,12 @@ export default function ScoreDashboard({
       `Overall Score: ${evaluation.overall_score}/100 (${overallGrade.letter})`,
       `Judicial Interruptions: ${interruptions.length}`,
       '',
+      ...(evaluation.personal_advice ? [
+        'A WORD FROM THE JUDGE',
+        '-'.repeat(40),
+        evaluation.personal_advice,
+        '',
+      ] : []),
       'SCORES',
       '-'.repeat(40),
       ...dimensions.map(d => {
@@ -151,6 +157,24 @@ export default function ScoreDashboard({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Personal Advice from the Judge — shown before scores */}
+      {evaluation.personal_advice && (
+        <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center flex-shrink-0">
+              <MessageCircleHeart className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-bold text-amber-900 text-base">A Word From the Judge</h4>
+              <p className="text-amber-600 text-[11px]">Personal advice based on your session</p>
+            </div>
+          </div>
+          <p className="text-gray-800 text-sm leading-relaxed italic">
+            &ldquo;{evaluation.personal_advice}&rdquo;
+          </p>
         </div>
       )}
 

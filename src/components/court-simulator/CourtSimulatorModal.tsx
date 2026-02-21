@@ -657,6 +657,7 @@ export default function CourtSimulatorModal() {
             credibility_assessment: 'Could not be assessed.',
             emotion_profile: 'Could not be assessed.',
             summary: 'Session captured but full evaluation could not be generated.',
+            personal_advice: '',
           },
           transcript: fullTranscriptRef.current,
         });
@@ -686,6 +687,7 @@ export default function CourtSimulatorModal() {
               credibility_assessment: 'Could not be assessed.',
               emotion_profile: 'Could not be assessed.',
               summary: 'Session captured but full evaluation could not be generated.',
+              personal_advice: '',
             },
             interruptions: state.interruptions,
             emotionTimeline: state.emotionTimeline,

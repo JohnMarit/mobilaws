@@ -555,6 +555,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 placeholder={aiConnected ? "Ask me anything about South Sudan laws..." : "Backend offline - using local search"}
                 disabled={isLoading}
                 enableAttachments={true}
+                variant="home"
               />
             </div>
           </div>
@@ -592,6 +593,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 placeholder={aiConnected ? "Ask me anything about South Sudan laws..." : "Backend offline - using local search"}
                 disabled={isLoading}
                 enableAttachments={true}
+                variant="chat"
               />
             </div>
           </div>

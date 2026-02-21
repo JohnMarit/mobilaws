@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,6 +16,7 @@ interface ChatInputProps {
   onAudioCaptured?: (audio: Blob) => void;
   enableAttachments?: boolean;
   enableVoice?: boolean;
+  variant?: 'home' | 'chat';
 }
 
 
@@ -37,12 +37,13 @@ export default function ChatInput({
   onFilesSelected,
   onAudioCaptured,
   enableAttachments = true,
-  enableVoice = true
+  enableVoice = true,
+  variant = 'chat'
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -50,6 +51,12 @@ export default function ChatInput({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const confirmedTextRef = useRef<string>('');
   const { toast } = useToast();
+  const isHome = variant === 'home';
+  const hasLeftControls = enableAttachments || enableVoice;
+  const inputLeftPadClass =
+    enableAttachments && enableVoice ? 'pl-[116px]' : hasLeftControls ? 'pl-[64px]' : 'pl-4';
+  const chipsLeftClass =
+    enableAttachments && enableVoice ? 'left-[116px]' : hasLeftControls ? 'left-[64px]' : 'left-3';
 
   // Load recent queries from localStorage
   useEffect(() => {
@@ -70,6 +77,15 @@ export default function ChatInput({
     }
   }, [disabled, isLoading]);
 
+  // Auto-resize textarea to fit content (with a cap)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const maxHeight = isHome ? 240 : 160;
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, [input, attachedFiles.length, isHome]);
+
   // Save query to history
   const saveToHistory = (query: string) => {
     if (!query.trim()) return;
@@ -79,8 +95,8 @@ export default function ChatInput({
     localStorage.setItem('law-chat-history', JSON.stringify(newHistory));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.SyntheticEvent) => {
+    e?.preventDefault();
     
     if (!input.trim() || isLoading || disabled) {
       return;
@@ -151,7 +167,7 @@ export default function ChatInput({
     setShowHistory(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -318,7 +334,7 @@ export default function ChatInput({
           <div className="flex-1 relative" onClick={() => inputRef.current?.focus()}>
             {/* Attachment chips - ChatGPT style */}
             {attachedFiles.length > 0 && (
-              <div className="absolute left-3 right-3 top-1 z-10 flex flex-wrap gap-1.5 pointer-events-auto">
+              <div className={`absolute ${chipsLeftClass} right-3 top-1 z-10 flex flex-wrap gap-1.5 pointer-events-auto`}>
                 {attachedFiles.map((file, idx) => {
                   const isImage = file.type.startsWith('image/');
                   const displayName = file.name.length > 20 ? file.name.slice(0, 17) + '...' : file.name;
@@ -343,16 +359,18 @@ export default function ChatInput({
                 })}
               </div>
             )}
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               placeholder={placeholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
-              className={`flex h-12 w-full rounded-xl border border-gray-300 bg-white ${attachedFiles.length ? 'pt-7 pb-2' : 'py-3'} pl-24 ${input && !isLoading ? 'pr-12' : 'pr-12'} text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50`}
+              rows={isHome ? 4 : 1}
+              className={`flex w-full rounded-xl border border-gray-300 bg-white resize-none leading-6 ${
+                isHome ? 'min-h-[96px] max-h-[240px]' : 'min-h-[48px] max-h-[160px]'
+              } ${attachedFiles.length ? 'pt-7 pb-2' : isHome ? 'py-4' : 'py-3'} ${inputLeftPadClass} pr-[64px] text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
@@ -371,40 +389,48 @@ export default function ChatInput({
               />
             )}
 
-            {/* Attachment Button */}
-            {enableAttachments && (
-              <button
-                type="button"
-                onClick={handleAttachClick}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 text-gray-600 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100"
-                title="Attach files"
-              >
-                <Paperclip className="h-5 w-5" />
-              </button>
-            )}
+            {/* Left controls (Attach / Voice) - always vertically centered */}
+            {hasLeftControls && (
+              <div className="absolute left-2 inset-y-0 z-20 flex items-center gap-1.5">
+                {enableAttachments && (
+                  <button
+                    type="button"
+                    onClick={handleAttachClick}
+                    className="h-12 w-12 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors hover:bg-gray-100"
+                    title="Attach files"
+                    aria-label="Attach files"
+                  >
+                    <Paperclip className="h-6 w-6" />
+                  </button>
+                )}
 
-            {/* Voice Recording Button */}
-            {enableVoice && (
-              <button
-                type="button"
-                onClick={handleMicClick}
-                className={`absolute left-12 top-1/2 -translate-y-1/2 p-2.5 transition-colors rounded-full hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-800'}`}
-                title={isRecording ? 'Stop voice input' : 'Voice input'}
-              >
-                {isRecording ? <Square className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
+                {enableVoice && (
+                  <button
+                    type="button"
+                    onClick={handleMicClick}
+                    className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-800'}`}
+                    title={isRecording ? 'Stop voice input' : 'Voice input'}
+                    aria-label={isRecording ? 'Stop voice input' : 'Voice input'}
+                  >
+                    {isRecording ? <Square className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Clear Button - positioned inside the input field */}
             {input && !isLoading && (
-              <button
-                type="button"
-                onClick={() => setInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
-                title="Clear input"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="absolute right-2 inset-y-0 z-20 flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setInput('')}
+                  className="h-12 w-12 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors hover:bg-gray-100"
+                  title="Clear input"
+                  aria-label="Clear input"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             )}
           </div>
           
@@ -412,13 +438,13 @@ export default function ChatInput({
           <Button
             type="submit"
             size="lg"
-            className="ml-2 h-12 px-6 rounded-xl bg-blue-500 hover:bg-blue-600 text-white"
+            className="ml-3 h-14 px-7 rounded-xl bg-blue-500 hover:bg-blue-600 text-white self-center"
             disabled={!input.trim() || isLoading || disabled}
           >
             {isLoading ? (
-              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Send className="h-5 w-5" />
+              <Send className="h-6 w-6" />
             )}
           </Button>
         </div>
