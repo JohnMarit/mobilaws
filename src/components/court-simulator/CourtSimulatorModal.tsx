@@ -149,9 +149,12 @@ export default function CourtSimulatorModal() {
         setCameraError(null);
         detectCameraSwitch();
       } catch (err: any) {
-        const msg = err.name === 'NotAllowedError'
-          ? 'Camera and microphone access denied. Please allow permissions and try again.'
-          : 'Could not access camera or microphone. Please check your device settings.';
+        const isSecureContextError = !window.isSecureContext || err?.name === 'SecurityError';
+        const msg = isSecureContextError
+          ? 'Camera and microphone require HTTPS (or localhost). Please open this site over a secure connection.'
+          : err.name === 'NotAllowedError'
+            ? 'Camera and microphone access denied. Please allow permissions and try again.'
+            : 'Could not access camera or microphone. Please check your device settings.';
         setCameraError(msg);
         dispatch({ type: 'SET_ERROR', error: msg });
       }
