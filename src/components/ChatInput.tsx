@@ -53,10 +53,14 @@ export default function ChatInput({
   const { toast } = useToast();
   const isHome = variant === 'home';
   const hasLeftControls = enableAttachments || enableVoice;
-  const inputLeftPadClass =
-    enableAttachments && enableVoice ? 'pl-[116px]' : hasLeftControls ? 'pl-[64px]' : 'pl-4';
-  const chipsLeftClass =
-    enableAttachments && enableVoice ? 'left-[116px]' : hasLeftControls ? 'left-[64px]' : 'left-3';
+  const inputLeftPadClass = isHome
+    // Homepage: controls are vertical, so we don't need huge left inset
+    ? (hasLeftControls ? 'pl-[72px]' : 'pl-5')
+    // Chat: controls are horizontal, so we need more left inset when both are enabled
+    : (enableAttachments && enableVoice ? 'pl-[116px]' : hasLeftControls ? 'pl-[64px]' : 'pl-4');
+  const chipsLeftClass = isHome
+    ? (hasLeftControls ? 'left-[72px]' : 'left-3')
+    : (enableAttachments && enableVoice ? 'left-[116px]' : hasLeftControls ? 'left-[64px]' : 'left-3');
 
   // Load recent queries from localStorage
   useEffect(() => {
@@ -82,7 +86,7 @@ export default function ChatInput({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    const maxHeight = isHome ? 240 : 160;
+    const maxHeight = isHome ? 200 : 160;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, [input, attachedFiles.length, isHome]);
 
@@ -327,7 +331,7 @@ export default function ChatInput({
   };
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto">
+    <div className={`relative w-full max-w-4xl mx-auto ${isHome ? 'pl-4 md:pl-6' : ''}`}>
       {/* Main Input */}
       <form onSubmit={handleSubmit} className="relative" onClick={() => inputRef.current?.focus()}>
         <div className="relative flex items-center">
@@ -367,10 +371,10 @@ export default function ChatInput({
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
-              rows={isHome ? 4 : 1}
+              rows={isHome ? 3 : 1}
               className={`flex w-full rounded-xl border border-gray-300 bg-white resize-none leading-6 ${
-                isHome ? 'min-h-[96px] max-h-[240px]' : 'min-h-[48px] max-h-[160px]'
-              } ${attachedFiles.length ? 'pt-7 pb-2' : isHome ? 'py-4' : 'py-3'} ${inputLeftPadClass} pr-[64px] text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
+                isHome ? 'min-h-[72px] max-h-[200px]' : 'min-h-[48px] max-h-[160px]'
+              } ${attachedFiles.length ? 'pt-7 pb-2' : isHome ? 'py-3' : 'py-3'} ${inputLeftPadClass} pr-[64px] text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
@@ -391,7 +395,7 @@ export default function ChatInput({
 
             {/* Left controls (Attach / Voice) - always vertically centered */}
             {hasLeftControls && (
-              <div className="absolute left-2 inset-y-0 z-20 flex items-center gap-1.5">
+              <div className={`absolute left-2 inset-y-0 z-20 flex ${isHome ? 'flex-col' : 'flex-row'} items-center justify-center ${isHome ? 'gap-0' : 'gap-1.5'}`}>
                 {enableAttachments && (
                   <button
                     type="button"
