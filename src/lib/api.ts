@@ -42,3 +42,9 @@ console.log('  - API Base URL:', API_BASE_URL);
 console.log('  - Is Localhost:', isLocalhost);
 console.log('  - Is Development:', isDevelopment);
 
+if ((isDevelopment || isLocalhost) && !import.meta.env.VITE_API_URL) {
+  console.warn(
+    '⚠️ Using default API http://localhost:8000/api. Start your backend there or set VITE_API_URL in .env (e.g. your deployed /api URL) to avoid ERR_CONNECTION_REFUSED.'
+  );
+}
+

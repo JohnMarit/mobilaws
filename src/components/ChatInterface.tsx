@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Heart, GraduationCap, Bot, Bug, Scale, BookOpen } from 'lucide-react';
+import { Heart, GraduationCap, Bot, Bug, Scale, Gavel } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ChatMessage, { ChatMessage as ChatMessageType } from './ChatMessage';
@@ -20,6 +20,7 @@ import { conversationalLawSearch, ConversationContext } from '@/lib/search';
 import { backendService } from '@/lib/backend-service';
 import { useToast } from '@/hooks/use-toast';
 import SubscriptionStatus from './SubscriptionStatus';
+import { useCourtSimulator } from '@/contexts/CourtSimulatorContext';
 
 interface ChatInterfaceProps {
   className?: string;
@@ -58,6 +59,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
     tokensResetDate
   } = usePromptLimit();
   const { userSubscription, isLoading: subscriptionLoading } = useSubscription();
+  const { openSimulator } = useCourtSimulator();
 
   // Create a new chat if none exists
   useEffect(() => {
@@ -425,40 +427,39 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
   const hasUserMessages = messages.some(msg => msg.type === 'user');
 
   return (
-    <div className={`flex flex-col h-full md:h-screen bg-white ${className} overflow-hidden`}>
+    <div className={`flex flex-col h-full md:h-screen bg-[hsl(var(--section))] ${className} overflow-hidden`}>
       {/* Top Bar with Actions - Hidden on mobile */}
-      <div className="hidden md:flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm flex-shrink-0">
+      <div className="hidden md:flex items-center justify-between p-4 border-b border-primary/10 bg-white/80 backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-50 shadow-sm shadow-brand-sm/30 flex-shrink-0">
         {/* AI Status and User Info */}
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-blue-600" />
-          <span className="font-medium text-sm">Mobilaws</span>
+          <Bot className="h-4 w-4 text-primary" />
+          <span className="font-semibold text-sm text-gray-800">Mobilaws</span>
           <CountrySelector />
           {aiConnected ? (
-            <span className="text-xs text-green-600">● Secure Backend Online</span>
+            <span className="text-xs text-green-600">● Online</span>
           ) : (
-            <span className="text-xs text-orange-500">● Backend Offline</span>
+            <span className="text-xs text-orange-500">● Offline</span>
           )}
           {isAuthenticated && userSubscription ? (
-            <span className="text-xs text-gray-500 ml-4">
-              ● {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens
-              {userSubscription.isFree === true ? ' (daily)' : ''}
-              {userSubscription.planId === 'admin_granted' ? ' (granted)' : ''}
+            <span className="ml-2 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+              {userSubscription.tokensRemaining}/{userSubscription.totalTokens} tokens
+              {userSubscription.isFree === true ? ' · daily' : ''}
             </span>
           ) : !isAuthenticated ? (
-            <span className="text-xs text-gray-500 ml-4">
-              ● {promptCount}/{maxPrompts} free prompts
+            <span className="ml-2 inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {promptCount}/{maxPrompts} free prompts
             </span>
           ) : null}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {process.env.NODE_ENV === 'development' && onToggleDebug && (
             <Button
               variant="ghost"
               size="sm"
               onClick={onToggleDebug}
-              className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+              className="h-8 px-2 text-gray-500 hover:bg-gray-100"
               title="Toggle Debug Panel"
             >
               <Bug className="h-4 w-4" />
@@ -469,7 +470,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
             variant="ghost"
             size="sm"
             onClick={() => setShowBookCounsel(true)}
-            className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            className="h-8 px-2 text-gray-500 hover:bg-gray-100"
             title="Book a Counsel"
           >
             <Scale className="h-4 w-4" />
@@ -484,7 +485,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 setShowDonationDialog(true);
               }
             }}
-            className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            className="h-8 px-2 text-gray-500 hover:bg-gray-100"
             title="Donate"
           >
             <Heart className="h-4 w-4" />
@@ -499,7 +500,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 setShowLearningHub(true);
               }
             }}
-            className="h-8 px-2 text-gray-600 hover:bg-gray-100"
+            className="h-8 px-2 text-gray-500 hover:bg-gray-100"
             title="Open Learning Paths"
           >
             <GraduationCap className="h-4 w-4" />
@@ -512,43 +513,20 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
       </div>
 
       {!hasUserMessages ? (
-        /* Centered Search Bar - No Chat Yet */
-        <div className="flex-1 flex flex-col justify-center bg-white md:pt-0 pt-8 min-h-0 overflow-y-auto">
-          <div className="max-w-5xl w-full px-4 mx-auto">
-            <div className="text-center mb-8 md:mb-12 min-h-[120px] md:min-h-[200px] flex flex-col items-center justify-center">
-              <div className="space-y-4">
-                <p className="text-lg text-gray-600">
-                  I am Your South Sudan Legal Assistant
-                </p>
-                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mt-4">
-                  <CourtSimulatorButton className="w-full justify-center" />
-                  <Button
-                    onClick={() => setShowBookCounsel(true)}
-                    className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg shadow-md w-full justify-center"
-                  >
-                    <Scale className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate">Book a Counsel</span>
-                  </Button>
-                  <Button
-                    onClick={() => setShowLearningHub(true)}
-                    variant="outline"
-                    className="px-4 py-2 rounded-lg shadow-md w-full justify-center"
-                  >
-                    <GraduationCap className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate">Study Law</span>
-                  </Button>
-                  <Button
-                    onClick={() => setShowSelfStudy(true)}
-                    variant="outline"
-                    className="px-4 py-2 rounded-lg shadow-md border-blue-300 text-blue-700 hover:bg-blue-50 w-full justify-center"
-                  >
-                    <BookOpen className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="truncate">Self Study</span>
-                  </Button>
-                </div>
-              </div>
+        /* Hero empty state: AI-first layout — input then quick actions then suggested prompts */
+        <div className="flex-1 flex flex-col justify-start bg-mobilaws-hero min-h-0 overflow-y-auto overscroll-contain pt-8 pb-4 md:pt-10 md:pb-6">
+          <div className="max-w-3xl w-full px-4 mx-auto pb-6">
+            <div className="text-center mb-6 md:mb-8">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight tracking-tight">
+                <span className="text-gradient-brand">Your South Sudan</span>{' '}
+                <span className="text-gray-900">Legal Assistant</span>
+              </h1>
+              <p className="mt-3 text-gray-600 text-sm md:text-base max-w-lg mx-auto leading-relaxed">
+                Search laws, ask questions in plain language, and get clear guidance — no legal jargon required.
+              </p>
             </div>
-            <div className="pb-6 md:pb-8 safe-area-inset-bottom">
+
+            <div className="mb-8 md:mb-10 safe-area-inset-bottom">
               <ChatInput
                 onSendMessage={handleSendMessage}
                 isLoading={isLoading}
@@ -558,13 +536,79 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
                 variant="home"
               />
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              <button
+                type="button"
+                onClick={openSimulator}
+                className="group rounded-2xl border border-white/60 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-800 flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
+                  <Gavel className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="font-semibold text-gray-900">Court simulation</h2>
+                <p className="text-xs text-gray-500 mt-1 leading-snug">Practice hearings and build confidence.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBookCounsel(true)}
+                className="group rounded-2xl border border-primary/20 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                <div className="h-10 w-10 rounded-xl bg-brand-gradient flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
+                  <Scale className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="font-semibold text-gray-900">Book counsel</h2>
+                <p className="text-xs text-gray-500 mt-1 leading-snug">Connect with a legal professional.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLearningHub(true)}
+                className="group rounded-2xl border border-highlight/25 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-highlight focus-visible:ring-offset-2"
+              >
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
+                  <GraduationCap className="h-5 w-5 text-white" />
+                </div>
+                <h2 className="font-semibold text-gray-900">Study the law</h2>
+                <p className="text-xs text-gray-500 mt-1 leading-snug">Learning paths and structured lessons.</p>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Suggested questions</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {[
+                  'What are my rights if arrested?',
+                  'How do I start a business in South Sudan?',
+                  'Explain Constitution Article 16',
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => handleSendMessage(prompt)}
+                    className="text-sm px-4 py-2.5 min-h-[44px] rounded-full border border-primary/20 text-primary bg-white/80 backdrop-blur-sm hover:bg-primary/8 shadow-md shadow-brand-sm/20 hover:shadow-lg transition-all"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setShowSelfStudy(true)}
+                className="text-sm font-medium text-highlight hover:text-highlight/80 underline-offset-4 hover:underline"
+              >
+                Open self-study modules
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         /* Chat Interface - Messages and Bottom Input */
         <>
           {/* Messages Area */}
-          <ScrollArea className="flex-1 bg-white min-h-0">
+          <ScrollArea className="flex-1 bg-white/95 min-h-0">
             <div className="max-w-3xl mx-auto px-4 py-6 pb-24 md:pt-6 pt-16">
               {messages.map((message) => (
                 <ChatMessage
@@ -585,7 +629,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
           </ScrollArea>
 
           {/* Input Area - Bottom */}
-          <div className="border-t border-gray-200 bg-white p-4 pb-6 md:pb-4 sticky bottom-0 z-30 flex-shrink-0 safe-area-inset-bottom">
+          <div className="border-t border-primary/10 bg-white/90 backdrop-blur-xl p-4 pb-6 md:pb-4 sticky bottom-0 z-30 flex-shrink-0 safe-area-inset-bottom shadow-[0_-8px_32px_-8px_rgba(37,99,235,0.08)]">
             <div className="max-w-3xl mx-auto">
               <ChatInput
                 onSendMessage={handleSendMessage}

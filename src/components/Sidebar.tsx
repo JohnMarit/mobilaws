@@ -215,13 +215,13 @@ export default function Sidebar({
       )}
 
       {/* Sidebar */}
-      <div className={`flex flex-col h-screen bg-gray-900 text-white transition-all duration-300 border-r border-gray-700 ${isCollapsed ? 'w-16' : 'w-64'
+      <div className={`flex flex-col h-screen bg-sidebar-gradient text-sidebar-foreground transition-all duration-300 border-r border-sidebar-border/80 shadow-[4px_0_24px_-4px_rgba(30,58,138,0.35)] ${isCollapsed ? 'w-16' : 'w-64'
         } ${isMobileOpen
           ? 'fixed inset-y-0 left-0 z-50 lg:relative lg:inset-auto'
           : 'hidden lg:flex'
         }`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <img src="/whitelogo.png" alt="Mobilaws Logo" className="h-6 w-6" />
@@ -232,14 +232,14 @@ export default function Sidebar({
             variant="ghost"
             size="sm"
             onClick={onToggleCollapse}
-            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-gray-800"
+            className="h-8 w-8 p-0 text-white/60 hover:text-white hover:bg-white/10"
           >
             {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
 
         {/* Feature Navigation */}
-        <div className="px-2 pb-2 border-b border-gray-700">
+        <div className="px-2 pb-2 border-b border-white/10">
           <div className="space-y-1">
             {(() => {
               const features = [
@@ -267,8 +267,8 @@ export default function Sidebar({
                         onClick={() => onFeatureSelect?.(feature.id)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                           activeFeature === feature.id
-                            ? 'bg-gray-800 text-white'
-                            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                            ? 'bg-white/15 text-white'
+                            : 'text-white/70 hover:bg-white/10 hover:text-white'
                         }`}
                         title={isCollapsed ? feature.label : undefined}
                       >
@@ -282,7 +282,7 @@ export default function Sidebar({
                   {!isCollapsed && hasMore && (
                     <button
                       onClick={() => setShowAllFeatures(!showAllFeatures)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-gray-300 hover:bg-gray-800 hover:text-white"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-white/70 hover:bg-white/10 hover:text-white"
                     >
                       {showAllFeatures ? (
                         <>
@@ -311,7 +311,7 @@ export default function Sidebar({
               onFeatureSelect?.('chat');
               onNewChat();
             }}
-            className="w-full bg-transparent border border-gray-600 text-white hover:bg-gray-800 hover:border-gray-500 transition-colors"
+            className="w-full bg-white text-primary hover:bg-white/95 font-semibold shadow-md shadow-brand-sm rounded-xl transition-all hover:shadow-lg"
             size="sm"
           >
             {isCollapsed ? (
@@ -327,7 +327,7 @@ export default function Sidebar({
 
         {/* Chat History Header */}
         {!isCollapsed && (
-          <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <div className="px-4 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider">
             Chat History
           </div>
         )}
@@ -339,8 +339,8 @@ export default function Sidebar({
               <div
                 key={chat.id}
                 className={`group relative rounded-lg p-2 cursor-pointer transition-colors ${currentChatId === chat.id
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white'
                   }`}
                 onClick={() => onSelectChat(chat.id)}
                 onTouchStart={(e) => handleTouchStart(chat, e)}
@@ -375,7 +375,7 @@ export default function Sidebar({
                           <div className="text-sm font-medium truncate">
                             {chat.title}
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">
+                          <div className="text-xs text-white/50 mt-1">
                             {formatDate(chat.timestamp)}
                           </div>
                         </>
@@ -397,7 +397,7 @@ export default function Sidebar({
                             h-10 w-10 min-w-[44px] min-h-[44px] p-2
                             md:h-8 md:w-8 md:min-w-0 md:min-h-0 md:p-1.5
                             opacity-100
-                            bg-gray-600 hover:bg-gray-500
+                            bg-white/20 hover:bg-white/30
                             transition-colors
                             rounded-lg
                             flex items-center justify-center
@@ -443,9 +443,9 @@ export default function Sidebar({
 
         {/* Court Session History */}
         {!isCollapsed && courtSessions.length > 0 && (
-          <div className="border-t border-gray-700">
+          <div className="border-t border-white/10">
             <button
-              className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
+              className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-white/60 uppercase tracking-wider hover:text-white transition-colors"
               onClick={() => setShowCourtSessions(s => !s)}
             >
               <div className="flex items-center gap-1.5">
@@ -461,21 +461,21 @@ export default function Sidebar({
                   {courtSessions.map(session => (
                     <div
                       key={session.id}
-                      className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-800 cursor-pointer transition-colors"
+                      className="group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-white/10 cursor-pointer transition-colors"
                       onClick={() => handleViewCourtSession(session)}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <Award className={`h-3 w-3 flex-shrink-0 ${gradeColor(session.grade)}`} />
                           <span className={`text-xs font-bold ${gradeColor(session.grade)}`}>{session.grade}</span>
-                          <span className="text-xs text-gray-400 font-medium">{session.overallScore}/100</span>
+                          <span className="text-xs text-white/60 font-medium">{session.overallScore}/100</span>
                         </div>
                         {session.sessionName && (
-                          <div className="text-[11px] text-gray-300 font-medium mt-0.5 truncate">
+                          <div className="text-[11px] text-white/80 font-medium mt-0.5 truncate">
                             {session.sessionName}
                           </div>
                         )}
-                        <div className="text-[10px] text-gray-500 mt-0.5 truncate">
+                        <div className="text-[10px] text-white/50 mt-0.5 truncate">
                           {new Date(session.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })}
                           {' · '}{Math.floor(session.durationSeconds / 60)}m
                           {' · '}{session.interruptionCount} interruption{session.interruptionCount !== 1 ? 's' : ''}
@@ -483,11 +483,11 @@ export default function Sidebar({
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                          <FileSearch className="h-3.5 w-3.5 text-gray-400" title="View Report" />
+                          <FileSearch className="h-3.5 w-3.5 text-white/60" title="View Report" />
                         </div>
                         <Button
                           variant="ghost" size="sm"
-                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-white/50 hover:text-red-400 transition-opacity"
                           onClick={(e) => handleDeleteCourtSession(session, e)}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -503,7 +503,7 @@ export default function Sidebar({
 
         {/* Subscription Status Section - Fixed at bottom */}
         {!isCollapsed && onManageSubscription && (
-          <div className="border-t border-gray-700 px-4 py-3 bg-gray-900">
+          <div className="border-t border-white/10 px-4 py-3">
             <SubscriptionStatus
               compact={true}
               onManageSubscription={onManageSubscription}

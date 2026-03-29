@@ -1147,22 +1147,27 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
     return (
-      <div className="fixed inset-0 z-50 bg-gradient-to-b from-blue-50 via-white to-white flex flex-col overflow-hidden text-slate-900">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-blue-100/70 bg-white/80 backdrop-blur-md flex-shrink-0 h-[60px] shadow-sm">
+      <div className="fixed inset-0 z-50 bg-mobilaws-hero flex flex-col overflow-hidden text-slate-900">
+        {/* Header — frosted bar aligned with app shell (Mobbin-style) */}
+        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-primary/10 bg-white/80 backdrop-blur-xl backdrop-saturate-150 flex-shrink-0 h-[60px] shadow-sm shadow-brand-sm/20">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 rounded-lg hover:bg-blue-50 text-slate-600"
+              className="h-9 w-9 p-0 rounded-xl hover:bg-primary/8 text-slate-600"
             >
               <FontAwesomeIcon icon={faBars} className="text-lg" />
             </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                <FontAwesomeIcon icon={faBookOpen} className="text-white text-sm" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm ring-2 ring-primary/15">
+                <FontAwesomeIcon icon={faBookOpen} className="text-white text-sm drop-shadow-sm" />
               </div>
-              <h1 className="text-lg sm:text-xl font-semibold leading-tight text-blue-700">Study Law</h1>
+              <div>
+                <h1 className="text-base sm:text-lg font-semibold leading-tight tracking-tight text-gradient-brand">
+                  Study
+                </h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium -mt-0.5">Learning hub</p>
+              </div>
             </div>
           </div>
           
@@ -1170,30 +1175,30 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           <div className="flex items-center gap-2.5">
             {/* Level Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faStar} className="text-[10px] text-white" />
+              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80">
+                <FontAwesomeIcon icon={faStar} className="text-[10px] text-primary-foreground" />
               </div>
-              <span className="text-[9px] font-semibold text-blue-700">{progress.level}</span>
+              <span className="text-[9px] font-semibold text-primary">{progress.level}</span>
             </div>
             
             {/* Streak Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center shadow-sm ring-1 ring-white/60">
-                <FontAwesomeIcon icon={faFire} className="text-[10px] text-white" />
+              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80 opacity-95">
+                <FontAwesomeIcon icon={faFire} className="text-[10px] text-primary-foreground" />
               </div>
-              <span className="text-[9px] font-semibold text-blue-700">{progress.streak}</span>
+              <span className="text-[9px] font-semibold text-primary">{progress.streak}</span>
             </div>
             
             {/* Daily Lessons/Goal Icon */}
             <div className="flex flex-col items-center gap-0.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-sm ring-1 ring-white/60">
+              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80">
                 {tier === 'free' ? (
-                  <FontAwesomeIcon icon={faTrophy} className="text-[10px] text-white" />
+                  <FontAwesomeIcon icon={faTrophy} className="text-[10px] text-primary-foreground" />
                 ) : (
-                  <FontAwesomeIcon icon={faBullseye} className="text-[10px] text-white" />
+                  <FontAwesomeIcon icon={faBullseye} className="text-[10px] text-primary-foreground" />
                 )}
               </div>
-              <span className="text-[9px] font-semibold text-blue-700">
+              <span className="text-[9px] font-semibold text-primary">
                 {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
               </span>
             </div>
@@ -1201,32 +1206,39 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
             {/* Notification Icon */}
             <div className="flex flex-col items-center gap-0.5">
               <div 
-                className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm ring-1 ring-white/60 relative cursor-pointer hover:opacity-80 transition-opacity"
+                className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80 relative cursor-pointer hover:opacity-90 transition-opacity active:scale-95"
                 onClick={() => setShowNotifications(true)}
               >
-                <FontAwesomeIcon icon={faBell} className="text-[10px] text-white" />
+                <FontAwesomeIcon icon={faBell} className="text-[10px] text-primary-foreground" />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
                     {notificationCount > 99 ? '99+' : notificationCount}
                   </span>
                 )}
               </div>
-              <span className="text-[9px] font-semibold text-blue-700">{notificationCount}</span>
+              <span className="text-[9px] font-semibold text-primary">{notificationCount}</span>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4 pb-20">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 overscroll-contain">
           {activeNav === 'featured' ? (
-            <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+            <div className="space-y-5 sm:space-y-7 max-w-7xl mx-auto">
               {/* Welcome Banner Section */}
-              <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 p-6 sm:p-8 text-white shadow-xl">
+              <div className="relative rounded-3xl overflow-hidden bg-brand-gradient p-6 sm:p-8 text-primary-foreground shadow-elevated-lg ring-1 ring-primary/20">
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-30"
+                  style={{
+                    background:
+                      'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(255,255,255,0.35), transparent 55%)',
+                  }}
+                />
                 <div className="relative z-10">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-                    Welcome Back, {user?.name || 'Student'}!
+                  <h1 className="text-2xl sm:text-3xl font-bold mb-2 tracking-tight drop-shadow-sm">
+                    Welcome back, {user?.name || 'Student'}
                   </h1>
-                  <p className="text-blue-100 text-sm sm:text-base">
+                  <p className="text-white/90 text-sm sm:text-base font-medium">
                     Continue your legal education journey
                   </p>
                 </div>
@@ -1242,21 +1254,21 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   const { percent } = moduleStatus(currentModule);
                   
                   return (
-                    <div className="mt-6 bg-white/95 backdrop-blur-sm rounded-xl p-4 sm:p-6 shadow-lg">
+                    <div className="mt-6 bg-white/95 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-elevated border border-white/40">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <p className="text-xs text-blue-600 font-medium mb-1">Current Course</p>
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-3">{currentModule.title}</h3>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-primary font-semibold mb-1 tracking-wide uppercase">Current course</p>
+                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 tracking-tight">{currentModule.title}</h3>
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs text-slate-600">
                               <span>Progress</span>
-                              <span className="font-semibold text-blue-600">{percent}%</span>
+                              <span className="font-semibold text-primary">{percent}%</span>
                             </div>
-                            <Progress value={percent} className="h-2 bg-blue-50" />
+                            <Progress value={percent} className="h-2 bg-primary/10" />
                           </div>
                         </div>
                         <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-brand-gradient flex items-center justify-center shadow-md ring-2 ring-white/50">
                             <FontAwesomeIcon
                               icon={
                                 currentModule.icon === 'faScroll' ? faScroll :
@@ -1272,9 +1284,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       </div>
                       <Button
                         onClick={() => handleCourseClick(currentModule)}
-                        className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-md"
+                        className="w-full mt-4 rounded-xl h-11 font-semibold bg-white text-primary hover:bg-white/95 shadow-elevated"
                       >
-                        Continue Learning
+                        Continue learning
                       </Button>
                     </div>
                   );
@@ -1285,43 +1297,43 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder="Search courses, topics..."
+                  placeholder="Search courses, topics…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 h-12 rounded-xl border-blue-200 focus:border-blue-400 bg-white shadow-sm"
+                  className="w-full pl-11 h-12 rounded-2xl border-primary/15 bg-white/90 backdrop-blur-sm shadow-elevated focus-visible:ring-primary/25 focus-visible:border-primary/40"
                 />
-                <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
+                <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" />
               </div>
 
               {/* Statistics Cards */}
               <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <Card className="bg-white border-blue-100 shadow-sm">
+                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
                   <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                      <FontAwesomeIcon icon={faBook} className="text-white text-lg sm:text-xl" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md">
+                      <FontAwesomeIcon icon={faBook} className="text-primary-foreground text-lg sm:text-xl" />
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{modules.length}</div>
-                    <div className="text-xs sm:text-sm text-slate-600">Active Courses</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{modules.length}</div>
+                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Active courses</div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-white border-blue-100 shadow-sm">
+                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
                   <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center">
-                      <FontAwesomeIcon icon={faClock} className="text-white text-lg sm:text-xl" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md opacity-95">
+                      <FontAwesomeIcon icon={faClock} className="text-primary-foreground text-lg sm:text-xl" />
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{Math.floor(progress.xp / 60)}h</div>
-                    <div className="text-xs sm:text-sm text-slate-600">Study Time</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{Math.floor(progress.xp / 60)}h</div>
+                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Study time</div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-white border-blue-100 shadow-sm">
+                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
                   <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-                      <FontAwesomeIcon icon={faTrophy} className="text-white text-lg sm:text-xl" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md">
+                      <FontAwesomeIcon icon={faTrophy} className="text-primary-foreground text-lg sm:text-xl" />
                     </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1">{Math.floor(progress.xp / 500)}</div>
-                    <div className="text-xs sm:text-sm text-slate-600">Certificates</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{Math.floor(progress.xp / 500)}</div>
+                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Certificates</div>
                   </CardContent>
                 </Card>
               </div>
@@ -1329,10 +1341,10 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               {/* Recommended Learning Path Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Recommended Learning Path</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Recommended learning path</h2>
                 </div>
                 
-                <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100 shadow-sm">
+                <Card className="border-primary/10 shadow-elevated rounded-2xl bg-brand-gradient-soft backdrop-blur-sm">
                   <CardContent className="p-4 sm:p-6">
                     <div className="space-y-4">
                       {modules.slice(0, 5).map((module, index) => {
@@ -1983,71 +1995,90 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
           ) : null}
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-blue-100 flex items-center justify-around h-[60px] safe-area-inset-bottom z-50 shadow-2xl shadow-blue-50/70">
+        {/* Bottom Navigation — match app mobile tab bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl backdrop-saturate-150 border-t border-primary/10 shadow-[0_-4px_24px_-4px_rgba(37,99,235,0.12)] pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-stretch justify-around h-[60px]">
           <button
+            type="button"
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               onOpenChange(false);
             }}
-            className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-slate-500 hover:text-blue-600"
+            className="flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors text-slate-500 hover:text-primary"
           >
             <FontAwesomeIcon icon={faHouse} className="text-lg" />
-            <span className="text-xs font-medium">Home</span>
+            <span className="text-[10px] font-semibold">Home</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               setActiveNav('featured');
             }}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'featured' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
+              activeNav === 'featured' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <FontAwesomeIcon icon={faStar} className="text-lg" />
-            <span className="text-xs font-medium">Featured</span>
+            {activeNav === 'featured' && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
+            )}
+            <FontAwesomeIcon icon={faStar} className={`text-lg ${activeNav === 'featured' ? 'opacity-100' : ''}`} />
+            <span className="text-[10px] font-semibold">Featured</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               setActiveNav('learning');
             }}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'learning' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
+              activeNav === 'learning' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
+            {activeNav === 'learning' && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
+            )}
             <FontAwesomeIcon icon={faComments} className="text-lg" />
-            <span className="text-xs font-medium">Discuss</span>
+            <span className="text-[10px] font-semibold">Discuss</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               setActiveNav('certification');
             }}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'certification' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
+              activeNav === 'certification' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
+            {activeNav === 'certification' && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
+            )}
             <FontAwesomeIcon icon={faAward} className="text-lg" />
-            <span className="text-xs font-medium">Certs</span>
+            <span className="text-[10px] font-semibold">Certs</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setSelectedCourse(null);
               setActiveLesson(null);
               setActiveNav('leaderboard');
             }}
-            className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
-              activeNav === 'leaderboard' ? 'text-blue-700 bg-blue-50/80' : 'text-slate-500'
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
+              activeNav === 'leaderboard' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
+            {activeNav === 'leaderboard' && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
+            )}
             <FontAwesomeIcon icon={faTrophy} className="text-lg" />
-            <span className="text-xs font-medium">Top</span>
+            <span className="text-[10px] font-semibold">Top</span>
           </button>
+          </div>
         </div>
 
         {activeLesson && (
@@ -2061,19 +2092,19 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Course View Panel - Slides in from right, keeps header and bottom nav visible */}
         {selectedCourse && (
-          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-slate-900 dark:to-slate-800 flex flex-col">
+          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-mobilaws-hero flex flex-col">
             {/* Course Header - Fixed at top */}
-            <div className="flex-shrink-0 bg-white/90 dark:bg-slate-900/95 backdrop-blur-md border-b border-blue-100 dark:border-slate-700 px-4 sm:px-6 lg:px-8 py-3 shadow-sm">
+            <div className="flex-shrink-0 bg-white/85 backdrop-blur-xl border-b border-primary/10 px-4 sm:px-6 lg:px-8 py-3 shadow-sm shadow-brand-sm/15">
               <div className="max-w-4xl mx-auto">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <button 
                       onClick={() => setSelectedCourse(null)}
-                      className="w-9 h-9 rounded-full bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 border border-blue-100"
+                      className="w-9 h-9 rounded-full bg-primary/8 hover:bg-primary/15 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 border border-primary/15"
                     >
-                      <FontAwesomeIcon icon={faChevronDown} className="text-slate-600 dark:text-slate-300" />
+                      <FontAwesomeIcon icon={faChevronDown} className="text-slate-600" />
                     </button>
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-100">
+                    <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-primary/15">
                       <FontAwesomeIcon
                         icon={
                           selectedCourse.icon === 'faScroll' ? faScroll :
@@ -2082,7 +2113,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                                 selectedCourse.icon === 'faLandmark' ? faLandmark :
                                   faGraduationCap
                         }
-                        className="text-lg text-blue-700"
+                        className="text-lg text-primary-foreground"
                       />
                     </div>
                     <div className="min-w-0 flex-1">

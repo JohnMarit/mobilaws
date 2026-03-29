@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon } from 'lucide-react';
+import { Send, History, X, Paperclip, Mic, Square, File as FileIcon, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateInput, checkRateLimit } from '@/utils/security';
@@ -20,13 +19,14 @@ interface ChatInputProps {
 }
 
 
-const QUICK_FILTERS = [
-  { label: 'Bill of Rights', query: 'bill of rights fundamental rights' },
-  { label: 'Human Rights', query: 'human rights dignity' },
-  { label: 'Citizenship', query: 'citizenship nationality' },
-  { label: 'Government', query: 'government structure executive' },
-  { label: 'Education', query: 'education right to education' },
-  { label: 'Justice', query: 'justice judicial system' }
+const SUGGESTED_QUESTIONS = [
+  'What are my rights if arrested?',
+  'How do I start a business in South Sudan?',
+  'Explain Constitution Article 16',
+  'What does the Bill of Rights cover?',
+  'How does citizenship work in South Sudan?',
+  'What is the structure of the executive branch?',
+  'What are my rights to education under the law?',
 ];
 
 export default function ChatInput({ 
@@ -54,13 +54,19 @@ export default function ChatInput({
   const isHome = variant === 'home';
   const hasLeftControls = enableAttachments || enableVoice;
   const inputLeftPadClass = isHome
-    // Homepage: controls are vertical, so we don't need huge left inset
-    ? (hasLeftControls ? 'pl-[72px]' : 'pl-5')
-    // Chat: controls are horizontal, so we need more left inset when both are enabled
-    : (enableAttachments && enableVoice ? 'pl-[116px]' : hasLeftControls ? 'pl-[64px]' : 'pl-4');
+    ? (hasLeftControls ? 'pl-[80px]' : 'pl-5')
+    : enableAttachments && enableVoice
+      ? 'pl-[118px]'
+      : hasLeftControls
+        ? 'pl-[68px]'
+        : 'pl-4';
   const chipsLeftClass = isHome
-    ? (hasLeftControls ? 'left-[72px]' : 'left-3')
-    : (enableAttachments && enableVoice ? 'left-[116px]' : hasLeftControls ? 'left-[64px]' : 'left-3');
+    ? (hasLeftControls ? 'left-[80px]' : 'left-3')
+    : enableAttachments && enableVoice
+      ? 'left-[118px]'
+      : hasLeftControls
+        ? 'left-[68px]'
+        : 'left-3';
 
   // Load recent queries from localStorage
   useEffect(() => {
@@ -330,33 +336,54 @@ export default function ChatInput({
     }
   };
 
+  const toolBtnBase =
+    'group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-all duration-200 ease-out touch-manipulation active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+
+  const toolBtnAttach =
+    'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-indigo-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
+
+  const toolBtnMicIdle =
+    'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-violet-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
+
+  const toolBtnMicLive =
+    'border-red-300/90 bg-gradient-to-br from-red-50 to-rose-100/90 text-red-600 shadow-md animate-mobilaws-recording hover:from-red-100 hover:to-rose-100';
+
+  const barShellClass = isHome
+    ? 'rounded-[1.125rem] border-2 border-primary/18 bg-white/92 backdrop-blur-md shadow-elevated shadow-brand-sm/25 transition-all duration-300 focus-within:border-primary/40 focus-within:shadow-elevated-lg focus-within:ring-2 focus-within:ring-primary/15 p-1.5 sm:p-2'
+    : 'rounded-2xl border border-slate-200/90 bg-white/88 backdrop-blur-xl shadow-elevated p-1.5 sm:p-2 transition-all duration-300 focus-within:border-primary/35 focus-within:shadow-elevated-lg focus-within:ring-2 focus-within:ring-primary/12';
+
   return (
     <div className={`relative w-full max-w-4xl mx-auto ${isHome ? 'pl-4 md:pl-6' : ''}`}>
-      {/* Main Input */}
-      <form onSubmit={handleSubmit} className="relative" onClick={() => inputRef.current?.focus()}>
-        <div className="relative flex items-center">
-          <div className="flex-1 relative" onClick={() => inputRef.current?.focus()}>
-            {/* Attachment chips - ChatGPT style */}
+      <form
+        onSubmit={handleSubmit}
+        className={`relative ${barShellClass}`}
+        onClick={() => inputRef.current?.focus()}
+      >
+        <div className="relative flex items-end gap-2 sm:gap-2.5">
+          <div className="flex-1 relative min-w-0" onClick={() => inputRef.current?.focus()}>
             {attachedFiles.length > 0 && (
-              <div className={`absolute ${chipsLeftClass} right-3 top-1 z-10 flex flex-wrap gap-1.5 pointer-events-auto`}>
+              <div className={`absolute ${chipsLeftClass} right-3 top-1.5 z-10 flex flex-wrap gap-1.5 pointer-events-auto`}>
                 {attachedFiles.map((file, idx) => {
                   const isImage = file.type.startsWith('image/');
                   const displayName = file.name.length > 20 ? file.name.slice(0, 17) + '...' : file.name;
                   return (
-                    <div key={`file-${idx}`} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors">
-                      {isImage ? <ImageIcon className="h-3 w-3 text-gray-500" /> : <FileIcon className="h-3 w-3 text-gray-500" />}
-                      <span className="truncate max-w-[120px]">{displayName}</span>
+                    <div
+                      key={`file-${idx}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary/15 bg-white/90 px-2 py-1 text-xs text-slate-700 shadow-sm backdrop-blur-sm transition-all hover:border-primary/30 hover:shadow-md"
+                    >
+                      {isImage ? <ImageIcon className="h-3.5 w-3.5 text-primary/70" /> : <FileIcon className="h-3.5 w-3.5 text-primary/70" />}
+                      <span className="max-w-[min(140px,40vw)] truncate font-medium">{displayName}</span>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+                          setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
                         }}
-                        className="ml-0.5 rounded-full p-0.5 hover:bg-gray-200 transition-colors"
+                        className="ml-0.5 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                         aria-label="Remove file"
                         title="Remove file"
                       >
-                        <X className="h-3 w-3 text-gray-400" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   );
@@ -372,16 +399,17 @@ export default function ChatInput({
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               rows={isHome ? 3 : 1}
-              className={`flex w-full rounded-xl border border-gray-300 bg-white resize-none leading-6 ${
-                isHome ? 'min-h-[72px] max-h-[200px]' : 'min-h-[48px] max-h-[160px]'
-              } ${attachedFiles.length ? 'pt-7 pb-2' : isHome ? 'py-3' : 'py-3'} ${inputLeftPadClass} pr-[64px] text-base text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
+              className={`flex w-full resize-none leading-6 ${
+                isHome
+                  ? 'min-h-[72px] max-h-[200px] rounded-[0.875rem] border-0 bg-slate-50/60 py-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.06]'
+                  : 'min-h-[52px] max-h-[160px] rounded-xl border-0 bg-slate-50/70 py-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.05)] ring-1 ring-slate-900/[0.06]'
+              } ${attachedFiles.length ? 'pt-8 pb-2' : isHome ? 'py-3' : 'py-3'} ${inputLeftPadClass} ${input && !isLoading ? 'pr-14' : 'pr-4'} text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-0 transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
               autoFocus
             />
 
-            {/* Hidden File Input */}
             {enableAttachments && (
               <input
                 ref={fileInputRef}
@@ -393,62 +421,82 @@ export default function ChatInput({
               />
             )}
 
-            {/* Left controls (Attach / Voice) - always vertically centered */}
             {hasLeftControls && (
-              <div className={`absolute left-2 inset-y-0 z-20 flex ${isHome ? 'flex-col' : 'flex-row'} items-center justify-center ${isHome ? 'gap-0' : 'gap-1.5'}`}>
+              <div
+                className={`absolute left-1.5 z-20 flex ${isHome ? 'top-1/2 -translate-y-1/2 flex-col gap-1.5' : 'bottom-2 flex-row gap-1.5'}`}
+              >
                 {enableAttachments && (
                   <button
                     type="button"
-                    onClick={handleAttachClick}
-                    className="h-12 w-12 rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-colors hover:bg-gray-100"
-                    title="Attach files"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAttachClick();
+                    }}
+                    className={`${toolBtnBase} ${toolBtnAttach}`}
+                    title="Attach PDF or image"
                     aria-label="Attach files"
                   >
-                    <Paperclip className="h-6 w-6" />
+                    <span className="pointer-events-none absolute inset-0 rounded-xl bg-primary/0 transition-colors duration-200 group-hover:bg-primary/[0.06] group-active:bg-primary/[0.1]" aria-hidden />
+                    <Paperclip
+                      className="relative z-10 h-[22px] w-[22px] transition-transform duration-200 ease-out group-hover:scale-110 group-hover:-rotate-6 group-active:scale-95 group-active:rotate-0"
+                      strokeWidth={2}
+                    />
                   </button>
                 )}
 
                 {enableVoice && (
                   <button
                     type="button"
-                    onClick={handleMicClick}
-                    className={`h-12 w-12 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100 ${isRecording ? 'text-red-600 hover:text-red-700' : 'text-gray-600 hover:text-gray-800'}`}
-                    title={isRecording ? 'Stop voice input' : 'Voice input'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleMicClick();
+                    }}
+                    className={`${toolBtnBase} ${isRecording ? toolBtnMicLive : toolBtnMicIdle}`}
+                    title={isRecording ? 'Stop recording' : 'Voice input'}
                     aria-label={isRecording ? 'Stop voice input' : 'Voice input'}
+                    aria-pressed={isRecording}
                   >
-                    {isRecording ? <Square className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                    {!isRecording && (
+                      <span className="pointer-events-none absolute inset-0 rounded-xl bg-violet-500/0 transition-colors duration-200 group-hover:bg-violet-500/[0.05] group-active:bg-violet-500/[0.08]" aria-hidden />
+                    )}
+                    {isRecording ? (
+                      <Square className="relative z-10 h-[18px] w-[18px] fill-current transition-transform duration-150 group-active:scale-90" />
+                    ) : (
+                      <Mic className="relative z-10 h-[22px] w-[22px] transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-95" strokeWidth={2} />
+                    )}
                   </button>
                 )}
               </div>
             )}
 
-            {/* Clear Button - positioned inside the input field */}
             {input && !isLoading && (
-              <div className="absolute right-2 inset-y-0 z-20 flex items-center">
+              <div className="absolute right-1.5 top-2.5 z-20 flex items-center sm:top-2.5">
                 <button
                   type="button"
-                  onClick={() => setInput('')}
-                  className="h-12 w-12 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors hover:bg-gray-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setInput('');
+                  }}
+                  className={`${toolBtnBase} border-transparent bg-slate-100/80 text-slate-500 shadow-none hover:border-slate-200 hover:bg-slate-100 hover:text-slate-800 hover:shadow-sm`}
                   title="Clear input"
                   aria-label="Clear input"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="relative z-10 h-5 w-5 transition-transform duration-200 group-hover:scale-110 group-active:scale-90" strokeWidth={2} />
                 </button>
               </div>
             )}
           </div>
-          
-          {/* Send Button */}
+
           <Button
             type="submit"
             size="lg"
-            className="ml-3 h-14 px-7 rounded-xl bg-blue-500 hover:bg-blue-600 text-white self-center"
+            className="group mb-0.5 h-12 min-h-[48px] min-w-[48px] shrink-0 rounded-xl border-0 bg-brand-gradient px-5 text-primary-foreground shadow-md shadow-brand-sm transition-all duration-200 hover:opacity-[0.96] hover:shadow-lg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 disabled:active:scale-100"
             disabled={!input.trim() || isLoading || disabled}
           >
             {isLoading ? (
-              <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Send className="h-6 w-6" />
+              <Send className="h-6 w-6 transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             )}
           </Button>
         </div>
@@ -487,28 +535,28 @@ export default function ChatInput({
         </Card>
       )}
 
-      {/* Suggestions */}
       {showSuggestions && !input && (
-        <div className="mt-4 space-y-4 px-4 md:px-0" onClick={(e) => e.stopPropagation()}>
-          {/* Quick Filters */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Quick topics:</span>
-            </div>
-            <div className="flex flex-wrap gap-2 pb-4">
-              {QUICK_FILTERS.map((filter) => (
-                <Badge
-                  key={filter.label}
-                  variant="outline"
-                  className="cursor-pointer transition-colors hover:bg-primary/10 text-sm px-3 py-1.5"
-                  onClick={() => handleSuggestionClick(filter.query)}
-                >
-                  {filter.label}
-                </Badge>
-              ))}
-            </div>
+        <div className="mt-5 space-y-3 px-4 md:px-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Suggested questions
+            </span>
           </div>
-
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap pb-2">
+            {SUGGESTED_QUESTIONS.map((question) => (
+              <button
+                key={question}
+                type="button"
+                onClick={() => handleSuggestionClick(question)}
+                className="touch-manipulation text-left text-sm font-medium text-slate-700 transition-all duration-200 ease-out active:scale-[0.98] rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm hover:border-primary/30 hover:bg-gradient-to-br hover:from-white hover:to-primary/[0.04] hover:text-slate-900 hover:shadow-md hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 sm:min-h-0 sm:max-w-[calc(50%-0.25rem)] sm:flex-1 sm:basis-[calc(50%-0.25rem)]"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

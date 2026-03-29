@@ -42,20 +42,37 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
+    /* Brand blue — primary #2563EB scale, gradients via utilities */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 96%;
     --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
+    --muted: 214 28% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 226 100% 97%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.875rem;
+    /* Custom brand tokens referenced by tailwind.config.ts */
+    --brand: 221 83% 53%;
+    --sidebar-background: 228 52% 18%;
+    --highlight: 239 84% 67%;
+    --warning: 38 92% 50%;
+    --brand-light: 214 95% 93%;
+    --accent-light: 226 100% 97%;
+    /* Cool neutral canvas (Mobbin-style soft blue-gray) */
+    --section: 220 26% 97%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 221 83% 45%;
+    --sidebar-accent: 226 45% 26%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 226 38% 24%;
+    --sidebar-ring: 221 83% 60%;
   }
 
   .dark {
@@ -286,6 +303,88 @@
 @layer utilities {
   .transition-smooth {
     transition: all 0.2s ease-in-out;
+  }
+}
+
+/* Brand gradients + elevated surfaces (blue identity) */
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: linear-gradient(
+      135deg,
+      hsl(221, 83%, 53%) 0%,
+      hsl(239, 69%, 58%) 55%,
+      hsl(250, 62%, 58%) 100%
+    );
+  }
+  .bg-brand-gradient-soft {
+    background-image: linear-gradient(
+      135deg,
+      hsl(221, 83%, 96%) 0%,
+      hsl(230, 85%, 96%) 45%,
+      hsl(239, 75%, 97%) 100%
+    );
+  }
+  .bg-sidebar-gradient {
+    background: linear-gradient(
+      165deg,
+      hsl(226, 58%, 30%) 0%,
+      hsl(230, 52%, 20%) 42%,
+      hsl(235, 48%, 12%) 100%
+    );
+  }
+  /**
+   * Hero mesh: soft radial blues + indigo (reference: polished app marketing layouts)
+   */
+  .bg-mobilaws-hero {
+    background-color: hsl(220, 26%, 97%);
+    background-image:
+      radial-gradient(ellipse 120% 70% at 50% -25%, hsl(221, 83%, 53%, 0.14), transparent 58%),
+      radial-gradient(ellipse 55% 45% at 95% 35%, hsl(239, 69%, 58%, 0.1), transparent 52%),
+      radial-gradient(ellipse 45% 40% at 5% 75%, hsl(199, 89%, 48%, 0.07), transparent 48%);
+  }
+  .text-gradient-brand {
+    background-image: linear-gradient(
+      120deg,
+      hsl(221, 83%, 42%) 0%,
+      hsl(239, 69%, 52%) 50%,
+      hsl(262, 58%, 52%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-elevated {
+    box-shadow:
+      0 1px 2px hsl(222, 47%, 11%, 0.04),
+      0 8px 24px -4px hsl(221, 83%, 53%, 0.08),
+      0 20px 48px -12px hsl(230, 50%, 20%, 0.1);
+  }
+  .shadow-elevated-lg {
+    box-shadow:
+      0 4px 6px -2px hsl(222, 47%, 11%, 0.05),
+      0 16px 40px -8px hsl(221, 83%, 53%, 0.12),
+      0 32px 64px -16px hsl(235, 50%, 15%, 0.12);
+  }
+}
+
+/* Chat input: voice “live” affordance (Mobbin-style pulse) */
+@keyframes mobilaws-recording-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 hsl(0 72% 51% / 0.45),
+      0 2px 8px -2px hsl(0 72% 51% / 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px hsl(0 72% 51% / 0),
+      0 4px 16px -4px hsl(0 72% 51% / 0.25);
+  }
+}
+
+@layer utilities {
+  .animate-mobilaws-recording {
+    animation: mobilaws-recording-pulse 1.8s ease-in-out infinite;
   }
 }
 

@@ -11,7 +11,12 @@ import { db } from '@/lib/firebase';
 
 type AssistantMode = 'student' | 'lawyer' | 'consumer' | null;
 
-export default function AssistantModeSelector() {
+interface AssistantModeSelectorProps {
+  /** Called after a successful save; use to switch to chat + open Learning Hub */
+  onSavedGoToStudy?: () => void;
+}
+
+export default function AssistantModeSelector({ onSavedGoToStudy }: AssistantModeSelectorProps) {
   const [selectedMode, setSelectedMode] = useState<AssistantMode>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -25,8 +30,14 @@ export default function AssistantModeSelector() {
         return;
       }
 
+      if (!db) {
+        console.warn('Firestore not initialized; cannot load assistant mode');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userDoc = await getDoc(doc(db, 'users', user.id));
         if (userDoc.exists()) {
           const userData = userDoc.data();
           setSelectedMode(userData.assistantMode || null);
@@ -51,18 +62,30 @@ export default function AssistantModeSelector() {
       return;
     }
 
+    if (!db) {
+      toast({
+        title: 'Database unavailable',
+        description: 'Firebase is not configured. Check your environment variables.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       await setDoc(
-        doc(db, 'users', user.uid),
+        doc(db, 'users', user.id),
         { assistantMode: selectedMode },
         { merge: true }
       );
 
       toast({
         title: 'Mode saved',
-        description: 'Your assistant mode preference has been saved.',
+        description: onSavedGoToStudy
+          ? 'Opening your study space…'
+          : 'Your assistant mode preference has been saved.',
       });
+      onSavedGoToStudy?.();
     } catch (error) {
       console.error('Error saving assistant mode:', error);
       toast({
@@ -104,26 +127,29 @@ export default function AssistantModeSelector() {
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center bg-mobilaws-hero">
         <div className="text-center">
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-muted-foreground font-medium">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="flex-1 overflow-auto p-6">
+    <div className="h-full flex flex-col bg-mobilaws-hero">
+      <div className="flex-1 overflow-auto p-6 pb-10">
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Assistant Mode</h1>
-            <p className="text-gray-600">
-              Personalize your AI assistant to match your needs. Choose a mode that best fits how you'll use the platform.
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
+              <span className="text-gradient-brand">Assistant</span>{' '}
+              <span className="text-slate-900">mode</span>
+            </h1>
+            <p className="text-muted-foreground max-w-2xl">
+              Personalize your AI assistant to match your needs. Choose a mode that best fits how you&apos;ll use the platform.
             </p>
           </div>
 
-          <Card>
+          <Card className="border-primary/10 shadow-elevated rounded-2xl bg-white/90 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>Select Your Assistant Mode</CardTitle>
               <CardDescription>
@@ -140,10 +166,10 @@ export default function AssistantModeSelector() {
                         <RadioGroupItem value={mode.value} id={mode.value} className="mt-1" />
                         <Label
                           htmlFor={mode.value}
-                          className={`flex-1 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          className={`flex-1 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                             selectedMode === mode.value
-                              ? `${mode.bgColor} border-current ${mode.color}`
-                              : 'bg-white border-gray-200 hover:border-gray-300'
+                              ? `${mode.bgColor} border-current ${mode.color} shadow-sm`
+                              : 'bg-white/80 border-primary/10 hover:border-primary/25 hover:bg-white'
                           }`}
                         >
                           <div className="flex items-start gap-3">
@@ -164,11 +190,11 @@ export default function AssistantModeSelector() {
                 </div>
               </RadioGroup>
 
-              <div className="mt-6 pt-6 border-t">
+              <div className="mt-6 pt-6 border-t border-primary/10">
                 <Button
                   onClick={handleSave}
                   disabled={isSaving || !selectedMode}
-                  className="w-full"
+                  className="w-full h-12 rounded-xl font-semibold bg-brand-gradient text-primary-foreground shadow-elevated hover:opacity-[0.97] disabled:opacity-50"
                 >
                   {isSaving ? (
                     <>
@@ -187,10 +213,10 @@ export default function AssistantModeSelector() {
           </Card>
 
           {selectedMode && (
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="border-primary/15 bg-brand-gradient-soft backdrop-blur-sm rounded-2xl shadow-elevated">
               <CardHeader>
-                <CardTitle className="text-blue-900">Mode Active</CardTitle>
-                <CardDescription className="text-blue-700">
+                <CardTitle className="text-slate-900">Mode selected</CardTitle>
+                <CardDescription className="text-slate-600">
                   Your assistant will now respond in {modes.find(m => m.value === selectedMode)?.label.toLowerCase()}. 
                   This preference will be applied to all your future conversations.
                 </CardDescription>

@@ -20,7 +20,7 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         
-        /* Brand colors for South Sudan theme */
+        /* Brand blues + gradients */
         brand: {
           DEFAULT: "hsl(var(--brand))",
           light: "hsl(var(--brand-light))",
@@ -74,6 +74,19 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "1.5rem",
+      },
+      backgroundImage: {
+        "brand-gradient":
+          "linear-gradient(135deg, hsl(221, 83%, 53%) 0%, hsl(239, 69%, 58%) 55%, hsl(250, 62%, 58%) 100%)",
+        "brand-gradient-subtle":
+          "linear-gradient(180deg, hsl(220, 26%, 98%) 0%, hsl(230, 40%, 96%) 100%)",
+      },
+      boxShadow: {
+        brand: "0 8px 32px -8px hsl(221 83% 53% / 0.25), 0 2px 8px -2px hsl(222 47% 11% / 0.06)",
+        "brand-sm": "0 4px 20px -4px hsl(221 83% 53% / 0.2)",
       },
       keyframes: {
         "accordion-down": {

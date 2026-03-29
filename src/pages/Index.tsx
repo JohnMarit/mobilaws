@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Menu, Heart } from 'lucide-react';
+import { Loader2, Menu, MessageSquare, Search, FileText, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
@@ -30,6 +30,7 @@ const Index = () => {
   const [showBookCounsel, setShowBookCounsel] = useState(false);
   const [showDonationDialog, setShowDonationDialog] = useState(false);
   const [activeFeature, setActiveFeature] = useState<string>('chat');
+  const [mobileHeaderLogoFailed, setMobileHeaderLogoFailed] = useState(false);
   const { toast } = useToast();
   
   // Check for openChat/chatId/requestId query parameters (from payment success)
@@ -133,7 +134,7 @@ const Index = () => {
   };
 
   return (
-    <div className="h-screen bg-white flex overflow-hidden">
+    <div className="h-screen bg-brand-gradient-subtle flex overflow-hidden">
       {/* Sidebar - Hidden on mobile by default */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
@@ -157,48 +158,103 @@ const Index = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col relative h-screen lg:h-auto overflow-hidden">
         {/* Mobile Header - Only visible on mobile and tablet */}
-        <div className="lg:hidden flex items-center justify-between p-3 border-b border-gray-200 bg-white sticky top-0 z-50 shadow-sm flex-shrink-0">
+        <div className="lg:hidden flex items-center justify-between px-3 py-2.5 border-b border-primary/10 bg-white/80 backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-50 shadow-sm shadow-brand-sm/25 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              className="h-9 w-9 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl"
             >
-              <Menu className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </Button>
-            <span className="font-medium text-sm">Mobilaws</span>
-            <CountrySelector className="text-xs" />
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm overflow-hidden ring-2 ring-primary/20">
+                {!mobileHeaderLogoFailed ? (
+                  <img
+                    src="/whitelogo.png"
+                    alt=""
+                    className="h-5 w-5 object-contain"
+                    onError={() => setMobileHeaderLogoFailed(true)}
+                  />
+                ) : (
+                  <span className="text-primary-foreground text-xs font-bold">M</span>
+                )}
+              </div>
+              <span className="font-semibold text-sm text-gray-900 tracking-tight">Mobilaws</span>
+            </div>
           </div>
           <div className="flex items-center gap-1">
+            <CountrySelector className="text-xs" />
             <UserProfileNav
               onManageSubscription={() => setShowSubscriptionModal(true)}
               compact={true}
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleMobileShowDonation}
-              className="h-8 w-8 p-0 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-              title="Donate"
-            >
-              <Heart className="h-4 w-4" />
-            </Button>
           </div>
         </div>
-        {activeFeature === 'chat' && (
-          <ChatInterface
-            onShowDonation={handleMobileShowDonation}
-          />
-        )}
-        {activeFeature === 'draft' && <DocumentDrafting />}
-        {activeFeature === 'research' && <LegalResearch />}
-        {activeFeature === 'upload' && <DocumentUpload />}
-        {activeFeature === 'compare' && <ContractComparison />}
-        {activeFeature === 'ocr' && <OCRConverter />}
-        {activeFeature === 'translate' && <DocumentTranslator />}
-        {activeFeature === 'templates' && <TemplateGenerator />}
-        {activeFeature === 'mode' && <AssistantModeSelector />}
+
+        {/* Feature content — add bottom padding on mobile for the nav bar */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden pb-16 lg:pb-0">
+          {activeFeature === 'chat' && (
+            <ChatInterface
+              onShowDonation={handleMobileShowDonation}
+            />
+          )}
+          {activeFeature === 'draft' && <DocumentDrafting />}
+          {activeFeature === 'research' && <LegalResearch />}
+          {activeFeature === 'upload' && <DocumentUpload />}
+          {activeFeature === 'compare' && <ContractComparison />}
+          {activeFeature === 'ocr' && <OCRConverter />}
+          {activeFeature === 'translate' && <DocumentTranslator />}
+          {activeFeature === 'templates' && <TemplateGenerator />}
+          {activeFeature === 'mode' && (
+            <AssistantModeSelector
+              onSavedGoToStudy={() => {
+                setActiveFeature('chat');
+                setTimeout(() => {
+                  window.dispatchEvent(new Event('open-learning-path'));
+                }, 80);
+              }}
+            />
+          )}
+        </div>
+
+        {/* Sticky Mobile Bottom Navigation */}
+        <nav
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl backdrop-saturate-150 border-t border-primary/10 shadow-[0_-4px_24px_-4px_rgba(37,99,235,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          aria-label="Main navigation"
+        >
+          <div className="flex items-stretch">
+            {[
+              { id: 'chat',     icon: MessageSquare, label: 'Chat' },
+              { id: 'research', icon: Search,        label: 'Search' },
+              { id: 'draft',    icon: FileText,      label: 'Draft' },
+              { id: 'mode',     icon: GraduationCap, label: 'Learn' },
+            ].map(({ id, icon: Icon, label }) => {
+              const active = activeFeature === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveFeature(id)}
+                  className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-3 min-h-[56px] touch-manipulation transition-colors ${
+                    active
+                      ? 'text-primary'
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  {active && (
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
+                  )}
+                  <Icon className={`h-6 w-6 ${active ? 'stroke-[2.25]' : 'stroke-[1.75]'}`} />
+                  <span className={`text-[10px] font-semibold ${active ? 'text-primary' : 'text-gray-400'}`}>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       </div>
 
       {/* Book Counsel Dialog */}
