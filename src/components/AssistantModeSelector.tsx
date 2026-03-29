@@ -14,9 +14,17 @@ type AssistantMode = 'student' | 'lawyer' | 'consumer' | null;
 interface AssistantModeSelectorProps {
   /** Called after a successful save; use to switch to chat + open Learning Hub */
   onSavedGoToStudy?: () => void;
+  /** Called after any successful save (e.g. close profile dialog) */
+  onSaved?: () => void;
+  /** Compact layout for use inside a modal */
+  embedded?: boolean;
 }
 
-export default function AssistantModeSelector({ onSavedGoToStudy }: AssistantModeSelectorProps) {
+export default function AssistantModeSelector({
+  onSavedGoToStudy,
+  onSaved,
+  embedded = false,
+}: AssistantModeSelectorProps) {
   const [selectedMode, setSelectedMode] = useState<AssistantMode>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -86,6 +94,7 @@ export default function AssistantModeSelector({ onSavedGoToStudy }: AssistantMod
           : 'Your assistant mode preference has been saved.',
       });
       onSavedGoToStudy?.();
+      onSaved?.();
     } catch (error) {
       console.error('Error saving assistant mode:', error);
       toast({
@@ -127,7 +136,13 @@ export default function AssistantModeSelector({ onSavedGoToStudy }: AssistantMod
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center bg-mobilaws-hero">
+      <div
+        className={
+          embedded
+            ? 'flex min-h-[120px] items-center justify-center bg-mobilaws-hero rounded-lg'
+            : 'h-full flex items-center justify-center bg-mobilaws-hero'
+        }
+      >
         <div className="text-center">
           <p className="text-muted-foreground font-medium">Loading…</p>
         </div>
@@ -136,8 +151,14 @@ export default function AssistantModeSelector({ onSavedGoToStudy }: AssistantMod
   }
 
   return (
-    <div className="h-full flex flex-col bg-mobilaws-hero">
-      <div className="flex-1 overflow-auto p-6 pb-10">
+    <div
+      className={
+        embedded
+          ? 'flex max-h-[min(85vh,720px)] flex-col bg-mobilaws-hero rounded-lg'
+          : 'h-full flex flex-col bg-mobilaws-hero'
+      }
+    >
+      <div className={embedded ? 'flex-1 overflow-y-auto p-4 pb-6 sm:p-6' : 'flex-1 overflow-auto p-6 pb-10'}>
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">

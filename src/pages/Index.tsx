@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, Menu, MessageSquare, Search, FileText, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ChatInterface from '@/components/ChatInterface';
 import Sidebar from '@/components/Sidebar';
 import UserProfileNav from '@/components/UserProfileNav';
 import { useChatContext } from '@/contexts/ChatContext';
 import { usePromptLimit } from '@/contexts/PromptLimitContext';
+import { useAuth } from '@/contexts/FirebaseAuthContext';
+import { useAssistantModePreference } from '@/hooks/useAssistantModePreference';
 import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
 import CountrySelector from '@/components/CountrySelector';
@@ -21,6 +24,7 @@ import DocumentTranslator from '@/components/DocumentTranslator';
 import TemplateGenerator from '@/components/TemplateGenerator';
 import AssistantModeSelector from '@/components/AssistantModeSelector';
 import SubscriptionManager from '@/components/SubscriptionManager';
+import { cn } from '@/lib/utils';
 
 const Index = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,6 +35,10 @@ const Index = () => {
   const [showDonationDialog, setShowDonationDialog] = useState(false);
   const [activeFeature, setActiveFeature] = useState<string>('chat');
   const [mobileHeaderLogoFailed, setMobileHeaderLogoFailed] = useState(false);
+  const [assistantModeDialogOpen, setAssistantModeDialogOpen] = useState(false);
+  const [learningHubOpen, setLearningHubOpen] = useState(false);
+  const { user } = useAuth();
+  const { hasSavedAssistantMode, loading: assistantModeLoading } = useAssistantModePreference();
   const { toast } = useToast();
   
   // Check for openChat/chatId/requestId query parameters (from payment success)
@@ -108,6 +116,33 @@ const Index = () => {
     });
   }, [toast]);
 
+  /** Learn tab: study hub if mode already saved; otherwise first-time setup screen */
+  const openStudyFromSavedMode = () => {
+    setActiveFeature('chat');
+    setTimeout(() => {
+      window.dispatchEvent(new Event('open-learning-path'));
+    }, 80);
+  };
+
+  const handleMobileNavSelect = (featureId: string) => {
+    if (featureId === 'mode') {
+      if (user && !assistantModeLoading && hasSavedAssistantMode) {
+        openStudyFromSavedMode();
+      } else {
+        setActiveFeature('mode');
+      }
+      return;
+    }
+    setActiveFeature(featureId);
+  };
+
+  useEffect(() => {
+    if (activeFeature !== 'mode' || !user || assistantModeLoading || !hasSavedAssistantMode) return;
+    setActiveFeature('chat');
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('open-learning-path'));
+    }, 80);
+  }, [activeFeature, user, assistantModeLoading, hasSavedAssistantMode]);
 
   if (isLoading) {
     return (
@@ -188,6 +223,7 @@ const Index = () => {
             <CountrySelector className="text-xs" />
             <UserProfileNav
               onManageSubscription={() => setShowSubscriptionModal(true)}
+              onOpenAssistantMode={() => setAssistantModeDialogOpen(true)}
               compact={true}
             />
           </div>
@@ -198,6 +234,8 @@ const Index = () => {
           {activeFeature === 'chat' && (
             <ChatInterface
               onShowDonation={handleMobileShowDonation}
+              onOpenAssistantModeSettings={() => setAssistantModeDialogOpen(true)}
+              onLearningHubOpenChange={setLearningHubOpen}
             />
           )}
           {activeFeature === 'draft' && <DocumentDrafting />}
@@ -219,40 +257,48 @@ const Index = () => {
           )}
         </div>
 
-        {/* Sticky Mobile Bottom Navigation */}
+        {/* Floating mobile tab bar — hidden while fullscreen Learn is open */}
         <nav
-          className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl backdrop-saturate-150 border-t border-primary/10 shadow-[0_-4px_24px_-4px_rgba(37,99,235,0.12)] pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          className={cn(
+            'lg:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none pb-[max(0.75rem,env(safe-area-inset-bottom))] px-3',
+            learningHubOpen && 'hidden'
+          )}
           aria-label="Main navigation"
         >
-          <div className="flex items-stretch">
-            {[
-              { id: 'chat',     icon: MessageSquare, label: 'Chat' },
-              { id: 'research', icon: Search,        label: 'Search' },
-              { id: 'draft',    icon: FileText,      label: 'Draft' },
-              { id: 'mode',     icon: GraduationCap, label: 'Learn' },
-            ].map(({ id, icon: Icon, label }) => {
-              const active = activeFeature === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveFeature(id)}
-                  className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-3 min-h-[56px] touch-manipulation transition-colors ${
-                    active
-                      ? 'text-primary'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  {active && (
-                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
-                  )}
-                  <Icon className={`h-6 w-6 ${active ? 'stroke-[2.25]' : 'stroke-[1.75]'}`} />
-                  <span className={`text-[10px] font-semibold ${active ? 'text-primary' : 'text-gray-400'}`}>
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-primary/12 bg-white/72 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_12px_40px_-12px_rgba(37,99,235,0.22),0_0_0_1px_rgba(255,255,255,0.55)_inset] ring-1 ring-black/[0.05]">
+            <div className="flex items-stretch gap-0.5 p-1.5">
+              {[
+                { id: 'chat', icon: MessageSquare, label: 'Chat' },
+                { id: 'research', icon: Search, label: 'Search' },
+                { id: 'draft', icon: FileText, label: 'Draft' },
+                { id: 'mode', icon: GraduationCap, label: 'Learn' },
+              ].map(({ id, icon: Icon, label }) => {
+                const active = activeFeature === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => handleMobileNavSelect(id)}
+                    className={cn(
+                      'relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[52px] rounded-xl touch-manipulation transition-all duration-200',
+                      active
+                        ? 'text-primary bg-primary/[0.12] shadow-[0_1px_8px_-2px_rgba(37,99,235,0.35)]'
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-muted/50 active:scale-[0.97]'
+                    )}
+                  >
+                    <Icon className={cn('h-5 w-5', active ? 'stroke-[2.25]' : 'stroke-[1.75]')} />
+                    <span
+                      className={cn(
+                        'text-[10px] font-semibold tracking-tight',
+                        active ? 'text-primary' : 'text-gray-400'
+                      )}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </nav>
       </div>
@@ -273,6 +319,23 @@ const Index = () => {
       <DonationDialog open={showDonationDialog} onOpenChange={setShowDonationDialog} />
 
       {/* Subscription Modal - available from all features (chat, draft, research, etc.) */}
+      <Dialog open={assistantModeDialogOpen} onOpenChange={setAssistantModeDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden border-primary/10 p-0 gap-0 sm:rounded-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Assistant mode</DialogTitle>
+            <DialogDescription>
+              Choose how the AI tailors responses. You can change this anytime from your profile.
+            </DialogDescription>
+          </DialogHeader>
+          {assistantModeDialogOpen && (
+            <AssistantModeSelector
+              embedded
+              onSaved={() => setAssistantModeDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {showSubscriptionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-xl">

@@ -27,9 +27,19 @@ interface ChatInterfaceProps {
   onShowDonation?: () => void;
   onToggleDebug?: () => void;
   onOpenLearningPath?: () => void;
+  onOpenAssistantModeSettings?: () => void;
+  /** Synced when the fullscreen Learning Hub opens/closes (mobile shell can hide the tab bar). */
+  onLearningHubOpenChange?: (open: boolean) => void;
 }
 
-export default function ChatInterface({ className = '', onShowDonation, onToggleDebug, onOpenLearningPath }: ChatInterfaceProps) {
+export default function ChatInterface({
+  className = '',
+  onShowDonation,
+  onToggleDebug,
+  onOpenLearningPath,
+  onOpenAssistantModeSettings,
+  onLearningHubOpenChange,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
@@ -507,6 +517,7 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
           </Button>
           <UserProfileNav
             onManageSubscription={() => setShowSubscriptionModal(true)}
+            onOpenAssistantMode={onOpenAssistantModeSettings}
             compact={false}
           />
         </div>
@@ -644,7 +655,14 @@ export default function ChatInterface({ className = '', onShowDonation, onToggle
         </>
       )}
 
-      <LearningHub open={showLearningHub} onOpenChange={setShowLearningHub} fullscreen={true} />
+      <LearningHub
+        open={showLearningHub}
+        onOpenChange={(open) => {
+          setShowLearningHub(open);
+          onLearningHubOpenChange?.(open);
+        }}
+        fullscreen={true}
+      />
 
       {/* Book Counsel Dialog */}
       <BookCounsel

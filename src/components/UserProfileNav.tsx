@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, Settings, MessageSquare, Inbox, Briefcase, Shield } from 'lucide-react';
+import { User, LogOut, Settings, MessageSquare, Inbox, Briefcase, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -20,10 +20,15 @@ import { UserChatHistory } from './UserChatHistory';
 
 interface UserProfileNavProps {
   onManageSubscription?: () => void;
+  onOpenAssistantMode?: () => void;
   compact?: boolean;
 }
 
-export default function UserProfileNav({ onManageSubscription, compact = false }: UserProfileNavProps) {
+export default function UserProfileNav({
+  onManageSubscription,
+  onOpenAssistantMode,
+  compact = false,
+}: UserProfileNavProps) {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { userSubscription } = useSubscription();
   const { setShowLoginModal, promptCount, maxPrompts, dailyTokensUsed, maxDailyTokens } = usePromptLimit();
@@ -77,6 +82,12 @@ export default function UserProfileNav({ onManageSubscription, compact = false }
             <User className="h-4 w-4 mr-2" />
             Profile
           </DropdownMenuItem>
+          {onOpenAssistantMode && (
+            <DropdownMenuItem onClick={() => onOpenAssistantMode()}>
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Assistant mode
+            </DropdownMenuItem>
+          )}
           {onManageSubscription && (
             <DropdownMenuItem onClick={onManageSubscription}>
               <Settings className="h-4 w-4 mr-2" />

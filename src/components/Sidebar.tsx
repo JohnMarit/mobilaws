@@ -14,7 +14,6 @@ import {
   Scan,
   Languages,
   FileCode,
-  User,
   ChevronDown,
   ChevronUp,
   Gavel,
@@ -251,7 +250,6 @@ export default function Sidebar({
                 { id: 'ocr', icon: Scan, label: 'OCR Converter' },
                 { id: 'translate', icon: Languages, label: 'Translate Documents' },
                 { id: 'templates', icon: FileCode, label: 'Legal Templates' },
-                { id: 'mode', icon: User, label: 'Assistant Mode' },
               ];
 
               const visibleFeatures = showAllFeatures || isCollapsed ? features : features.slice(0, 4);

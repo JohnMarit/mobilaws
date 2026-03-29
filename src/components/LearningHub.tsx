@@ -4,12 +4,12 @@ import {
   faScroll, faGlobe, faScaleBalanced, faLandmark, faBook, faHeadphones, 
   faStar, faHeart, faPlus, faFire, faTrophy, faBolt, faCertificate, faRoute,
   faCircleCheck, faLock, faChevronRight, faChevronDown, faChevronUp,
-  faTrashCan, faRotateLeft, faXmark, faAward, faPlay, faWandMagicSparkles,
+  faTrashCan, faRotateLeft, faXmark, faPlay, faWandMagicSparkles,
   faSpinner, faBookOpen, faGraduationCap, faListCheck, faArrowRight, faBullseye,
-  faHouse, faBars, faBell, faSearch, faClock, faChartLine, faBriefcase,
-  faUsers, faFileLines, faDatabase, faDownload, faThumbsUp, faComments,
-  faReply, faCrown, faCheck, faEdit, faPencil, faEllipsisVertical
+  faBell, faSearch, faClock,
+  faCheck
 } from '@fortawesome/free-solid-svg-icons';
+import { cn } from '@/lib/utils';
 import { useLearning } from '@/contexts/LearningContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +28,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import LessonRunner from './LessonRunner';
 import Leaderboard from './Leaderboard';
@@ -147,26 +152,10 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
   const [isDeletingLessons, setIsDeletingLessons] = useState<string | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'lessons' | 'certifications' | 'leaderboard'>('lessons');
-  const [activeNav, setActiveNav] = useState<'featured' | 'learning' | 'certification' | 'leaderboard'>('featured');
   const [selectedCourse, setSelectedCourse] = useState<Module | null>(null);
   const [showGenerateLessonsPopup, setShowGenerateLessonsPopup] = useState(false);
   const [moduleForGeneration, setModuleForGeneration] = useState<{ id: string; name: string } | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<'simple' | 'medium' | 'hard'>('medium');
-  
-  // Discussions state
-  const [discussions, setDiscussions] = useState<any[]>([]);
-  const [discussionsLoading, setDiscussionsLoading] = useState(true);
-  const [showNewPostDialog, setShowNewPostDialog] = useState(false);
-  const [newPostContent, setNewPostContent] = useState('');
-  const [selectedDiscussionId, setSelectedDiscussionId] = useState<string | null>(null);
-  const [comments, setComments] = useState<Record<string, any[]>>({});
-  const [commentContent, setCommentContent] = useState<Record<string, string>>({});
-  const [discussionSort, setDiscussionSort] = useState<'trending' | 'new' | 'old' | 'all'>('all');
-  const [editingDiscussionId, setEditingDiscussionId] = useState<string | null>(null);
-  const [editingCommentId, setEditingCommentId] = useState<Record<string, string | null>>({});
-  const [editDiscussionContent, setEditDiscussionContent] = useState<Record<string, string>>({});
-  const [editCommentContent, setEditCommentContent] = useState<Record<string, string>>({});
   
   // Notifications state
   const [notificationCount, setNotificationCount] = useState(0);
@@ -494,391 +483,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     return null;
   };
 
-  // Fetch discussions from API
-  const fetchDiscussions = async () => {
-    setDiscussionsLoading(true);
-    try {
-      const token = await getAuthToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(getApiUrl('discussions'), { headers });
-      if (!response.ok) throw new Error('Failed to fetch discussions');
-      
-      const data = await response.json();
-      if (data.success) {
-        setDiscussions(data.discussions || []);
-      }
-    } catch (error) {
-      console.error('Error fetching discussions:', error);
-      toast.error('Failed to load discussions');
-    } finally {
-      setDiscussionsLoading(false);
-    }
-  };
-
-  // Create a new discussion post
-  const handleCreatePost = async () => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    if (!newPostContent.trim()) {
-      toast.error('Please enter some content');
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to post');
-        return;
-      }
-
-      const response = await fetch(getApiUrl('discussions'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content: newPostContent.trim() }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create post');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Post created successfully!');
-        setNewPostContent('');
-        setShowNewPostDialog(false);
-        fetchDiscussions(); // Refresh discussions
-      }
-    } catch (error: any) {
-      console.error('Error creating post:', error);
-      toast.error(error.message || 'Failed to create post');
-    }
-  };
-
-  // Toggle like on a discussion
-  const handleToggleLike = async (discussionId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to like posts');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}/like`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle like');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        // Update local state
-        setDiscussions(prev => prev.map(d => {
-          if (d.id === discussionId) {
-            return {
-              ...d,
-              likesCount: data.liked ? d.likesCount + 1 : d.likesCount - 1,
-              isLiked: data.liked,
-            };
-          }
-          return d;
-        }));
-      }
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      toast.error('Failed to update like');
-    }
-  };
-
-  // Add a comment to a discussion
-  const handleAddComment = async (discussionId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const content = commentContent[discussionId]?.trim();
-    if (!content) {
-      toast.error('Please enter a comment');
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to comment');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add comment');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Comment added!');
-        setCommentContent(prev => ({ ...prev, [discussionId]: '' }));
-        // Refresh comments
-        const commentsResponse = await fetch(getApiUrl(`discussions/${discussionId}/comments`));
-        if (commentsResponse.ok) {
-          const commentsData = await commentsResponse.json();
-          if (commentsData.success) {
-            setComments(prev => ({ ...prev, [discussionId]: commentsData.comments }));
-          }
-        }
-        // Update discussion comment count
-        setDiscussions(prev => prev.map(d => {
-          if (d.id === discussionId) {
-            return { ...d, commentsCount: d.commentsCount + 1 };
-          }
-          return d;
-        }));
-      }
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      toast.error('Failed to add comment');
-    }
-  };
-
-  // Fetch comments for a discussion
-  const fetchComments = async (discussionId: string) => {
-    try {
-      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments`));
-      if (!response.ok) return;
-      
-      const data = await response.json();
-      if (data.success) {
-        setComments(prev => ({ ...prev, [discussionId]: data.comments || [] }));
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    }
-  };
-
-  // Update a discussion post
-  const handleUpdatePost = async (discussionId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const content = editDiscussionContent[discussionId]?.trim();
-    if (!content) {
-      toast.error('Please enter some content');
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to edit posts');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update post');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Post updated successfully!');
-        setEditingDiscussionId(null);
-        setEditDiscussionContent(prev => {
-          const updated = { ...prev };
-          delete updated[discussionId];
-          return updated;
-        });
-        fetchDiscussions(); // Refresh discussions
-      }
-    } catch (error: any) {
-      console.error('Error updating post:', error);
-      toast.error(error.message || 'Failed to update post');
-    }
-  };
-
-  // Delete a discussion post
-  const handleDeletePost = async (discussionId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to delete posts');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}`), {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete post');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Post deleted successfully!');
-        fetchDiscussions(); // Refresh discussions
-      }
-    } catch (error: any) {
-      console.error('Error deleting post:', error);
-      toast.error(error.message || 'Failed to delete post');
-    }
-  };
-
-  // Update a comment
-  const handleUpdateComment = async (discussionId: string, commentId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const content = editCommentContent[commentId]?.trim();
-    if (!content) {
-      toast.error('Please enter some content');
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to edit comments');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments/${commentId}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ content }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update comment');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Comment updated successfully!');
-        setEditingCommentId(prev => ({ ...prev, [discussionId]: null }));
-        setEditCommentContent(prev => {
-          const updated = { ...prev };
-          delete updated[commentId];
-          return updated;
-        });
-        fetchComments(discussionId); // Refresh comments
-      }
-    } catch (error: any) {
-      console.error('Error updating comment:', error);
-      toast.error(error.message || 'Failed to update comment');
-    }
-  };
-
-  // Delete a comment
-  const handleDeleteComment = async (discussionId: string, commentId: string) => {
-    if (!user) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    if (!confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('Please login to delete comments');
-        return;
-      }
-
-      const response = await fetch(getApiUrl(`discussions/${discussionId}/comments/${commentId}`), {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete comment');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        toast.success('Comment deleted successfully!');
-        // Refresh comments
-        fetchComments(discussionId);
-        // Update discussion comment count
-        setDiscussions(prev => prev.map(d => {
-          if (d.id === discussionId) {
-            return { ...d, commentsCount: Math.max(0, d.commentsCount - 1) };
-          }
-          return d;
-        }));
-      }
-    } catch (error: any) {
-      console.error('Error deleting comment:', error);
-      toast.error(error.message || 'Failed to delete comment');
-    }
-  };
-
   // Format time ago - handles Firestore timestamps and regular timestamps
   const formatTimeAgo = (timestamp: any): string => {
     if (!timestamp) return 'Unknown';
@@ -971,13 +575,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
         </span>
       );
   };
-
-  // Fetch discussions when learning tab is active
-  useEffect(() => {
-    if (activeNav === 'learning') {
-      fetchDiscussions();
-    }
-  }, [activeNav]);
 
   // Fetch notification count
   const fetchNotificationCount = async () => {
@@ -1099,363 +696,193 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
     }
   }, [showNotifications, user]);
 
-  // Filter modules based on navigation
-  const displayedModules = useMemo(() => {
-    if (activeNav === 'featured') {
-      // Show all courses
-      return filteredModules;
-    }
-    // For learning, certification and leaderboard, return empty (they show different content)
-    return [];
-  }, [filteredModules, activeNav]);
-
-  // Sort discussions based on selected sort option
-  const sortedDiscussions = useMemo(() => {
-    let sorted = [...discussions];
-    
-    switch (discussionSort) {
-      case 'trending':
-        sorted.sort((a, b) => {
-          const aScore = (a.likesCount || 0) + (a.commentsCount || 0);
-          const bScore = (b.likesCount || 0) + (b.commentsCount || 0);
-          return bScore - aScore;
-        });
-        break;
-      case 'new':
-        sorted.sort((a, b) => {
-          const aTime = new Date(a.createdAt).getTime();
-          const bTime = new Date(b.createdAt).getTime();
-          return bTime - aTime;
-        });
-        break;
-      case 'old':
-        sorted.sort((a, b) => {
-          const aTime = new Date(a.createdAt).getTime();
-          const bTime = new Date(b.createdAt).getTime();
-          return aTime - bTime;
-        });
-        break;
-      case 'all':
-      default:
-        // Keep original order
-        break;
-    }
-    
-    return sorted;
-  }, [discussions, discussionSort]);
+  const displayedModules = filteredModules;
 
   // If fullscreen mode, render fullscreen layout
   if (fullscreen && open) {
     return (
       <div className="fixed inset-0 z-50 bg-mobilaws-hero flex flex-col overflow-hidden text-slate-900">
-        {/* Header — frosted bar aligned with app shell (Mobbin-style) */}
-        <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-primary/10 bg-white/80 backdrop-blur-xl backdrop-saturate-150 flex-shrink-0 h-[60px] shadow-sm shadow-brand-sm/20">
-          <div className="flex items-center gap-3">
+        {/* Header — premium frosted strip */}
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 py-2.5 border-b border-white/40 bg-white/55 backdrop-blur-2xl backdrop-saturate-150 flex-shrink-0 min-h-[56px] shadow-[0_1px_0_0_rgba(255,255,255,0.65)_inset,0_8px_32px_-12px_hsl(221_83%_53%_/_0.12)]">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0 rounded-xl hover:bg-primary/8 text-slate-600"
+              className="h-10 w-10 p-0 rounded-2xl hover:bg-primary/10 text-slate-600 border border-transparent hover:border-primary/10 transition-all"
+              onClick={() => onOpenChange(false)}
+              aria-label="Close study hub"
             >
-              <FontAwesomeIcon icon={faBars} className="text-lg" />
+              <FontAwesomeIcon icon={faXmark} className="text-lg" />
             </Button>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm ring-2 ring-primary/15">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-brand-gradient flex items-center justify-center shadow-lg shadow-primary/25 ring-2 ring-white/40 shrink-0">
                 <FontAwesomeIcon icon={faBookOpen} className="text-white text-sm drop-shadow-sm" />
               </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-semibold leading-tight tracking-tight text-gradient-brand">
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-[1.05rem] font-bold leading-tight tracking-tight text-gradient-brand truncate">
                   Study
                 </h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium -mt-0.5">Learning hub</p>
+                <p className="text-[10px] sm:text-[11px] text-muted-foreground font-medium tracking-wide uppercase">
+                  Learning hub
+                </p>
               </div>
             </div>
           </div>
-          
-          {/* Stats as Round Icons */}
-          <div className="flex items-center gap-2.5">
-            {/* Level Icon */}
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80">
-                <FontAwesomeIcon icon={faStar} className="text-[10px] text-primary-foreground" />
-              </div>
-              <span className="text-[9px] font-semibold text-primary">{progress.level}</span>
-            </div>
-            
-            {/* Streak Icon */}
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80 opacity-95">
-                <FontAwesomeIcon icon={faFire} className="text-[10px] text-primary-foreground" />
-              </div>
-              <span className="text-[9px] font-semibold text-primary">{progress.streak}</span>
-            </div>
-            
-            {/* Daily Lessons/Goal Icon */}
-            <div className="flex flex-col items-center gap-0.5">
-              <div className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80">
-                {tier === 'free' ? (
-                  <FontAwesomeIcon icon={faTrophy} className="text-[10px] text-primary-foreground" />
-                ) : (
-                  <FontAwesomeIcon icon={faBullseye} className="text-[10px] text-primary-foreground" />
-                )}
-              </div>
-              <span className="text-[9px] font-semibold text-primary">
-                {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal} XP`}
+
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-1.5 shrink-0">
+            {/* Compact Mobbin-scale metrics: ~24px icon well, tight type */}
+            <div
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white/90 px-1.5 py-1 shadow-[0_1px_0_rgba(15,23,42,0.03)] sm:gap-2 sm:rounded-xl sm:px-2 sm:py-1"
+              title="Level"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 sm:h-7 sm:w-7">
+                <FontAwesomeIcon icon={faStar} className="text-[10px] sm:text-[11px]" />
               </span>
-            </div>
-            
-            {/* Notification Icon */}
-            <div className="flex flex-col items-center gap-0.5">
-              <div 
-                className="w-7 h-7 rounded-full bg-brand-gradient flex items-center justify-center shadow-md shadow-brand-sm/40 ring-2 ring-white/80 relative cursor-pointer hover:opacity-90 transition-opacity active:scale-95"
-                onClick={() => setShowNotifications(true)}
-              >
-                <FontAwesomeIcon icon={faBell} className="text-[10px] text-primary-foreground" />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-white shadow-sm">
-                    {notificationCount > 99 ? '99+' : notificationCount}
-                  </span>
-                )}
+              <div className="min-w-0 leading-none">
+                <p className="text-[8px] font-medium uppercase tracking-[0.06em] text-slate-400 sm:text-[9px]">
+                  Level
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-slate-900 sm:text-xs">
+                  {progress.level}
+                </p>
               </div>
-              <span className="text-[9px] font-semibold text-primary">{notificationCount}</span>
+            </div>
+            <div
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-white/90 px-1.5 py-1 shadow-[0_1px_0_rgba(15,23,42,0.03)] sm:gap-2 sm:rounded-xl sm:px-2 sm:py-1"
+              title="Streak"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500 sm:h-7 sm:w-7">
+                <FontAwesomeIcon icon={faFire} className="text-[10px] sm:text-[11px]" />
+              </span>
+              <div className="min-w-0 leading-none">
+                <p className="text-[8px] font-medium uppercase tracking-[0.06em] text-slate-400 sm:text-[9px]">
+                  Streak
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-slate-900 sm:text-xs">
+                  {progress.streak}d
+                </p>
+              </div>
+            </div>
+            <div
+              className="hidden sm:flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white/90 px-2 py-1 shadow-[0_1px_0_rgba(15,23,42,0.03)]"
+              title={tier === 'free' ? 'Daily lessons' : 'Daily goal'}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+                {tier === 'free' ? (
+                  <FontAwesomeIcon icon={faTrophy} className="text-[11px]" />
+                ) : (
+                  <FontAwesomeIcon icon={faBullseye} className="text-[11px]" />
+                )}
+              </span>
+              <div className="min-w-0 leading-none">
+                <p className="text-[9px] font-medium uppercase tracking-[0.06em] text-slate-400">
+                  {tier === 'free' ? 'Daily' : 'Goal'}
+                </p>
+                <p className="mt-0.5 max-w-[3.5rem] truncate text-xs font-semibold tabular-nums text-slate-900">
+                  {tier === 'free' ? `${dailyLessonsRemaining}/2` : `${progress.dailyGoal}`}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-5 pb-24 overscroll-contain">
-          {activeNav === 'featured' ? (
-            <div className="space-y-5 sm:space-y-7 max-w-7xl mx-auto">
-              {/* Welcome Banner Section */}
-              <div className="relative rounded-3xl overflow-hidden bg-brand-gradient p-6 sm:p-8 text-primary-foreground shadow-elevated-lg ring-1 ring-primary/20">
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-30"
-                  style={{
-                    background:
-                      'radial-gradient(ellipse 80% 60% at 100% 0%, rgba(255,255,255,0.35), transparent 55%)',
-                  }}
-                />
-                <div className="relative z-10">
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2 tracking-tight drop-shadow-sm">
-                    Welcome back, {user?.name || 'Student'}
-                  </h1>
-                  <p className="text-white/90 text-sm sm:text-base font-medium">
-                    Continue your legal education journey
-                  </p>
-                </div>
-                
-                {/* Current Course Card */}
-                {(() => {
-                  const currentModule = modules.find(m => {
-                    const prog = getModuleProgress(m.id);
-                    return prog && Object.keys(prog.lessonsCompleted || {}).length > 0;
-                  }) || modules[0];
-                  
-                  if (!currentModule) return null;
-                  const { percent } = moduleStatus(currentModule);
-                  
-                  return (
-                    <div className="mt-6 bg-white/95 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-elevated border border-white/40">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-primary font-semibold mb-1 tracking-wide uppercase">Current course</p>
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 tracking-tight">{currentModule.title}</h3>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs text-slate-600">
-                              <span>Progress</span>
-                              <span className="font-semibold text-primary">{percent}%</span>
-                            </div>
-                            <Progress value={percent} className="h-2 bg-primary/10" />
-                          </div>
-                        </div>
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-brand-gradient flex items-center justify-center shadow-md ring-2 ring-white/50">
-                            <FontAwesomeIcon
-                              icon={
-                                currentModule.icon === 'faScroll' ? faScroll :
-                                currentModule.icon === 'faGlobe' ? faGlobe :
-                                currentModule.icon === 'faScaleBalanced' ? faScaleBalanced :
-                                currentModule.icon === 'faLandmark' ? faLandmark :
-                                faBook
-                              }
-                              className="text-xl sm:text-2xl text-white"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        onClick={() => handleCourseClick(currentModule)}
-                        className="w-full mt-4 rounded-xl h-11 font-semibold bg-white text-primary hover:bg-white/95 shadow-elevated"
-                      >
-                        Continue learning
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
+        {/* Main Content — courses first; secondary sections collapsed below */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-5 lg:px-8">
+          <div className="mx-auto max-w-7xl space-y-4 sm:space-y-5">
+            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between">
+              <p className="text-sm text-slate-800">
+                <span className="font-medium text-muted-foreground">Welcome back, </span>
+                <span className="font-semibold">{user?.name || 'Student'}</span>
+              </p>
+            </div>
 
-              {/* Search Bar */}
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search courses, topics…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 h-12 rounded-2xl border-primary/15 bg-white/90 backdrop-blur-sm shadow-elevated focus-visible:ring-primary/25 focus-visible:border-primary/40"
-                />
-                <FontAwesomeIcon icon={faSearch} className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/50" />
-              </div>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Search courses, topics…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-11 w-full rounded-2xl border-white/60 bg-white/70 pl-11 text-sm shadow-elevated ring-1 ring-primary/[0.06] backdrop-blur-xl placeholder:text-muted-foreground/70 focus-visible:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20 sm:h-12 sm:pl-12 sm:text-base"
+              />
+              <FontAwesomeIcon
+                icon={faSearch}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-primary/50 sm:left-4"
+              />
+            </div>
 
-              {/* Statistics Cards */}
-              <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
-                  <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md">
-                      <FontAwesomeIcon icon={faBook} className="text-primary-foreground text-lg sm:text-xl" />
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{modules.length}</div>
-                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Active courses</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
-                  <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md opacity-95">
-                      <FontAwesomeIcon icon={faClock} className="text-primary-foreground text-lg sm:text-xl" />
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{Math.floor(progress.xp / 60)}h</div>
-                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Study time</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-white/90 backdrop-blur-sm border-primary/10 shadow-elevated rounded-2xl overflow-hidden">
-                  <CardContent className="p-4 sm:p-5 text-center">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-xl bg-brand-gradient flex items-center justify-center shadow-md">
-                      <FontAwesomeIcon icon={faTrophy} className="text-primary-foreground text-lg sm:text-xl" />
-                    </div>
-                    <div className="text-xl sm:text-2xl font-bold text-slate-900 mb-1 tabular-nums">{Math.floor(progress.xp / 500)}</div>
-                    <div className="text-[11px] sm:text-sm text-muted-foreground font-medium">Certificates</div>
-                  </CardContent>
-                </Card>
-              </div>
+            {(() => {
+              const currentModule =
+                modules.find((m) => {
+                  const prog = getModuleProgress(m.id);
+                  return prog && Object.keys(prog.lessonsCompleted || {}).length > 0;
+                }) || modules[0];
 
-              {/* Recommended Learning Path Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Recommended learning path</h2>
-                </div>
-                
-                <Card className="border-primary/10 shadow-elevated rounded-2xl bg-brand-gradient-soft backdrop-blur-sm">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="space-y-4">
-                      {modules.slice(0, 5).map((module, index) => {
-                        const { percent, done } = moduleStatus(module);
-                        const isLocked = index > 0 && !moduleStatus(modules[index - 1]).done;
-                        
-                        return (
-                          <div key={module.id} className="flex items-center gap-4">
-                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              done ? 'bg-green-500' : isLocked ? 'bg-slate-300' : 'bg-blue-500'
-                            } text-white font-bold shadow-sm`}>
-                              {done ? (
-                                <FontAwesomeIcon icon={faCircleCheck} className="text-sm" />
-                              ) : isLocked ? (
-                                <FontAwesomeIcon icon={faLock} className="text-xs" />
-                              ) : (
-                                index + 1
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-slate-900 text-sm sm:text-base">{module.title}</h4>
-                              <p className="text-xs text-slate-600 mt-0.5">
-                                {done ? 'Completed' : isLocked ? 'Locked' : ''}
-                              </p>
-                              {!done && !isLocked && (
-                                <div className="mt-2">
-                                  <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-slate-600">Progress</span>
-                                    <span className="font-semibold text-blue-600">{percent}%</span>
-                                  </div>
-                                  <Progress value={percent} className="h-1.5 bg-blue-50" />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4 border-blue-300 text-blue-700 hover:bg-blue-50"
-                      onClick={() => {
-                        setSelectedCourse(null);
-                        setActiveNav('featured');
-                        // Scroll to featured courses section
-                        setTimeout(() => {
-                          const coursesSection = document.querySelector('[data-featured-courses]');
-                          if (coursesSection) {
-                            coursesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }
-                        }, 100);
-                      }}
-                    >
-                      View Full Path
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
+              if (!currentModule) return null;
+              const { percent } = moduleStatus(currentModule);
 
-              {/* Streak Tracker Section */}
-              <Card className="bg-gradient-to-br from-blue-500 via-blue-400 to-blue-600 border-0 shadow-xl text-white overflow-hidden">
-                <CardContent className="p-4 sm:p-6 relative">
-                  <div className="absolute top-4 right-4 w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
-                    <FontAwesomeIcon icon={faTrophy} className="text-white text-xl sm:text-2xl" />
+              return (
+                <div className="flex items-center gap-3 rounded-2xl border border-white/55 bg-white/60 p-3 shadow-sm backdrop-blur-md ring-1 ring-primary/[0.04] sm:gap-4 sm:p-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-gradient shadow-md shadow-primary/20 ring-2 ring-white/50 sm:h-12 sm:w-12">
+                    <FontAwesomeIcon
+                      icon={
+                        currentModule.icon === 'faScroll'
+                          ? faScroll
+                          : currentModule.icon === 'faGlobe'
+                            ? faGlobe
+                            : currentModule.icon === 'faScaleBalanced'
+                              ? faScaleBalanced
+                              : currentModule.icon === 'faLandmark'
+                                ? faLandmark
+                                : faBook
+                      }
+                      className="text-lg text-white sm:text-xl"
+                    />
                   </div>
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FontAwesomeIcon icon={faFire} className="text-orange-300" />
-                      <h3 className="text-xl sm:text-2xl font-bold">{progress.streak} Day Streak!</h3>
-                    </div>
-                    <p className="text-blue-100 mb-4 text-sm sm:text-base">Keep up the amazing work</p>
-                    
-                    {/* Day Tracker */}
-                    <div className="flex items-center gap-2 mb-4">
-                      {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
-                        <div
-                          key={idx}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${
-                            idx < progress.streak % 7
-                              ? 'bg-white text-blue-600'
-                              : idx === (progress.streak % 7)
-                              ? 'bg-white/90 text-blue-600 border-2 border-white'
-                              : 'bg-white/30 text-white border border-white/50'
-                          }`}
-                        >
-                          {day}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Today's Goal */}
-                    <div className="mt-4 pt-4 border-t border-white/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Today's Goal</span>
-                        <span className="text-sm font-semibold">{progress.xp % 60} / 60 min</span>
-                      </div>
-                      <Progress value={(progress.xp % 60) / 60 * 100} className="h-2 bg-white/30" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary/80">
+                      Resume
+                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-900 sm:text-base">
+                      {currentModule.title}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <Progress
+                        value={percent}
+                        className="h-1.5 flex-1 rounded-full bg-primary/10"
+                      />
+                      <span className="shrink-0 text-[11px] font-bold tabular-nums text-primary">
+                        {percent}%
+                      </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleCourseClick(currentModule)}
+                    className="h-9 shrink-0 rounded-full border-0 bg-brand-gradient px-4 text-xs font-semibold text-primary-foreground shadow-md shadow-primary/25 hover:opacity-[0.96] sm:h-10 sm:px-5"
+                  >
+                    Open
+                  </Button>
+                </div>
+              );
+            })()}
 
-              {/* Modules */}
-              <div className="space-y-3 sm:space-y-4" data-featured-courses>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="text-lg sm:text-xl font-semibold">
-                    Featured Courses
-                  </h3>
-                  <div className="flex items-center gap-2">
+            <div className="space-y-3 sm:space-y-4" data-featured-courses>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="mb-0.5 text-[11px] font-bold uppercase tracking-[0.14em] text-primary/70">
+                      All courses
+                    </p>
+                    <h3 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                      Browse catalog
+                    </h3>
+                    <p className="mt-1 max-w-xl text-xs text-muted-foreground sm:text-sm">
+                      Filter with search and category — your next lesson is one tap away.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="w-[140px] sm:w-[180px]">
+                      <SelectTrigger className="h-10 w-[150px] sm:w-[190px] rounded-full border-white/55 bg-white/65 backdrop-blur-md shadow-sm ring-1 ring-primary/[0.06]">
                         <SelectValue placeholder="All Categories" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1477,38 +904,41 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                         })}
                       </SelectContent>
                     </Select>
-                    <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full border border-primary/12 bg-white/70 px-3 py-1 text-xs font-bold uppercase tracking-wide backdrop-blur-sm shadow-sm"
+                    >
+                      {tier}
+                    </Badge>
                   </div>
                 </div>
                 {modulesLoading ? (
-                  <div className="text-center py-12">
-                    <FontAwesomeIcon icon={faSpinner} className="text-5xl mx-auto text-blue-400 mb-4 animate-spin" />
-                    <p className="text-gray-600 text-lg font-medium">
-                      Loading courses...
-                    </p>
-                    <p className="text-gray-500 text-sm mt-2">
-                      Please wait while we fetch the latest courses
-                    </p>
+                  <div className="rounded-[1.5rem] border border-white/55 bg-white/45 py-14 text-center backdrop-blur-xl shadow-elevated ring-1 ring-primary/[0.05]">
+                    <FontAwesomeIcon icon={faSpinner} className="mx-auto mb-4 text-4xl text-primary/50 animate-spin" />
+                    <p className="text-base font-semibold text-slate-800">Loading your catalog…</p>
+                    <p className="mt-1.5 text-sm text-muted-foreground">Hang tight — courses are syncing.</p>
                   </div>
                 ) : displayedModules.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FontAwesomeIcon icon={faBookOpen} className="text-5xl mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500 text-lg">
-                      No courses available.
-                    </p>
+                  <div className="rounded-[1.5rem] border border-dashed border-primary/20 bg-white/40 py-14 text-center backdrop-blur-md">
+                    <FontAwesomeIcon icon={faBookOpen} className="mx-auto mb-4 text-4xl text-primary/25" />
+                    <p className="font-semibold text-slate-700">No courses match your filters</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Try another category or clear search.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                     {displayedModules.map((module) => {
                       const { percent, done } = moduleStatus(module);
                       return (
                         <Card 
                           key={module.id} 
-                          className={`group cursor-pointer h-full flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 bg-white/80 border border-blue-100 ${favorites.has(module.id) ? 'ring-2 ring-blue-400 shadow-lg' : ''}`}
+                          className={cn(
+                            'group flex h-full cursor-pointer flex-col overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/55 backdrop-blur-md shadow-elevated transition-all duration-300',
+                            'hover:-translate-y-1 hover:border-primary/20 hover:shadow-elevated-lg',
+                            favorites.has(module.id) && 'ring-2 ring-primary/35 shadow-brand'
+                          )}
                           onClick={() => handleCourseClick(module)}
                         >
-                          {/* Course Image/Icon - Rectangular Header */}
-                          <div className="relative h-32 overflow-hidden">
+                          <div className="relative h-[7.5rem] overflow-hidden rounded-t-[1.25rem]">
                             {module.imageUrl ? (
                               <img 
                                 src={module.imageUrl} 
@@ -1517,8 +947,8 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               />
                             ) : (
                               <>
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center text-white">
-                                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.14),transparent_30%)]" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[hsl(221,83%,48%)] via-[hsl(232,70%,55%)] to-[hsl(250,55%,58%)] text-white">
+                                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.22),transparent_38%),radial-gradient(circle_at_85%_10%,rgba(255,255,255,0.15),transparent_32%)]" />
                                   <FontAwesomeIcon
                                     icon={
                                       module.icon === 'faScroll' ? faScroll :
@@ -1533,16 +963,16 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               </>
                             )}
                             {done && (
-                              <div className="absolute top-2 right-2 z-10">
-                                <FontAwesomeIcon icon={faCircleCheck} className="text-lg text-white bg-blue-500/80 rounded-full p-1 shadow-sm" />
+                              <div className="absolute right-2 top-2 z-10">
+                                <FontAwesomeIcon icon={faCircleCheck} className="rounded-full bg-emerald-500/95 p-1 text-base text-white shadow-lg ring-2 ring-white/50" />
                               </div>
                             )}
-                            <div className="absolute top-2 left-2 z-10 flex gap-1">
+                            <div className="absolute left-2 top-2 z-10 flex gap-1">
                               {module.isSelfStudy && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 w-7 p-0 bg-white/80 hover:bg-white text-red-600 hover:text-red-700"
+                                  className="h-8 w-8 rounded-xl border border-white/40 bg-white/85 p-0 text-red-600 shadow-sm backdrop-blur-sm hover:bg-white"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     if (confirm(`Are you sure you want to delete "${module.title}"? This action cannot be undone.`)) {
@@ -1590,7 +1020,7 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 bg-white/80 hover:bg-white text-blue-600"
+                                className="h-8 w-8 rounded-xl border border-white/40 bg-white/85 p-0 text-primary shadow-sm backdrop-blur-sm hover:bg-white"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleFavorite(module.id);
@@ -1598,386 +1028,38 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               >
                                 <FontAwesomeIcon 
                                   icon={faHeart} 
-                                  className={`text-sm ${favorites.has(module.id) ? 'text-blue-600' : 'text-blue-300'}`}
+                                  className={cn(
+                                    'text-sm transition-colors',
+                                    favorites.has(module.id) ? 'text-primary' : 'text-primary/35'
+                                  )}
                                 />
                               </Button>
                             </div>
                           </div>
                           
-                          <CardHeader className="pb-3 p-4">
-                            <CardTitle className="text-base font-semibold line-clamp-2 mb-2 text-slate-900">{module.title}</CardTitle>
-                            <CardDescription className="text-xs text-slate-500 line-clamp-2">{module.description}</CardDescription>
+                          <CardHeader className="p-4 pb-2">
+                            <CardTitle className="mb-1.5 line-clamp-2 text-base font-bold leading-snug tracking-tight text-slate-900">
+                              {module.title}
+                            </CardTitle>
+                            <CardDescription className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                              {module.description}
+                            </CardDescription>
                           </CardHeader>
                           
-                          <CardContent className="flex-1 flex flex-col gap-3 p-4 pt-0">
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <Badge variant="outline" className="capitalize text-[10px] border-blue-200 text-blue-700 bg-blue-50">
+                          <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <Badge
+                                variant="outline"
+                                className="rounded-full border-primary/15 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-semibold capitalize text-primary"
+                              >
                                 {module.requiredTier}
                               </Badge>
-                              <span>•</span>
-                              <span>{module.lessons.length} lessons</span>
+                              <span className="font-medium">{module.lessons.length} lessons</span>
                             </div>
                             <div>
-                              <Progress value={percent} className="h-1.5 bg-blue-50" />
-                              <div className="text-xs text-slate-500 mt-1">{percent}% complete</div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : activeNav === 'learning' ? (
-            <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-              {/* Community Discussions Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">Community Discussions</h2>
-                  <div className="flex items-center gap-3">
-                    <Select value={discussionSort} onValueChange={(value: 'trending' | 'new' | 'old' | 'all') => setDiscussionSort(value)}>
-                      <SelectTrigger className="w-[120px] sm:w-[140px]">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="trending">Trending</SelectItem>
-                        <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="old">Old</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      onClick={() => {
-                        if (!user) {
-                          setShowLoginModal(true);
-                        } else {
-                          setShowNewPostDialog(true);
-                        }
-                      }}
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
-                      size="sm"
-                    >
-                      <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                      New Post
-                    </Button>
-                  </div>
-                </div>
-                
-                {discussionsLoading ? (
-                  <div className="text-center py-12">
-                    <FontAwesomeIcon icon={faSpinner} className="text-5xl mx-auto text-blue-400 mb-4 animate-spin" />
-                    <p className="text-gray-600 text-lg font-medium">Loading discussions...</p>
-                  </div>
-                ) : discussions.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FontAwesomeIcon icon={faComments} className="text-5xl mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500 text-lg mb-2">No discussions yet</p>
-                    <p className="text-gray-400 text-sm">Be the first to start a discussion!</p>
-                    <Button
-                      onClick={() => {
-                        if (!user) {
-                          setShowLoginModal(true);
-                        } else {
-                          setShowNewPostDialog(true);
-                        }
-                      }}
-                      className="mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
-                    >
-                      <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                      Create First Post
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {sortedDiscussions.map((discussion) => {
-                      const initials = getUserInitials(discussion.userName);
-                      const timeAgo = formatTimeAgo(discussion.createdAt);
-                      const discussionComments = comments[discussion.id] || [];
-                      const showComments = selectedDiscussionId === discussion.id;
-
-                      return (
-                        <Card key={discussion.id} id={`discussion-${discussion.id}`} className="bg-white border-blue-100 shadow-sm hover:shadow-md transition-shadow">
-                          <CardContent className="p-4 sm:p-5">
-                            <div className="flex items-start gap-3">
-                              {discussion.userPicture ? (
-                                <img
-                                  src={discussion.userPicture}
-                                  alt={discussion.userName}
-                                  className="w-10 h-10 rounded-full flex-shrink-0"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-white font-semibold text-sm">{initials}</span>
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-slate-900 text-sm sm:text-base">{discussion.userName}</span>
-                                    {getVerificationBadge(discussion.userTier)}
-                                    <span className="text-xs text-slate-500">{timeAgo}</span>
-                                  </div>
-                                  {editingDiscussionId === discussion.id ? (
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => {
-                                          setEditingDiscussionId(null);
-                                          setEditDiscussionContent(prev => {
-                                            const updated = { ...prev };
-                                            delete updated[discussion.id];
-                                            return updated;
-                                          });
-                                        }}
-                                        className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                                      >
-                                        Cancel
-                                      </button>
-                                      <button
-                                        onClick={() => handleUpdatePost(discussion.id)}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                                      >
-                                        Save
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    (user && (discussion.userId === user.id || isAdmin())) && (
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <button
-                                            className="text-xs text-slate-500 hover:text-slate-700 transition-colors p-1"
-                                            title="More options"
-                                          >
-                                            <FontAwesomeIcon icon={faEllipsisVertical} className="text-xs" />
-                                          </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-40">
-                                          {discussion.userId === user.id && (
-                                            <>
-                                              <DropdownMenuItem
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setEditingDiscussionId(discussion.id);
-                                                  setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: discussion.content }));
-                                                }}
-                                                className="cursor-pointer"
-                                              >
-                                                <FontAwesomeIcon icon={faPencil} className="mr-2 text-xs" />
-                                                Edit
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                              <DropdownMenuItem
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDeletePost(discussion.id);
-                                                }}
-                                                className="cursor-pointer text-red-600 focus:text-red-600"
-                                              >
-                                                <FontAwesomeIcon icon={faTrashCan} className="mr-2 text-xs" />
-                                                Delete
-                                              </DropdownMenuItem>
-                                            </>
-                                          )}
-                                          {isAdmin() && discussion.userId !== user.id && (
-                                            <DropdownMenuItem
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeletePost(discussion.id);
-                                              }}
-                                              className="cursor-pointer text-red-600 focus:text-red-600"
-                                            >
-                                              <FontAwesomeIcon icon={faTrashCan} className="mr-2 text-xs" />
-                                              Delete (Admin)
-                                            </DropdownMenuItem>
-                                          )}
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    )
-                                  )}
-                                </div>
-                                {editingDiscussionId === discussion.id ? (
-                                  <Textarea
-                                    value={editDiscussionContent[discussion.id] || ''}
-                                    onChange={(e) => setEditDiscussionContent(prev => ({ ...prev, [discussion.id]: e.target.value }))}
-                                    className="w-full mb-3 text-sm sm:text-base min-h-[100px]"
-                                    placeholder="Edit your post..."
-                                  />
-                                ) : (
-                                  <p className="text-slate-700 text-sm sm:text-base mb-3 whitespace-pre-wrap break-words">
-                                    {discussion.content}
-                                  </p>
-                                )}
-                                <div className="flex items-center gap-4">
-                                  <button
-                                    onClick={() => handleToggleLike(discussion.id)}
-                                    className={`flex items-center gap-1.5 transition-colors ${
-                                      discussion.isLiked ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'
-                                    }`}
-                                    disabled={!user}
-                                  >
-                                    <FontAwesomeIcon icon={faThumbsUp} className="text-sm" />
-                                    <span className="text-xs font-medium">{discussion.likesCount || 0}</span>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (showComments) {
-                                        setSelectedDiscussionId(null);
-                                      } else {
-                                        setSelectedDiscussionId(discussion.id);
-                                        if (!discussionComments.length) {
-                                          fetchComments(discussion.id);
-                                        }
-                                      }
-                                    }}
-                                    className="flex items-center gap-1.5 text-slate-600 hover:text-blue-600 transition-colors"
-                                  >
-                                    <FontAwesomeIcon icon={faComments} className="text-sm" />
-                                    <span className="text-xs font-medium">{discussion.commentsCount || 0} replies</span>
-                                  </button>
-                                </div>
-
-                                {/* Comments Section */}
-                                {showComments && (
-                                  <div className="mt-4 pt-4 border-t border-blue-100 space-y-3">
-                                    {/* Existing Comments */}
-                                    {discussionComments.length > 0 && (
-                                      <div className="space-y-3">
-                                        {discussionComments.map((comment: any) => (
-                                          <div key={comment.id} className="flex items-start gap-3">
-                                            {comment.userPicture ? (
-                                              <img
-                                                src={comment.userPicture}
-                                                alt={comment.userName}
-                                                className="w-8 h-8 rounded-full flex-shrink-0"
-                                              />
-                                            ) : (
-                                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-300 to-blue-400 flex items-center justify-center flex-shrink-0">
-                                                <span className="text-white font-semibold text-xs">{getUserInitials(comment.userName)}</span>
-                                              </div>
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                              <div className="flex items-center justify-between mb-1">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="font-medium text-slate-900 text-xs sm:text-sm">{comment.userName}</span>
-                                                  {getVerificationBadge(comment.userTier)}
-                                                  <span className="text-xs text-slate-500">{formatTimeAgo(comment.createdAt)}</span>
-                                                </div>
-                                                {user && comment.userId === user.id && (
-                                                  <div className="flex items-center gap-2">
-                                                    {editingCommentId[discussion.id] === comment.id ? (
-                                                      <>
-                                                        <button
-                                                          onClick={() => {
-                                                            setEditingCommentId(prev => ({ ...prev, [discussion.id]: null }));
-                                                            setEditCommentContent(prev => {
-                                                              const updated = { ...prev };
-                                                              delete updated[comment.id];
-                                                              return updated;
-                                                            });
-                                                          }}
-                                                          className="text-xs text-slate-500 hover:text-slate-700 transition-colors"
-                                                        >
-                                                          Cancel
-                                                        </button>
-                                                        <button
-                                                          onClick={() => handleUpdateComment(discussion.id, comment.id)}
-                                                          className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                                                        >
-                                                          Save
-                                                        </button>
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        <button
-                                                          onClick={() => {
-                                                            setEditingCommentId(prev => ({ ...prev, [discussion.id]: comment.id }));
-                                                            setEditCommentContent(prev => ({ ...prev, [comment.id]: comment.content }));
-                                                          }}
-                                                          className="text-xs text-slate-500 hover:text-blue-600 transition-colors"
-                                                          title="Edit comment"
-                                                        >
-                                                          <FontAwesomeIcon icon={faPencil} className="text-xs" />
-                                                        </button>
-                                                        <button
-                                                          onClick={() => handleDeleteComment(discussion.id, comment.id)}
-                                                          className="text-xs text-slate-500 hover:text-red-600 transition-colors"
-                                                          title="Delete comment"
-                                                        >
-                                                          <FontAwesomeIcon icon={faTrashCan} className="text-xs" />
-                                                        </button>
-                                                      </>
-                                                    )}
-                                                  </div>
-                                                )}
-                                              </div>
-                                              {editingCommentId[discussion.id] === comment.id ? (
-                                                <div className="flex gap-2">
-                                                  <Input
-                                                    value={editCommentContent[comment.id] || ''}
-                                                    onChange={(e) => setEditCommentContent(prev => ({ ...prev, [comment.id]: e.target.value }))}
-                                                    className="flex-1 text-xs sm:text-sm"
-                                                    placeholder="Edit your comment..."
-                                                  />
-                                                </div>
-                                              ) : (
-                                                <p className="text-slate-700 text-xs sm:text-sm whitespace-pre-wrap break-words">{comment.content}</p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-
-                                    {/* Add Comment Form */}
-                                    {user && (
-                                      <div className="flex items-start gap-2">
-                                        {user.picture ? (
-                                          <img
-                                            src={user.picture}
-                                            alt={user.name}
-                                            className="w-8 h-8 rounded-full flex-shrink-0"
-                                          />
-                                        ) : (
-                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-300 to-blue-400 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-white font-semibold text-xs">{getUserInitials(user.name || 'U')}</span>
-                                          </div>
-                                        )}
-                                        <div className="flex-1 flex gap-2">
-                                          <Input
-                                            placeholder="Write a comment..."
-                                            value={commentContent[discussion.id] || ''}
-                                            onChange={(e) => setCommentContent(prev => ({ ...prev, [discussion.id]: e.target.value }))}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleAddComment(discussion.id);
-                                              }
-                                            }}
-                                            className="flex-1 text-sm"
-                                          />
-                                          <Button
-                                            onClick={() => handleAddComment(discussion.id)}
-                                            size="sm"
-                                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                                          >
-                                            Post
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {!user && (
-                                      <p className="text-sm text-slate-500 text-center py-2">
-                                        <button
-                                          onClick={() => setShowLoginModal(true)}
-                                          className="text-blue-600 hover:text-blue-700 font-medium"
-                                        >
-                                          Login
-                                        </button>
-                                        {' '}to comment
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
+                              <Progress value={percent} className="h-1.5 rounded-full bg-primary/10" />
+                              <div className="mt-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                                {percent}% complete
                               </div>
                             </div>
                           </CardContent>
@@ -1987,99 +1069,253 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   </div>
                 )}
               </div>
-            </div>
-          ) : activeNav === 'certification' ? (
-            <ExamPage />
-          ) : activeNav === 'leaderboard' ? (
-            <Leaderboard />
-          ) : null}
-        </div>
 
-        {/* Bottom Navigation — match app mobile tab bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-xl backdrop-saturate-150 border-t border-primary/10 shadow-[0_-4px_24px_-4px_rgba(37,99,235,0.12)] pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-          <div className="flex items-stretch justify-around h-[60px]">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCourse(null);
-              setActiveLesson(null);
-              onOpenChange(false);
-            }}
-            className="flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors text-slate-500 hover:text-primary"
-          >
-            <FontAwesomeIcon icon={faHouse} className="text-lg" />
-            <span className="text-[10px] font-semibold">Home</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCourse(null);
-              setActiveLesson(null);
-              setActiveNav('featured');
-            }}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
-              activeNav === 'featured' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {activeNav === 'featured' && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
-            )}
-            <FontAwesomeIcon icon={faStar} className={`text-lg ${activeNav === 'featured' ? 'opacity-100' : ''}`} />
-            <span className="text-[10px] font-semibold">Featured</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCourse(null);
-              setActiveLesson(null);
-              setActiveNav('learning');
-            }}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
-              activeNav === 'learning' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {activeNav === 'learning' && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
-            )}
-            <FontAwesomeIcon icon={faComments} className="text-lg" />
-            <span className="text-[10px] font-semibold">Discuss</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCourse(null);
-              setActiveLesson(null);
-              setActiveNav('certification');
-            }}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
-              activeNav === 'certification' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {activeNav === 'certification' && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
-            )}
-            <FontAwesomeIcon icon={faAward} className="text-lg" />
-            <span className="text-[10px] font-semibold">Certs</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCourse(null);
-              setActiveLesson(null);
-              setActiveNav('leaderboard');
-            }}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 min-h-[56px] rounded-xl transition-colors ${
-              activeNav === 'leaderboard' ? 'text-primary' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {activeNav === 'leaderboard' && (
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-0.5 bg-primary rounded-full" aria-hidden />
-            )}
-            <FontAwesomeIcon icon={faTrophy} className="text-lg" />
-            <span className="text-[10px] font-semibold">Top</span>
-          </button>
+              <Collapsible
+                defaultOpen={false}
+                className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white/85 shadow-[0_1px_0_rgba(15,23,42,0.04)] backdrop-blur-xl"
+              >
+                <CollapsibleTrigger className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left outline-none transition-colors hover:bg-slate-50/80 focus-visible:ring-2 focus-visible:ring-slate-300/80 sm:gap-4 sm:px-4 sm:py-3.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 sm:h-11 sm:w-11">
+                    <FontAwesomeIcon icon={faRoute} className="text-base sm:text-lg" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400 sm:text-[11px]">
+                      More
+                    </p>
+                    <p className="text-[15px] font-semibold tracking-tight text-slate-900 sm:text-base">
+                      Stats, path & streak
+                    </p>
+                  </div>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-200 group-data-[state=open]:rotate-180">
+                    <FontAwesomeIcon icon={faChevronDown} className="text-sm" />
+                  </span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-5 border-t border-slate-200/70 px-3 pb-5 pt-4 sm:px-4 sm:pb-6">
+                    <div className="grid grid-cols-3 divide-x divide-slate-200/80 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_0_rgba(15,23,42,0.04)]">
+                      <div className="p-3 text-center sm:p-4">
+                        <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 sm:h-10 sm:w-10">
+                          <FontAwesomeIcon icon={faBook} className="text-sm sm:text-base" />
+                        </div>
+                        <div className="text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">
+                          {modules.length}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-medium text-slate-500 sm:text-xs">
+                          Courses
+                        </div>
+                      </div>
+                      <div className="p-3 text-center sm:p-4">
+                        <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 sm:h-10 sm:w-10">
+                          <FontAwesomeIcon icon={faClock} className="text-sm sm:text-base" />
+                        </div>
+                        <div className="text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">
+                          {Math.floor(progress.xp / 60)}h
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-medium text-slate-500 sm:text-xs">
+                          Study
+                        </div>
+                      </div>
+                      <div className="p-3 text-center sm:p-4">
+                        <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 sm:h-10 sm:w-10">
+                          <FontAwesomeIcon icon={faTrophy} className="text-sm sm:text-base" />
+                        </div>
+                        <div className="text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">
+                          {Math.floor(progress.xp / 500)}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-medium text-slate-500 sm:text-xs">
+                          Certs
+                        </div>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const pathSlice = modules.slice(0, 5);
+                      const firstActionable = pathSlice.findIndex((_, index) => {
+                        const { done } = moduleStatus(pathSlice[index]);
+                        const isLocked = index > 0 && !moduleStatus(modules[index - 1]).done;
+                        return !done && !isLocked;
+                      });
+                      return (
+                        <section aria-labelledby="learning-path-heading">
+                          <div className="relative overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/48 shadow-elevated-lg ring-1 ring-primary/[0.06] backdrop-blur-xl">
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.07] via-transparent to-[hsl(262,58%,58%,0.06)]" />
+                            <div className="relative border-b border-primary/[0.08] px-4 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6">
+                              <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-primary/75">
+                                Curated sequence
+                              </p>
+                              <h2
+                                id="learning-path-heading"
+                                className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl"
+                              >
+                                Recommended learning path
+                              </h2>
+                              <p className="mt-1.5 max-w-2xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                                Finish each step to unlock the next. Your full catalog is above whenever you need it.
+                              </p>
+                            </div>
+                            <div className="relative px-3 py-4 sm:px-5 sm:py-6">
+                              <div className="relative">
+                                <div
+                                  className="absolute bottom-8 left-[17px] top-5 w-px rounded-full bg-gradient-to-b from-primary/35 via-primary/15 to-primary/5 sm:left-[21px]"
+                                  aria-hidden
+                                />
+                                <div className="space-y-3 sm:space-y-4">
+                                  {pathSlice.map((module, index) => {
+                                    const { percent, done } = moduleStatus(module);
+                                    const isLocked = index > 0 && !moduleStatus(modules[index - 1]).done;
+                                    const isCurrent = index === firstActionable && !done;
+                                    return (
+                                      <div key={module.id} className="relative flex gap-3 sm:gap-4">
+                                        <div className="relative z-10 flex w-9 flex-shrink-0 justify-center pt-1 sm:w-11">
+                                          <div
+                                            className={cn(
+                                              'flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 sm:h-10 sm:w-10 sm:text-sm',
+                                              done &&
+                                                'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-white',
+                                              isLocked &&
+                                                !done &&
+                                                'bg-slate-200/90 text-slate-500 shadow-inner ring-2 ring-white/90',
+                                              !done &&
+                                                !isLocked &&
+                                                isCurrent &&
+                                                'scale-[1.02] bg-brand-gradient text-primary-foreground shadow-lg shadow-primary/35 ring-4 ring-primary/20',
+                                              !done &&
+                                                !isLocked &&
+                                                !isCurrent &&
+                                                'border-2 border-primary/20 bg-white text-primary shadow-md shadow-primary/10'
+                                            )}
+                                          >
+                                            {done ? (
+                                              <FontAwesomeIcon icon={faCircleCheck} className="text-sm" />
+                                            ) : isLocked ? (
+                                              <FontAwesomeIcon icon={faLock} className="text-[11px]" />
+                                            ) : (
+                                              index + 1
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            'min-w-0 flex-1 rounded-2xl border px-3 py-3 transition-all duration-300 sm:px-5 sm:py-4',
+                                            isCurrent &&
+                                              'border-primary/25 bg-white/75 shadow-md shadow-primary/8 ring-1 ring-primary/10',
+                                            !isCurrent &&
+                                              'border-white/70 bg-white/45 backdrop-blur-md hover:border-primary/15 hover:bg-white/65 hover:shadow-md'
+                                          )}
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <h4 className="pr-2 text-sm font-semibold leading-snug text-slate-900 sm:text-base">
+                                              {module.title}
+                                            </h4>
+                                            {isCurrent && (
+                                              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                                                Next
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="mt-1 text-xs font-medium text-muted-foreground">
+                                            {done
+                                              ? 'Completed'
+                                              : isLocked
+                                                ? 'Complete the previous course to unlock'
+                                                : 'In progress or ready to start'}
+                                          </p>
+                                          {!done && !isLocked && (
+                                            <div className="mt-3">
+                                              <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                                                <span className="font-medium text-muted-foreground">
+                                                  Progress
+                                                </span>
+                                                <span className="font-bold tabular-nums text-primary">
+                                                  {percent}%
+                                                </span>
+                                              </div>
+                                              <Progress
+                                                value={percent}
+                                                className="h-1.5 rounded-full bg-primary/10"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <Button
+                                className="relative z-10 mt-4 h-11 w-full rounded-2xl border border-white/30 bg-brand-gradient font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-opacity hover:opacity-[0.96] sm:h-12"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCourse(null);
+                                  setTimeout(() => {
+                                    document
+                                      .querySelector('[data-featured-courses]')
+                                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }, 80);
+                                }}
+                              >
+                                Jump to course list
+                              </Button>
+                            </div>
+                          </div>
+                        </section>
+                      );
+                    })()}
+
+                    <Card className="relative overflow-hidden rounded-[1.5rem] border border-white/20 bg-gradient-to-br from-[hsl(221,83%,46%)] via-[hsl(232,72%,52%)] to-[hsl(255,55%,48%)] text-white shadow-elevated-lg">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_80%_at_90%_-10%,rgba(255,255,255,0.28),transparent_50%)]" />
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_100%,rgba(255,255,255,0.1),transparent_42%)]" />
+                      <CardContent className="relative p-4 sm:p-6">
+                        <div className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/15 shadow-inner backdrop-blur-md sm:right-4 sm:top-4 sm:h-12 sm:w-12">
+                          <FontAwesomeIcon icon={faTrophy} className="text-lg text-white drop-shadow-sm sm:text-xl" />
+                        </div>
+                        <div className="relative z-10 pr-12 sm:pr-14">
+                          <div className="mb-1 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faFire} className="text-amber-200 drop-shadow-sm" />
+                            <h3 className="text-lg font-bold tracking-tight sm:text-xl">
+                              {progress.streak}-day streak
+                            </h3>
+                          </div>
+                          <p className="mb-4 max-w-md text-sm font-medium text-white/85 sm:text-base">
+                            Consistency compounds — one lesson keeps the flame alive.
+                          </p>
+                          <div className="mb-4 flex flex-wrap gap-2">
+                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
+                              <div
+                                key={idx}
+                                className={cn(
+                                  'flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold transition-colors sm:h-9 sm:w-9 sm:text-xs',
+                                  idx < progress.streak % 7 && 'bg-white text-primary shadow-md',
+                                  idx === progress.streak % 7 &&
+                                    'bg-white text-primary shadow-lg ring-2 ring-white/90',
+                                  idx > progress.streak % 7 &&
+                                    'border border-white/40 bg-white/15 text-white/90'
+                                )}
+                              >
+                                {day}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4">
+                            <div className="mb-2 flex items-center justify-between text-sm font-medium">
+                              <span className="text-white/90">Today&apos;s rhythm</span>
+                              <span className="font-bold tabular-nums">
+                                {progress.xp % 60} / 60 min
+                              </span>
+                            </div>
+                            <Progress
+                              value={((progress.xp % 60) / 60) * 100}
+                              className="h-2 rounded-full bg-white/25"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </div>
-        </div>
 
         {activeLesson && (
           <LessonRunner
@@ -2092,19 +1328,20 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
 
         {/* Course View Panel - Slides in from right, keeps header and bottom nav visible */}
         {selectedCourse && (
-          <div className="fixed top-[60px] bottom-[60px] left-0 right-0 z-40 bg-mobilaws-hero flex flex-col">
-            {/* Course Header - Fixed at top */}
-            <div className="flex-shrink-0 bg-white/85 backdrop-blur-xl border-b border-primary/10 px-4 sm:px-6 lg:px-8 py-3 shadow-sm shadow-brand-sm/15">
-              <div className="max-w-4xl mx-auto">
+          <div className="fixed top-[56px] bottom-0 left-0 right-0 z-40 flex flex-col bg-mobilaws-hero pb-[max(0px,env(safe-area-inset-bottom))]">
+            <div className="flex-shrink-0 border-b border-white/45 bg-white/60 px-4 py-3 backdrop-blur-2xl shadow-[0_1px_0_0_rgba(255,255,255,0.6)_inset] sm:px-6 lg:px-8">
+              <div className="mx-auto max-w-4xl">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <button 
+                      type="button"
                       onClick={() => setSelectedCourse(null)}
-                      className="w-9 h-9 rounded-full bg-primary/8 hover:bg-primary/15 flex items-center justify-center transition-colors flex-shrink-0 mt-0.5 border border-primary/15"
+                      className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border border-white/50 bg-white/70 text-slate-600 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-slate-900"
+                      aria-label="Back to hub"
                     >
-                      <FontAwesomeIcon icon={faChevronDown} className="text-slate-600" />
+                      <FontAwesomeIcon icon={faChevronDown} className="text-base" />
                     </button>
-                    <div className="w-10 h-10 rounded-xl bg-brand-gradient flex items-center justify-center flex-shrink-0 shadow-sm ring-2 ring-primary/15">
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-gradient shadow-lg shadow-primary/20 ring-2 ring-white/40">
                       <FontAwesomeIcon
                         icon={
                           selectedCourse.icon === 'faScroll' ? faScroll :
@@ -2117,23 +1354,26 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">{selectedCourse.title}</h1>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                      <h1 className="text-base font-bold leading-tight tracking-tight text-slate-900 sm:text-lg">
+                        {selectedCourse.title}
+                      </h1>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-medium text-muted-foreground">
                         <span>{selectedCourse.lessons.length} lessons</span>
                         {(() => {
                           const { percent } = moduleStatus(selectedCourse);
-                          return <span>• {percent}% complete</span>;
+                          return (
+                            <span className="tabular-nums text-primary/80">· {percent}%</span>
+                          );
                         })()}
                       </div>
                     </div>
                   </div>
                   
-                  {/* Progress bar */}
                   {(() => {
                     const { percent } = moduleStatus(selectedCourse);
                     return (
-                      <div className="hidden sm:block w-24 flex-shrink-0">
-                        <Progress value={percent} className="h-2 bg-blue-50" />
+                      <div className="hidden w-28 flex-shrink-0 pt-1 sm:block">
+                        <Progress value={percent} className="h-2 rounded-full bg-primary/10" />
                       </div>
                     );
                   })()}
@@ -2141,29 +1381,37 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
               </div>
             </div>
             
-            {/* Scrollable Lessons Area */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-4">
-              <div className="max-w-4xl mx-auto">
-                {/* Course description */}
-                <div className="mb-4">
-                  <p className="text-sm text-slate-600 dark:text-slate-300">{selectedCourse.description}</p>
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <Badge variant="outline" className="capitalize text-xs border-blue-200 text-blue-700 bg-blue-50">{selectedCourse.requiredTier}</Badge>
+            <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+              <div className="mx-auto max-w-4xl">
+                <div className="mb-6 rounded-2xl border border-white/55 bg-white/45 p-4 backdrop-blur-md shadow-sm sm:p-5">
+                  <p className="text-sm leading-relaxed text-slate-600">{selectedCourse.description}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-primary/15 bg-primary/[0.06] px-2.5 py-0.5 text-xs font-semibold capitalize text-primary"
+                    >
+                      {selectedCourse.requiredTier}
+                    </Badge>
                     {(() => {
                       const { done } = moduleStatus(selectedCourse);
                       if (done) {
-                        return <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Completed</Badge>;
+                        return (
+                          <Badge className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                            Completed
+                          </Badge>
+                        );
                       }
                       return null;
                     })()}
                   </div>
                 </div>
                 
-                {/* Lessons List */}
-                <div className="space-y-2">
-                  <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3">
-                    <FontAwesomeIcon icon={faListCheck} />
-                    Lessons
+                <div className="space-y-3">
+                  <h2 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary/70">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <FontAwesomeIcon icon={faListCheck} className="text-sm" />
+                    </span>
+                    Lesson plan
                   </h2>
                   
                   {(() => {
@@ -2206,37 +1454,42 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                       return (
                         <div 
                           key={lesson.id} 
-                          className={`bg-white dark:bg-slate-800 rounded-xl border border-blue-100 dark:border-slate-700 p-3 sm:p-4 transition-all ${
-                            isLocked && !isCompleted ? 'opacity-60' : 'hover:shadow-lg hover:border-blue-200'
-                          }`}
+                          className={cn(
+                            'rounded-2xl border p-3.5 transition-all duration-200 sm:p-4',
+                            isLocked && !isCompleted &&
+                              'border-slate-200/80 bg-slate-50/60 opacity-[0.78]',
+                            (!isLocked || isCompleted) &&
+                              'border-white/65 bg-white/60 shadow-sm backdrop-blur-md hover:border-primary/18 hover:shadow-md'
+                          )}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                              isCompleted 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : isLocked 
-                                  ? 'bg-slate-100 dark:bg-slate-700 text-slate-400' 
-                                  : 'bg-blue-50 text-blue-700'
-                            }`}>
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold',
+                                isCompleted && 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/80',
+                                isLocked && !isCompleted && 'bg-slate-100 text-slate-400',
+                                !isCompleted && !isLocked && 'bg-primary/10 text-primary ring-1 ring-primary/15'
+                              )}
+                            >
                               {isCompleted ? (
                                 <FontAwesomeIcon icon={faCircleCheck} />
                               ) : isLocked ? (
-                                <FontAwesomeIcon icon={faLock} />
+                                <FontAwesomeIcon icon={faLock} className="text-xs" />
                               ) : (
                                 index + 1
                               )}
                             </div>
                             
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-sm text-slate-900 dark:text-white leading-tight">{lesson.title}</h3>
-                              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
-                                <span className="flex items-center gap-1">
-                                  <FontAwesomeIcon icon={faBolt} className="text-blue-600" />
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-sm font-semibold leading-snug text-slate-900">{lesson.title}</h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1 font-medium text-primary/80">
+                                  <FontAwesomeIcon icon={faBolt} className="text-[10px]" />
                                   {lesson.xpReward} XP
                                 </span>
-                                <span>• {lesson.quiz.length} Q</span>
+                                <span>· {lesson.quiz.length} questions</span>
                                 {lesson.userGenerated && (
-                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-blue-500" />
+                                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-primary/60" />
                                 )}
                               </div>
                             </div>
@@ -2247,11 +1500,17 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                console.log('Lesson clicked:', lesson.title, 'isLocked:', isLocked, 'isCompleted:', isCompleted);
                                 handleStartLesson(selectedCourse, lesson);
                               }}
                               disabled={isLocked}
-                              className={`h-8 px-3 text-xs flex-shrink-0 rounded-full ${isCompleted ? 'border-blue-200 text-blue-700 hover:bg-blue-50' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
+                              className={cn(
+                                'h-9 flex-shrink-0 rounded-full px-4 text-xs font-semibold',
+                                isCompleted &&
+                                  'border-primary/20 text-primary hover:bg-primary/5',
+                                !isCompleted &&
+                                  !isLocked &&
+                                  'border-0 bg-brand-gradient text-primary-foreground shadow-md shadow-primary/25 hover:opacity-[0.96]'
+                              )}
                             >
                               {isCompleted ? 'Review' : isLocked ? 'Locked' : 'Start'}
                             </Button>
@@ -2503,27 +1762,9 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                         console.error('Error marking notification as read:', error);
                       }
                     }
-                    // Navigate to discussions if it's a post/comment notification
                     if (notification.discussionId) {
-                      setActiveNav('learning');
                       setShowNotifications(false);
-                      // Set selected discussion to expand it and scroll to it
-                      setSelectedDiscussionId(notification.discussionId);
-                      // Ensure discussions are loaded, then scroll to the discussion
-                      fetchDiscussions().then(() => {
-                        // Wait for discussions to render, then scroll
-                        setTimeout(() => {
-                          const discussionElement = document.getElementById(`discussion-${notification.discussionId}`);
-                          if (discussionElement) {
-                            discussionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Highlight the post briefly with a border
-                            discussionElement.classList.add('ring-2', 'ring-blue-500', 'transition-all');
-                            setTimeout(() => {
-                              discussionElement.classList.remove('ring-2', 'ring-blue-500');
-                            }, 2000);
-                          }
-                        }, 500);
-                      });
+                      toast.info('Community discussions are no longer in the app; this update was marked as read.');
                     }
                   };
 
@@ -2554,50 +1795,6 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                   );
                 })
               )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* New Post Dialog */}
-        <Dialog open={showNewPostDialog} onOpenChange={setShowNewPostDialog}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Create New Discussion Post</DialogTitle>
-              <DialogDescription>
-                Share your thoughts or ask questions with the community
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div>
-                <Textarea
-                  placeholder="What would you like to discuss?"
-                  value={newPostContent}
-                  onChange={(e) => setNewPostContent(e.target.value)}
-                  className="min-h-[150px] resize-none"
-                  maxLength={5000}
-                />
-                <div className="text-xs text-slate-500 mt-1 text-right">
-                  {newPostContent.length} / 5000 characters
-                </div>
-              </div>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setNewPostContent('');
-                    setShowNewPostDialog(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreatePost}
-                  disabled={!newPostContent.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
-                >
-                  Post
-                </Button>
-              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -2734,7 +1931,12 @@ export default function LearningHub({ open, onOpenChange, fullscreen = false }: 
                         })}
                       </SelectContent>
                     </Select>
-                    <Badge variant="secondary" className="text-sm sm:text-base">{tier.toUpperCase()}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full border border-primary/12 bg-white/80 px-3 py-1 text-xs font-bold uppercase tracking-wide shadow-sm backdrop-blur-sm"
+                    >
+                      {tier}
+                    </Badge>
                   </div>
                 </div>
                 {/* Search Input with Refresh Button */}
