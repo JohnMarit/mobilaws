@@ -56,15 +56,25 @@ export default function ChatInput({
   const { toast } = useToast();
   const isHome = variant === 'home';
   const hasLeftControls = enableAttachments || enableVoice;
+  const homeBothTools = isHome && enableAttachments && enableVoice;
+  const homeSingleTool = isHome && hasLeftControls && !homeBothTools;
   const inputLeftPadClass = isHome
-    ? (hasLeftControls ? 'pl-[68px] sm:pl-[72px]' : 'pl-5')
+    ? homeBothTools
+      ? 'pl-[56px] sm:pl-[72px]'
+      : homeSingleTool
+        ? 'pl-[52px] sm:pl-[58px]'
+        : 'pl-5'
     : enableAttachments && enableVoice
       ? 'pl-[118px]'
       : hasLeftControls
         ? 'pl-[68px]'
         : 'pl-4';
   const chipsLeftClass = isHome
-    ? (hasLeftControls ? 'left-[68px] sm:left-[72px]' : 'left-3')
+    ? homeBothTools
+      ? 'left-[56px] sm:left-[72px]'
+      : homeSingleTool
+        ? 'left-[52px] sm:left-[58px]'
+        : 'left-3'
     : enableAttachments && enableVoice
       ? 'left-[118px]'
       : hasLeftControls
@@ -95,7 +105,7 @@ export default function ChatInput({
     const el = inputRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    const maxHeight = isHome ? 200 : 160;
+    const maxHeight = isHome ? 220 : 160;
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, [input, attachedFiles.length, isHome]);
 
@@ -340,7 +350,7 @@ export default function ChatInput({
   };
 
   const toolBtnBase = isHome
-    ? 'group relative flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/90 bg-white text-slate-500 shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-all duration-150 ease-out touch-manipulation active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:border-slate-300/90 hover:bg-slate-50/90 hover:text-slate-700'
+    ? 'group relative flex h-9 w-9 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200/90 bg-white text-slate-500 shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-all duration-150 ease-out touch-manipulation active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:border-slate-300/90 hover:bg-slate-50/90 hover:text-slate-700 sm:h-10 sm:w-10 sm:rounded-lg'
     : 'group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-all duration-200 ease-out touch-manipulation active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
   const toolBtnAttach = isHome
@@ -367,11 +377,11 @@ export default function ChatInput({
     <div className={`relative w-full max-w-4xl mx-auto ${isHome ? 'pl-4 md:pl-6' : ''}`}>
       <form
         onSubmit={handleSubmit}
-        className={`relative ${barShellClass}`}
+        className={`relative min-w-0 ${barShellClass}`}
         onClick={() => inputRef.current?.focus()}
       >
-        <div className="relative flex items-end gap-2 sm:gap-2.5">
-          <div className="flex-1 relative min-w-0" onClick={() => inputRef.current?.focus()}>
+        <div className="relative flex min-w-0 items-end gap-1.5 sm:gap-2.5">
+          <div className="relative min-w-0 flex-1" onClick={() => inputRef.current?.focus()}>
             {attachedFiles.length > 0 && (
               <div className={`absolute ${chipsLeftClass} right-3 top-1.5 z-10 flex flex-wrap gap-1.5 pointer-events-auto`}>
                 {attachedFiles.map((file, idx) => {
@@ -412,9 +422,15 @@ export default function ChatInput({
               rows={isHome ? 3 : 1}
               className={`flex w-full resize-none leading-6 ${
                 isHome
-                  ? 'min-h-[72px] max-h-[200px] rounded-[0.875rem] border-0 bg-slate-50/60 py-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.06]'
+                  ? `${
+                      homeBothTools
+                        ? 'min-h-[104px] sm:min-h-[108px]'
+                        : homeSingleTool
+                          ? 'min-h-[68px] sm:min-h-[72px]'
+                          : 'min-h-[72px]'
+                    } max-h-[220px] rounded-[0.875rem] border-0 bg-slate-50/60 py-2.5 sm:py-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.06]`
                   : 'min-h-[52px] max-h-[160px] rounded-xl border-0 bg-slate-50/70 py-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.05)] ring-1 ring-slate-900/[0.06]'
-              } ${attachedFiles.length ? 'pt-8 pb-2' : isHome ? 'py-3' : 'py-3'} ${inputLeftPadClass} ${input && !isLoading ? 'pr-14' : 'pr-4'} text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-0 transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto`}
+              } ${attachedFiles.length ? 'pt-8 pb-2' : isHome ? 'py-2.5 sm:py-3' : 'py-3'} ${inputLeftPadClass} ${input && !isLoading ? 'pr-14' : 'pr-3 sm:pr-4'} text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-0 transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50 overflow-y-auto min-w-0`}
               disabled={disabled || isLoading}
               autoComplete="off"
               spellCheck="false"
@@ -434,7 +450,11 @@ export default function ChatInput({
 
             {hasLeftControls && (
               <div
-                className={`absolute left-1.5 z-20 flex ${isHome ? 'top-1/2 -translate-y-1/2 flex-col gap-1.5' : 'bottom-2 flex-row gap-1.5'}`}
+                className={`absolute left-1 z-20 flex sm:left-1.5 ${
+                  isHome
+                    ? 'top-2 flex-col gap-1 sm:top-1/2 sm:-translate-y-1/2 sm:gap-1.5'
+                    : 'bottom-2 flex-row gap-1.5'
+                }`}
               >
                 {enableAttachments && (
                   <button
