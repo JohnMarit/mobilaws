@@ -29,6 +29,9 @@ const SUGGESTED_QUESTIONS = [
   'What are my rights to education under the law?',
 ];
 
+/** First-load suggestions only (full list kept for future “show more”) */
+const SUGGESTED_QUESTIONS_INITIAL = SUGGESTED_QUESTIONS.slice(0, 3);
+
 export default function ChatInput({ 
   onSendMessage, 
   isLoading = false, 
@@ -54,14 +57,14 @@ export default function ChatInput({
   const isHome = variant === 'home';
   const hasLeftControls = enableAttachments || enableVoice;
   const inputLeftPadClass = isHome
-    ? (hasLeftControls ? 'pl-[80px]' : 'pl-5')
+    ? (hasLeftControls ? 'pl-[68px] sm:pl-[72px]' : 'pl-5')
     : enableAttachments && enableVoice
       ? 'pl-[118px]'
       : hasLeftControls
         ? 'pl-[68px]'
         : 'pl-4';
   const chipsLeftClass = isHome
-    ? (hasLeftControls ? 'left-[80px]' : 'left-3')
+    ? (hasLeftControls ? 'left-[68px] sm:left-[72px]' : 'left-3')
     : enableAttachments && enableVoice
       ? 'left-[118px]'
       : hasLeftControls
@@ -336,20 +339,28 @@ export default function ChatInput({
     }
   };
 
-  const toolBtnBase =
-    'group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-all duration-200 ease-out touch-manipulation active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+  const toolBtnBase = isHome
+    ? 'group relative flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/90 bg-white text-slate-500 shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-all duration-150 ease-out touch-manipulation active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:border-slate-300/90 hover:bg-slate-50/90 hover:text-slate-700'
+    : 'group relative flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-xl border transition-all duration-200 ease-out touch-manipulation active:scale-[0.92] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
 
-  const toolBtnAttach =
-    'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-indigo-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
+  const toolBtnAttach = isHome
+    ? ''
+    : 'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-indigo-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
 
-  const toolBtnMicIdle =
-    'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-violet-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
+  const toolBtnMicIdle = isHome
+    ? ''
+    : 'border-slate-200/95 bg-white text-slate-600 shadow-sm hover:border-primary/45 hover:bg-gradient-to-br hover:from-primary/[0.09] hover:to-violet-500/[0.05] hover:text-primary hover:shadow-md hover:-translate-y-px';
 
   const toolBtnMicLive =
     'border-red-300/90 bg-gradient-to-br from-red-50 to-rose-100/90 text-red-600 shadow-md animate-mobilaws-recording hover:from-red-100 hover:to-rose-100';
 
+  const attachBtnClass = isHome ? toolBtnBase : `${toolBtnBase} ${toolBtnAttach}`;
+  const micBtnClass = isRecording
+    ? `${toolBtnBase} ${toolBtnMicLive}`
+    : `${toolBtnBase} ${isHome ? '' : toolBtnMicIdle}`;
+
   const barShellClass = isHome
-    ? 'rounded-[1.125rem] border-2 border-primary/18 bg-white/92 backdrop-blur-md shadow-elevated shadow-brand-sm/25 transition-all duration-300 focus-within:border-primary/40 focus-within:shadow-elevated-lg focus-within:ring-2 focus-within:ring-primary/15 p-1.5 sm:p-2'
+    ? 'rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.08)] transition-all duration-200 focus-within:border-slate-300/95 focus-within:shadow-[0_1px_2px_rgba(15,23,42,0.08),0_12px_32px_-16px_rgba(37,99,235,0.12)] focus-within:ring-1 focus-within:ring-primary/15 p-1.5 sm:p-2'
     : 'rounded-2xl border border-slate-200/90 bg-white/88 backdrop-blur-xl shadow-elevated p-1.5 sm:p-2 transition-all duration-300 focus-within:border-primary/35 focus-within:shadow-elevated-lg focus-within:ring-2 focus-within:ring-primary/12';
 
   return (
@@ -432,13 +443,15 @@ export default function ChatInput({
                       e.stopPropagation();
                       handleAttachClick();
                     }}
-                    className={`${toolBtnBase} ${toolBtnAttach}`}
+                    className={attachBtnClass}
                     title="Attach PDF or image"
                     aria-label="Attach files"
                   >
-                    <span className="pointer-events-none absolute inset-0 rounded-xl bg-primary/0 transition-colors duration-200 group-hover:bg-primary/[0.06] group-active:bg-primary/[0.1]" aria-hidden />
+                    {!isHome && (
+                      <span className="pointer-events-none absolute inset-0 rounded-xl bg-primary/0 transition-colors duration-200 group-hover:bg-primary/[0.06] group-active:bg-primary/[0.1]" aria-hidden />
+                    )}
                     <Paperclip
-                      className="relative z-10 h-[22px] w-[22px] transition-transform duration-200 ease-out group-hover:scale-110 group-hover:-rotate-6 group-active:scale-95 group-active:rotate-0"
+                      className={`relative z-10 transition-transform duration-200 ease-out group-active:scale-95 ${isHome ? 'h-[18px] w-[18px]' : 'h-[22px] w-[22px] group-hover:scale-110 group-hover:-rotate-6 group-active:rotate-0'}`}
                       strokeWidth={2}
                     />
                   </button>
@@ -451,18 +464,21 @@ export default function ChatInput({
                       e.stopPropagation();
                       void handleMicClick();
                     }}
-                    className={`${toolBtnBase} ${isRecording ? toolBtnMicLive : toolBtnMicIdle}`}
+                    className={micBtnClass}
                     title={isRecording ? 'Stop recording' : 'Voice input'}
                     aria-label={isRecording ? 'Stop voice input' : 'Voice input'}
                     aria-pressed={isRecording}
                   >
-                    {!isRecording && (
+                    {!isRecording && !isHome && (
                       <span className="pointer-events-none absolute inset-0 rounded-xl bg-violet-500/0 transition-colors duration-200 group-hover:bg-violet-500/[0.05] group-active:bg-violet-500/[0.08]" aria-hidden />
                     )}
                     {isRecording ? (
                       <Square className="relative z-10 h-[18px] w-[18px] fill-current transition-transform duration-150 group-active:scale-90" />
                     ) : (
-                      <Mic className="relative z-10 h-[22px] w-[22px] transition-transform duration-200 ease-out group-hover:scale-110 group-active:scale-95" strokeWidth={2} />
+                      <Mic
+                        className={`relative z-10 transition-transform duration-200 ease-out group-active:scale-95 ${isHome ? 'h-[18px] w-[18px]' : 'h-[22px] w-[22px] group-hover:scale-110'}`}
+                        strokeWidth={2}
+                      />
                     )}
                   </button>
                 )}
@@ -490,13 +506,19 @@ export default function ChatInput({
           <Button
             type="submit"
             size="lg"
-            className="group mb-0.5 h-12 min-h-[48px] min-w-[48px] shrink-0 rounded-xl border-0 bg-brand-gradient px-5 text-primary-foreground shadow-md shadow-brand-sm transition-all duration-200 hover:opacity-[0.96] hover:shadow-lg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 disabled:active:scale-100"
+            className={
+              isHome
+                ? 'group mb-0.5 h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 rounded-xl border-0 bg-slate-900 px-0 text-white shadow-[0_1px_2px_rgba(15,23,42,0.12)] transition-all duration-200 hover:bg-slate-800 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-35 disabled:active:scale-100 sm:h-12 sm:w-12'
+                : 'group mb-0.5 h-12 min-h-[48px] min-w-[48px] shrink-0 rounded-xl border-0 bg-brand-gradient px-5 text-primary-foreground shadow-md shadow-brand-sm transition-all duration-200 hover:opacity-[0.96] hover:shadow-lg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 disabled:active:scale-100'
+            }
             disabled={!input.trim() || isLoading || disabled}
           >
             {isLoading ? (
-              <div className="h-6 w-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <div className="h-5 w-5 border-2 border-current border-t-transparent rounded-full animate-spin sm:h-6 sm:w-6" />
             ) : (
-              <Send className="h-6 w-6 transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              <Send
+                className={`transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${isHome ? 'h-[18px] w-[18px]' : 'h-6 w-6'}`}
+              />
             )}
           </Button>
         </div>
@@ -536,22 +558,22 @@ export default function ChatInput({
       )}
 
       {showSuggestions && !input && (
-        <div className="mt-5 space-y-3 px-4 md:px-0" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10">
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+        <div className="mt-4 space-y-2.5 px-0 md:px-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 pl-0.5">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+              <Sparkles className="h-3 w-3" strokeWidth={2} />
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
               Suggested questions
             </span>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap pb-2">
-            {SUGGESTED_QUESTIONS.map((question) => (
+          <div className="flex flex-col gap-1.5 pb-1 sm:flex-row sm:flex-wrap sm:gap-2">
+            {SUGGESTED_QUESTIONS_INITIAL.map((question) => (
               <button
                 key={question}
                 type="button"
                 onClick={() => handleSuggestionClick(question)}
-                className="touch-manipulation text-left text-sm font-medium text-slate-700 transition-all duration-200 ease-out active:scale-[0.98] rounded-2xl border border-slate-200/90 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm hover:border-primary/30 hover:bg-gradient-to-br hover:from-white hover:to-primary/[0.04] hover:text-slate-900 hover:shadow-md hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 sm:min-h-0 sm:max-w-[calc(50%-0.25rem)] sm:flex-1 sm:basis-[calc(50%-0.25rem)]"
+                className="touch-manipulation text-left text-[13px] font-medium leading-snug text-slate-800 transition-colors duration-150 active:scale-[0.99] rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-[0_1px_0_rgba(15,23,42,0.04)] hover:border-slate-300/90 hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2 sm:min-h-0 sm:max-w-[calc(50%-0.25rem)] sm:flex-1 sm:basis-[calc(50%-0.25rem)] sm:py-2.5"
               >
                 {question}
               </button>

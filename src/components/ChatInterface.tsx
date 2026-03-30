@@ -524,7 +524,7 @@ export default function ChatInterface({
       </div>
 
       {!hasUserMessages ? (
-        /* Hero empty state: AI-first layout — input then quick actions then suggested prompts */
+        /* Hero empty state: input + feature cards (suggested questions live in ChatInput, 3 on first load) */
         <div className="flex-1 flex flex-col justify-start bg-mobilaws-hero min-h-0 overflow-y-auto overscroll-contain pt-8 pb-4 md:pt-10 md:pb-6">
           <div className="max-w-3xl w-full px-4 mx-auto pb-6">
             <div className="text-center mb-6 md:mb-8">
@@ -548,60 +548,40 @@ export default function ChatInterface({
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 sm:gap-4 sm:mb-8">
               <button
                 type="button"
                 onClick={openSimulator}
-                className="group rounded-2xl border border-white/60 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="group rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05),0_6px_20px_-10px_rgba(15,23,42,0.08)] transition-all duration-200 hover:border-slate-300/90 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2"
               >
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-800 flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
-                  <Gavel className="h-5 w-5 text-white" />
+                <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 shadow-sm sm:mb-3 sm:h-10 sm:w-10 sm:rounded-xl">
+                  <Gavel className="h-[18px] w-[18px] text-white sm:h-5 sm:w-5" />
                 </div>
-                <h2 className="font-semibold text-gray-900">Court simulation</h2>
-                <p className="text-xs text-gray-500 mt-1 leading-snug">Practice hearings and build confidence.</p>
+                <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 sm:text-base">Court simulation</h2>
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-500 sm:text-xs">Practice hearings and build confidence.</p>
               </button>
               <button
                 type="button"
                 onClick={() => setShowBookCounsel(true)}
-                className="group rounded-2xl border border-primary/20 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="group rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05),0_6px_20px_-10px_rgba(15,23,42,0.08)] transition-all duration-200 hover:border-slate-300/90 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-2"
               >
-                <div className="h-10 w-10 rounded-xl bg-brand-gradient flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
-                  <Scale className="h-5 w-5 text-white" />
+                <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-brand-gradient shadow-sm sm:mb-3 sm:h-10 sm:w-10 sm:rounded-xl">
+                  <Scale className="h-[18px] w-[18px] text-white sm:h-5 sm:w-5" />
                 </div>
-                <h2 className="font-semibold text-gray-900">Book counsel</h2>
-                <p className="text-xs text-gray-500 mt-1 leading-snug">Connect with a legal professional.</p>
+                <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 sm:text-base">Book counsel</h2>
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-500 sm:text-xs">Connect with a legal professional.</p>
               </button>
               <button
                 type="button"
                 onClick={() => setShowLearningHub(true)}
-                className="group rounded-2xl border border-highlight/25 bg-white/70 backdrop-blur-md p-5 text-left shadow-elevated hover:shadow-elevated-lg hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-highlight focus-visible:ring-offset-2"
+                className="group rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.05),0_6px_20px_-10px_rgba(15,23,42,0.08)] transition-all duration-200 hover:border-slate-300/90 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300/60 focus-visible:ring-offset-2"
               >
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mb-3 shadow-md group-hover:scale-105 transition-transform">
-                  <GraduationCap className="h-5 w-5 text-white" />
+                <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm sm:mb-3 sm:h-10 sm:w-10 sm:rounded-xl">
+                  <GraduationCap className="h-[18px] w-[18px] text-white sm:h-5 sm:w-5" />
                 </div>
-                <h2 className="font-semibold text-gray-900">Study the law</h2>
-                <p className="text-xs text-gray-500 mt-1 leading-snug">Learning paths and structured lessons.</p>
+                <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 sm:text-base">Study the law</h2>
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-500 sm:text-xs">Learning paths and structured lessons.</p>
               </button>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">Suggested questions</p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {[
-                  'What are my rights if arrested?',
-                  'How do I start a business in South Sudan?',
-                  'Explain Constitution Article 16',
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => handleSendMessage(prompt)}
-                    className="text-sm px-4 py-2.5 min-h-[44px] rounded-full border border-primary/20 text-primary bg-white/80 backdrop-blur-sm hover:bg-primary/8 shadow-md shadow-brand-sm/20 hover:shadow-lg transition-all"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
             </div>
 
             <div className="mt-6 text-center">
