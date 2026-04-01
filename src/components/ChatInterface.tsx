@@ -518,13 +518,15 @@ export default function ChatInterface({
         <div className="flex-1 flex flex-col justify-center bg-mobilaws-hero min-h-0 overflow-y-auto overscroll-contain px-4 py-8 md:px-6 md:py-10">
           <div className="relative mx-auto w-full max-w-3xl">
             {/* Rotating gradient glow (visible when typing) */}
-            <div className={`pointer-events-none absolute inset-0 -z-10 transition-opacity duration-500 ${isTyping ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="absolute inset-[-120px] animate-mobilaws-glow-rotate">
-                <div className="h-full w-full bg-gradient-to-r from-primary/30 via-violet-500/30 to-primary/30 blur-3xl" />
+            <div className={`pointer-events-none absolute inset-0 z-0 overflow-visible transition-opacity duration-500 ${isTyping ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="absolute left-1/2 top-1/2 h-[calc(100%+12rem)] w-[calc(100%+12rem)] -translate-x-1/2 -translate-y-1/2 animate-mobilaws-glow-orbit">
+                <div className="absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.95)_0%,rgba(103,232,249,0.9)_18%,rgba(59,130,246,0.78)_42%,rgba(139,92,246,0.55)_68%,rgba(139,92,246,0)_100%)] blur-xl" />
+                <div className="absolute left-1/2 top-3 h-48 w-20 -translate-x-1/2 rounded-full bg-gradient-to-b from-cyan-300/45 via-primary/25 to-transparent blur-2xl" />
               </div>
+              <div className="absolute inset-x-12 top-1/2 h-40 -translate-y-1/2 rounded-full bg-gradient-to-r from-cyan-400/12 via-primary/10 to-violet-400/12 blur-3xl" />
             </div>
             
-            <div className="relative mx-auto max-w-2xl rounded-[28px] border border-white/70 bg-white/78 px-4 py-6 text-center shadow-[0_20px_60px_-24px_rgba(37,99,235,0.22),0_10px_30px_-20px_rgba(15,23,42,0.18),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:py-7 md:px-8 md:py-8 animate-mobilaws-fade-in-scale animate-mobilaws-float">
+            <div className="relative z-10 mx-auto max-w-2xl rounded-[28px] border border-white/70 bg-white/78 px-4 py-6 text-center shadow-[0_20px_60px_-24px_rgba(37,99,235,0.22),0_10px_30px_-20px_rgba(15,23,42,0.18),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:py-7 md:px-8 md:py-8 animate-mobilaws-fade-in-scale animate-mobilaws-float">
               <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset] animate-mobilaws-fade-in-scale [animation-delay:100ms]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                 South Sudan legal intelligence

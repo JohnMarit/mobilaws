@@ -392,13 +392,13 @@
   }
 }
 
-/* Rotating gradient glow (activates when typing) */
-@keyframes mobilaws-glow-rotate {
+/* Orbiting hero glow (anticlockwise while typing) */
+@keyframes mobilaws-glow-orbit {
   0% {
-    transform: rotate(0deg);
+    transform: translate(-50%, -50%) rotate(0deg);
   }
   100% {
-    transform: rotate(360deg);
+    transform: translate(-50%, -50%) rotate(-360deg);
   }
 }
 
@@ -421,8 +421,8 @@
   .animate-mobilaws-float {
     animation: mobilaws-float 6s ease-in-out infinite;
   }
-  .animate-mobilaws-glow-rotate {
-    animation: mobilaws-glow-rotate 3s linear infinite;
+  .animate-mobilaws-glow-orbit {
+    animation: mobilaws-glow-orbit 3.2s linear infinite;
   }
   .animate-mobilaws-fade-in-scale {
     animation: mobilaws-fade-in-scale 0.5s ease-out forwards;
