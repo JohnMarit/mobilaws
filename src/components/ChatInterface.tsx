@@ -41,6 +41,7 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
   const [conversationContext, setConversationContext] = useState<ConversationContext>({
     previousQueries: [],
@@ -516,19 +517,26 @@ export default function ChatInterface({
         /* Hero empty state: input + feature cards (suggested questions live in ChatInput, 3 on first load) */
         <div className="flex-1 flex flex-col justify-center bg-mobilaws-hero min-h-0 overflow-y-auto overscroll-contain px-4 py-8 md:px-6 md:py-10">
           <div className="relative mx-auto w-full max-w-3xl">
-            <div className="mx-auto max-w-2xl rounded-[28px] border border-white/70 bg-white/78 px-4 py-6 text-center shadow-[0_20px_60px_-24px_rgba(37,99,235,0.22),0_10px_30px_-20px_rgba(15,23,42,0.18),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:py-7 md:px-8 md:py-8">
-              <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset]">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            {/* Rotating gradient glow (visible when typing) */}
+            <div className={`pointer-events-none absolute inset-0 -z-10 transition-opacity duration-500 ${isTyping ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="absolute inset-[-120px] animate-mobilaws-glow-rotate">
+                <div className="h-full w-full bg-gradient-to-r from-primary/30 via-violet-500/30 to-primary/30 blur-3xl" />
+              </div>
+            </div>
+            
+            <div className="relative mx-auto max-w-2xl rounded-[28px] border border-white/70 bg-white/78 px-4 py-6 text-center shadow-[0_20px_60px_-24px_rgba(37,99,235,0.22),0_10px_30px_-20px_rgba(15,23,42,0.18),0_1px_0_rgba(255,255,255,0.9)_inset] backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:py-7 md:px-8 md:py-8 animate-mobilaws-fade-in-scale animate-mobilaws-float">
+              <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-primary/12 bg-primary/[0.05] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset] animate-mobilaws-fade-in-scale [animation-delay:100ms]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                 South Sudan legal intelligence
               </div>
-              <h1 className="text-[30px] sm:text-4xl md:text-[44px] font-bold leading-[1.05] tracking-[-0.03em]">
-                <span className="text-gradient-brand">Your South Sudan</span>{' '}
+              <h1 className="text-[30px] sm:text-4xl md:text-[44px] font-bold leading-[1.05] tracking-[-0.03em] animate-mobilaws-fade-in-scale [animation-delay:200ms]">
+                <span className="bg-gradient-to-r from-primary via-violet-600 to-primary bg-clip-text text-transparent">Your South Sudan</span>{' '}
                 <span className="text-gray-900">Legal Assistant</span>
               </h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 md:text-base">
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 md:text-base animate-mobilaws-fade-in-scale [animation-delay:300ms]">
                 Search laws, ask questions in plain language, and get clear guidance — no legal jargon required.
               </p>
-              <div className="mt-5 safe-area-inset-bottom">
+              <div className="mt-5 safe-area-inset-bottom animate-mobilaws-fade-in-scale [animation-delay:400ms]">
                 <ChatInput
                   onSendMessage={handleSendMessage}
                   isLoading={isLoading}
@@ -536,20 +544,23 @@ export default function ChatInterface({
                   disabled={isLoading}
                   enableAttachments={true}
                   variant="home"
+                  onTypingChange={setIsTyping}
                 />
               </div>
 
-              <div className="mt-5 flex items-center justify-center">
+              <div className="mt-5 flex items-center justify-center animate-mobilaws-fade-in-scale [animation-delay:500ms]">
                 <button
                   type="button"
                   onClick={() => setShowSelfStudy(true)}
-                  className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-primary/20 hover:bg-primary/[0.04] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
+                  className="group inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-primary/20 hover:bg-primary/[0.04] hover:text-primary hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2"
                 >
                   Open self-study modules
+                  <svg className="ml-1.5 h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
                 </button>
               </div>
             </div>
-            <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto hidden h-24 max-w-xl rounded-full bg-primary/10 blur-3xl md:block" />
           </div>
         </div>
       ) : (

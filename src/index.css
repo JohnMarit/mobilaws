@@ -382,9 +382,50 @@
   }
 }
 
+/* Hero card: subtle float */
+@keyframes mobilaws-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Rotating gradient glow (activates when typing) */
+@keyframes mobilaws-glow-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Fade-in scale entrance */
+@keyframes mobilaws-fade-in-scale {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @layer utilities {
   .animate-mobilaws-recording {
     animation: mobilaws-recording-pulse 1.8s ease-in-out infinite;
+  }
+  .animate-mobilaws-float {
+    animation: mobilaws-float 6s ease-in-out infinite;
+  }
+  .animate-mobilaws-glow-rotate {
+    animation: mobilaws-glow-rotate 3s linear infinite;
+  }
+  .animate-mobilaws-fade-in-scale {
+    animation: mobilaws-fade-in-scale 0.5s ease-out forwards;
   }
 }
 

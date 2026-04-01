@@ -16,6 +16,7 @@ interface ChatInputProps {
   enableAttachments?: boolean;
   enableVoice?: boolean;
   variant?: 'home' | 'chat';
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 
@@ -40,7 +41,8 @@ export default function ChatInput({
   onAudioCaptured,
   enableAttachments = true,
   enableVoice = true,
-  variant = 'chat'
+  variant = 'chat',
+  onTypingChange
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -184,6 +186,7 @@ export default function ChatInput({
     saveToHistory(trimmedInput);
     onSendMessage(trimmedInput, filesToSend);
     setInput('');
+    onTypingChange?.(false);
     setAttachedFiles([]); // Clear attached files after sending
     setShowSuggestions(false);
     setShowHistory(false);
@@ -414,7 +417,11 @@ export default function ChatInput({
               ref={inputRef}
               placeholder={placeholder}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                setInput(newValue);
+                onTypingChange?.(newValue.length > 0);
+              }}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
