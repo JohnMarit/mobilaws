@@ -436,7 +436,7 @@ export default function ChatInterface({
   const hasUserMessages = messages.some(msg => msg.type === 'user');
 
   return (
-    <div className={`flex flex-col h-full md:h-screen bg-[hsl(var(--section))] ${className} overflow-hidden`}>
+    <div className={`flex flex-col h-full md:h-screen bg-[hsl(var(--section))] ${className} overflow-x-hidden overflow-y-hidden`}>
       {/* Top Bar with Actions - Hidden on mobile */}
       <div className="hidden md:flex items-center justify-between p-4 border-b border-primary/10 bg-white/80 backdrop-blur-xl backdrop-saturate-150 sticky top-0 z-50 shadow-sm shadow-brand-sm/30 flex-shrink-0">
         {/* AI Status and User Info */}
@@ -515,11 +515,11 @@ export default function ChatInterface({
 
       {!hasUserMessages ? (
         /* Hero empty state: input + feature cards (suggested questions live in ChatInput, 3 on first load) */
-        <div className="flex-1 flex flex-col justify-center bg-mobilaws-hero min-h-0 overflow-y-auto overscroll-contain px-4 py-8 md:px-6 md:py-10">
-          <div className="relative mx-auto w-full max-w-3xl">
+        <div className="flex-1 flex flex-col justify-center bg-mobilaws-hero min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-8 md:px-6 md:py-10">
+          <div className="relative mx-auto w-full max-w-3xl overflow-hidden">
             {/* Rotating gradient glow (visible when typing) */}
-            <div className={`pointer-events-none absolute inset-0 z-0 overflow-visible transition-opacity duration-500 ${isTyping ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="absolute left-1/2 top-1/2 h-[calc(100%+12rem)] w-[calc(100%+12rem)] -translate-x-1/2 -translate-y-1/2 animate-mobilaws-glow-orbit">
+            <div className={`pointer-events-none absolute inset-0 z-0 overflow-hidden transition-opacity duration-500 ${isTyping ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="absolute left-1/2 top-1/2 h-[calc(100%+7rem)] w-[calc(100%+7rem)] -translate-x-1/2 -translate-y-1/2 animate-mobilaws-glow-orbit md:h-[calc(100%+12rem)] md:w-[calc(100%+12rem)]">
                 <div className="absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.95)_0%,rgba(103,232,249,0.9)_18%,rgba(59,130,246,0.78)_42%,rgba(139,92,246,0.55)_68%,rgba(139,92,246,0)_100%)] blur-xl" />
                 <div className="absolute left-1/2 top-3 h-48 w-20 -translate-x-1/2 rounded-full bg-gradient-to-b from-cyan-300/45 via-primary/25 to-transparent blur-2xl" />
               </div>
