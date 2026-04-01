@@ -22,7 +22,6 @@ interface ChatInputProps {
 const SUGGESTED_QUESTIONS = [
   'What are my rights if arrested?',
   'How do I start a business in South Sudan?',
-  'Explain Constitution Article 16',
   'What does the Bill of Rights cover?',
   'How does citizenship work in South Sudan?',
   'What is the structure of the executive branch?',
@@ -30,7 +29,7 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 /** First-load suggestions only (full list kept for future “show more”) */
-const SUGGESTED_QUESTIONS_INITIAL = SUGGESTED_QUESTIONS.slice(0, 3);
+const SUGGESTED_QUESTIONS_INITIAL = SUGGESTED_QUESTIONS.slice(0, 2);
 
 export default function ChatInput({ 
   onSendMessage, 
@@ -578,22 +577,22 @@ export default function ChatInput({
       )}
 
       {showSuggestions && !input && (
-        <div className="mt-4 space-y-2.5 px-0 md:px-0" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-2 pl-0.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-100 text-slate-500">
-              <Sparkles className="h-3 w-3" strokeWidth={2} />
+        <div className="mt-3 space-y-2 px-0 md:px-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1.5 pl-0.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+              <Sparkles className="h-2.5 w-2.5" strokeWidth={2} />
             </span>
             <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400">
               Suggested questions
             </span>
           </div>
-          <div className="flex flex-col gap-1.5 pb-1 sm:flex-row sm:flex-wrap sm:gap-2">
+          <div className="flex flex-row gap-1.5 pb-1">
             {SUGGESTED_QUESTIONS_INITIAL.map((question) => (
               <button
                 key={question}
                 type="button"
                 onClick={() => handleSuggestionClick(question)}
-                className="touch-manipulation text-left text-[13px] font-medium leading-snug text-slate-800 transition-colors duration-150 active:scale-[0.99] rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-[0_1px_0_rgba(15,23,42,0.04)] hover:border-slate-300/90 hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2 sm:min-h-0 sm:max-w-[calc(50%-0.25rem)] sm:flex-1 sm:basis-[calc(50%-0.25rem)] sm:py-2.5"
+                className="flex-1 min-w-0 touch-manipulation text-left text-[11px] font-medium leading-snug text-slate-700 transition-colors duration-150 active:scale-[0.99] rounded-xl border border-slate-200/90 bg-white px-2 py-2 shadow-[0_1px_0_rgba(15,23,42,0.04)] hover:border-primary/30 hover:bg-primary/[0.04] hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/80 focus-visible:ring-offset-2"
               >
                 {question}
               </button>

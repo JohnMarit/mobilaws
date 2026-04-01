@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Loader2, Menu, MessageSquare, Search, FileText, GraduationCap } from 'lucide-react';
+import { Loader2, Menu, MessageSquare, Search, FileText, GraduationCap, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import ChatInterface from '@/components/ChatInterface';
@@ -13,7 +12,6 @@ import { useAssistantModePreference } from '@/hooks/useAssistantModePreference';
 import { conversationalLawSearch } from '@/lib/search';
 import { useToast } from '@/hooks/use-toast';
 import CountrySelector from '@/components/CountrySelector';
-import { BookCounsel } from '@/components/BookCounsel';
 import { DonationDialog } from '@/components/DonationDialog';
 import DocumentDrafting from '@/components/DocumentDrafting';
 import LegalResearch from '@/components/LegalResearch';
@@ -25,53 +23,24 @@ import TemplateGenerator from '@/components/TemplateGenerator';
 import AssistantModeSelector from '@/components/AssistantModeSelector';
 import SubscriptionManager from '@/components/SubscriptionManager';
 import { cn } from '@/lib/utils';
+import { useCourtSimulator } from '@/contexts/CourtSimulatorContext';
 
 const Index = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [showBookCounsel, setShowBookCounsel] = useState(false);
   const [showDonationDialog, setShowDonationDialog] = useState(false);
   const [activeFeature, setActiveFeature] = useState<string>('chat');
+  /** Tracks which tab is visually active in the bottom nav — decoupled from activeFeature
+   *  so the Learn tab stays highlighted during the brief transition into LearningHub. */
+  const [navActiveFeature, setNavActiveFeature] = useState<string>('chat');
   const [mobileHeaderLogoFailed, setMobileHeaderLogoFailed] = useState(false);
   const [assistantModeDialogOpen, setAssistantModeDialogOpen] = useState(false);
   const [learningHubOpen, setLearningHubOpen] = useState(false);
   const { user } = useAuth();
   const { hasSavedAssistantMode, loading: assistantModeLoading } = useAssistantModePreference();
   const { toast } = useToast();
-  
-  // Check for openChat/chatId/requestId query parameters (from payment success)
-  const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | undefined>();
-  
-  useEffect(() => {
-    const openChat = searchParams.get('openChat');
-    const openBookCounsel = searchParams.get('openBookCounsel');
-    const chatId = searchParams.get('chatId');
-    const requestId = searchParams.get('requestId');
-    const bookingCreated = searchParams.get('bookingCreated');
-    
-    if (openBookCounsel === 'true') {
-      // Open BookCounsel dialog with chatId or requestId
-      if (chatId) {
-        setAutoOpenRequestId(chatId);
-      } else if (requestId) {
-        setAutoOpenRequestId(requestId);
-      }
-      setShowBookCounsel(true);
-      // Clear the query params
-      setSearchParams({});
-    } else if (openChat) {
-      setAutoOpenRequestId(openChat);
-      setShowBookCounsel(true);
-      // Clear the query params
-      setSearchParams({});
-    } else if (bookingCreated) {
-      setShowBookCounsel(true);
-      // Clear the query params
-      setSearchParams({});
-    }
-  }, [searchParams, setSearchParams]);
+  const { state: courtSimulatorState, openSimulator } = useCourtSimulator();
   const {
     chatHistory,
     currentChatId,
@@ -125,6 +94,24 @@ const Index = () => {
   };
 
   const handleMobileNavSelect = (featureId: string) => {
+    // Always reflect the tapped tab in the nav immediately
+    setNavActiveFeature(featureId);
+
+    if (featureId === 'chat') {
+      // Always start a fresh chat when tapping the Chat tab
+      setActiveFeature('chat');
+      addChat('New Chat');
+      setIsMobileSidebarOpen(false);
+      return;
+    }
+
+    if (featureId === 'court') {
+      setActiveFeature('chat');
+      setIsMobileSidebarOpen(false);
+      openSimulator();
+      return;
+    }
+
     if (featureId === 'mode') {
       if (user && !assistantModeLoading && hasSavedAssistantMode) {
         openStudyFromSavedMode();
@@ -133,6 +120,7 @@ const Index = () => {
       }
       return;
     }
+
     setActiveFeature(featureId);
   };
 
@@ -143,6 +131,12 @@ const Index = () => {
       window.dispatchEvent(new Event('open-learning-path'));
     }, 80);
   }, [activeFeature, user, assistantModeLoading, hasSavedAssistantMode]);
+
+  useEffect(() => {
+    if (!courtSimulatorState.isModalOpen && navActiveFeature === 'court') {
+      setNavActiveFeature('chat');
+    }
+  }, [courtSimulatorState.isModalOpen, navActiveFeature]);
 
   if (isLoading) {
     return (
@@ -185,6 +179,7 @@ const Index = () => {
         onManageSubscription={() => setShowSubscriptionModal(true)}
         activeFeature={activeFeature}
         onFeatureSelect={(feature) => {
+          setNavActiveFeature(feature);
           setActiveFeature(feature);
           setIsMobileSidebarOpen(false);
         }}
@@ -235,7 +230,11 @@ const Index = () => {
             <ChatInterface
               onShowDonation={handleMobileShowDonation}
               onOpenAssistantModeSettings={() => setAssistantModeDialogOpen(true)}
-              onLearningHubOpenChange={setLearningHubOpen}
+              onLearningHubOpenChange={(open) => {
+                setLearningHubOpen(open);
+                // When the hub closes, sync the nav back to chat
+                if (!open) setNavActiveFeature('chat');
+              }}
             />
           )}
           {activeFeature === 'draft' && <DocumentDrafting />}
@@ -269,11 +268,12 @@ const Index = () => {
             <div className="flex items-stretch gap-0.5 p-1.5">
               {[
                 { id: 'chat', icon: MessageSquare, label: 'Chat' },
+                { id: 'court', icon: Landmark, label: 'Court' },
                 { id: 'research', icon: Search, label: 'Search' },
                 { id: 'draft', icon: FileText, label: 'Draft' },
                 { id: 'mode', icon: GraduationCap, label: 'Learn' },
               ].map(({ id, icon: Icon, label }) => {
-                const active = activeFeature === id;
+                const active = navActiveFeature === id;
                 return (
                   <button
                     key={id}
@@ -303,18 +303,6 @@ const Index = () => {
         </nav>
       </div>
 
-      {/* Book Counsel Dialog */}
-      <BookCounsel 
-        open={showBookCounsel} 
-        onOpenChange={(open) => {
-          setShowBookCounsel(open);
-          if (!open) {
-            setAutoOpenRequestId(undefined);
-          }
-        }}
-        autoOpenRequestId={autoOpenRequestId}
-      />
-      
       {/* Donation Dialog */}
       <DonationDialog open={showDonationDialog} onOpenChange={setShowDonationDialog} />
 
